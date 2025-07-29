@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Download, FileText, Calendar, GitBranch, User } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Calendar, GitBranch, AlertCircle } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import ReactMarkdown from 'react-markdown'
 import { formatDistanceToNow } from 'date-fns'
@@ -16,8 +16,8 @@ export default function ReportDetailPage() {
   const params = useParams()
   const { jobs } = useJobStore()
   
-  const jobId = params.id as string
-  const job = jobs[jobId]
+  const jobId = params?.id as string
+  const job = jobId ? jobs[jobId] : null
 
   const handleDownloadReport = () => {
     if (job?.report) {
@@ -34,9 +34,42 @@ export default function ReportDetailPage() {
   }
 
   const handleDownloadPDF = () => {
-    // Aqui você implementaria a geração de PDF
-    // Por enquanto, vamos simular
+    // TODO: Implementar geração de PDF
     alert('Funcionalidade de PDF será implementada em breve!')
+  }
+
+  if (!jobId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b">
+          <div className="container mx-auto px-4 py-4">
+            <Button
+              variant="ghost"
+              onClick={() => router.push('/dashboard/reports')}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar aos Relatórios
+            </Button>
+            <h1 className="text-2xl font-bold">ID de relatório inválido</h1>
+          </div>
+        </header>
+        <div className="container mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="text-center py-8">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+              <h3 className="text-lg font-semibold mb-2">ID de relatório inválido</h3>
+              <p className="text-muted-foreground mb-4">
+                O ID do relatório não foi fornecido corretamente.
+              </p>
+              <Button onClick={() => router.push('/dashboard/reports')}>
+                Voltar aos Relatórios
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   if (!job) {
@@ -100,7 +133,7 @@ export default function ReportDetailPage() {
                 )}
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {job.completedAt && formatDistanceToNow(job.completedAt, { 
+                  {job.completedAt && formatDistanceToNow(new Date(job.completedAt), { 
                     addSuffix: true, 
                     locale: ptBR 
                   })}
@@ -156,7 +189,7 @@ export default function ReportDetailPage() {
                 <div>
                   <p className="text-sm font-medium mb-1">Criado em</p>
                   <p className="text-sm text-muted-foreground">
-                    {job.createdAt.toLocaleDateString('pt-BR')}
+                    {new Date(job.createdAt).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
                 
@@ -164,7 +197,7 @@ export default function ReportDetailPage() {
                   <div>
                     <p className="text-sm font-medium mb-1">Concluído em</p>
                     <p className="text-sm text-muted-foreground">
-                      {job.completedAt.toLocaleDateString('pt-BR')}
+                      {new Date(job.completedAt).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
                 )}

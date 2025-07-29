@@ -21,9 +21,9 @@ export default function DashboardPage() {
   const pendingJobs = jobsList.filter(job => job.status === 'pending')
 
   // Recent jobs (últimos 5)
-  const recentJobs = jobsList
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 5)
+const recentJobs = jobsList
+  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  .slice(0, 5);
 
   const stats = [
     {

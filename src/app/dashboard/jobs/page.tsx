@@ -6,48 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2 } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 const statusIcons = {
-  pending_approval: AlertCircle,
-  workflow_started: Play,
-  refactoring_code: Play,
-  grouping_commits: Play,
-  writing_unit_tests: Play,
-  grouping_tests: Play,
-  populating_data: Play,
-  committing_to_github: Play,
+  pending: Clock,
+  running: Play,
   completed: CheckCircle,
   failed: XCircle,
   rejected: XCircle,
 }
 
 const statusColors = {
-  pending_approval: 'warning',
-  workflow_started: 'default',
-  refactoring_code: 'default',
-  grouping_commits: 'default',
-  writing_unit_tests: 'default',
-  grouping_tests: 'default',
-  populating_data: 'default',
-  committing_to_github: 'default',
-  completed: 'success',
-  failed: 'destructive',
-  rejected: 'destructive',
-} as const
+  pending: 'warning' as const,
+  running: 'default' as const,
+  completed: 'success' as const,
+  failed: 'destructive' as const,
+  rejected: 'destructive' as const,
+}
 
 const statusLabels = {
-  pending_approval: 'Aguardando Aprovação',
-  workflow_started: 'Processando',
-  refactoring_code: 'Refatorando Código',
-  grouping_commits: 'Agrupando Commits',
-  writing_unit_tests: 'Escrevendo Testes',
-  grouping_tests: 'Agrupando Testes',
-  populating_data: 'Preenchendo Dados',
-  committing_to_github: 'Enviando para GitHub',
+  pending: 'Pendente',
+  running: 'Executando',
   completed: 'Concluído',
   failed: 'Falhou',
   rejected: 'Rejeitado',
@@ -57,13 +39,20 @@ export default function JobsPage() {
   const router = useRouter()
   const { jobs, removeJob, clearCompleted } = useJobStore()
 
-  const jobsList = Object.values(jobs).sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  )
-
-  const handleViewJob = (jobId: string) => {
-    router.push(`/dashboard/jobs/${jobId}`)
+  if (!jobs) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4">Carregando jobs...</p>
+        </div>
+      </div>
+    )
   }
+
+  const jobsList = Object.values(jobs).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
 
   const handleViewReport = (jobId: string) => {
     router.push(`/dashboard/reports/${jobId}`)
@@ -82,25 +71,6 @@ export default function JobsPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     }
-  }
-
-  const getJobDescription = (job: any) => {
-    if (job.status === 'pending_approval') {
-      return 'Clique para revisar o relatório e aprovar'
-    }
-    if (['workflow_started', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)) {
-      return 'Processamento em andamento - acompanhe o progresso'
-    }
-    if (job.status === 'completed') {
-      return 'Análise concluída - visualize o relatório'
-    }
-    if (job.status === 'failed') {
-      return 'Análise falhou - verifique os detalhes do erro'
-    }
-    if (job.status === 'rejected') {
-      return 'Análise rejeitada pelo usuário'
-    }
-    return job.message
   }
 
   return (
@@ -161,7 +131,7 @@ export default function JobsPage() {
               const StatusIcon = statusIcons[job.status]
               
               return (
-                <Card key={job.id} className="w-full hover:shadow-md transition-shadow">
+                <Card key={job.id} className="w-full">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -178,9 +148,9 @@ export default function JobsPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Progresso</span>
-                        <span>{job.progress}%</span>
+                        <span>{job.progress || 0}%</span>
                       </div>
-                      <Progress value={job.progress} className="h-2" />
+                      <Progress value={job.progress || 0} className="h-2" />
                     </div>
 
                     {/* Job Details */}
@@ -191,12 +161,12 @@ export default function JobsPage() {
                         {job.branch && <p><strong>Branch:</strong> {job.branch}</p>}
                       </div>
                       <div>
-                        <p><strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { 
+                        <p><strong>Criado:</strong> {formatDistanceToNow(new Date(job.createdAt), { 
                           addSuffix: true, 
                           locale: ptBR 
                         })}</p>
                         {job.completedAt && (
-                          <p><strong>Concluído:</strong> {formatDistanceToNow(job.completedAt, { 
+                          <p><strong>Concluído:</strong> {formatDistanceToNow(new Date(job.completedAt), { 
                             addSuffix: true, 
                             locale: ptBR 
                           })}</p>
@@ -206,42 +176,19 @@ export default function JobsPage() {
 
                     {/* Status Message */}
                     <div className="p-3 bg-muted rounded-md">
-                      <p className="text-sm">{getJobDescription(job)}</p>
+                      <p className="text-sm">{job.message}</p>
                     </div>
 
                     {/* Error Message */}
                     {job.error && (
                       <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-sm text-red-600"><strong>Erro:</strong> {job.error}</p>
+                        <p className="text-sm text-red-600">{job.error}</p>
                       </div>
                     )}
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">
-                      {/* Primary Action Button */}
-                      {job.status === 'pending_approval' && (
-                        <Button 
-                          onClick={() => handleViewJob(job.id)} 
-                          variant="default" 
-                          size="sm"
-                        >
-                          <AlertCircle className="h-4 w-4 mr-2" />
-                          Revisar e Aprovar
-                        </Button>
-                      )}
-                      
-                      {['workflow_started', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status) && (
-                        <Button 
-                          onClick={() => handleViewJob(job.id)} 
-                          variant="default" 
-                          size="sm"
-                        >
-                          <Play className="h-4 w-4 mr-2" />
-                          Acompanhar Progresso
-                        </Button>
-                      )}
-                      
-                      {job.status === 'completed' && (
+                      {job.status === 'completed' && job.report && (
                         <>
                           <Button 
                             onClick={() => handleViewReport(job.id)} 
@@ -261,19 +208,7 @@ export default function JobsPage() {
                           </Button>
                         </>
                       )}
-
-                      {(job.status === 'failed' || job.status === 'rejected') && (
-                        <Button 
-                          onClick={() => handleViewJob(job.id)} 
-                          variant="outline" 
-                          size="sm"
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Ver Detalhes
-                        </Button>
-                      )}
                       
-                      {/* Remove Button */}
                       <Button 
                         onClick={() => removeJob(job.id)} 
                         variant="outline" 
