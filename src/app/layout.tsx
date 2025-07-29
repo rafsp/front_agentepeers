@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AI Code Analysis Platform',
+  title: 'Peers - AI Code Analysis Platform',
   description: 'Plataforma inteligente para análise de código com IA multi-agentes',
 }
 

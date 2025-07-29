@@ -7,23 +7,41 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { LogOut, Plus, Activity, FileText, Clock, CheckCircle, Play, BarChart3 } from 'lucide-react'
+import { 
+  LogOut, 
+  Plus, 
+  Activity, 
+  FileText, 
+  Clock, 
+  CheckCircle, 
+  Play, 
+  BarChart3,
+  Calendar,
+  Settings,
+  Github,
+  Building2,
+  Upload
+} from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
+import { useScheduledAnalysisStats } from '@/stores/scheduled-analysis-store'
+import { useCompanyStore } from '@/stores/company-store'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user, logout, githubToken } = useAuth()
   const { jobs } = useJobStore()
+  const scheduledStats = useScheduledAnalysisStats()
+  const { policies, activePolicyId } = useCompanyStore()
 
-  const jobsList = Object.values(jobs)
+  const jobsList = Object.values(jobs || {})
   const runningJobs = jobsList.filter(job => job.status === 'running')
   const completedJobs = jobsList.filter(job => job.status === 'completed')
   const pendingJobs = jobsList.filter(job => job.status === 'pending')
 
   // Recent jobs (últimos 5)
-const recentJobs = jobsList
-  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  .slice(0, 5);
+  const recentJobs = jobsList
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5)
 
   const stats = [
     {
@@ -61,7 +79,7 @@ const recentJobs = jobsList
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">AI Code Analysis</h1>
+          <h1 className="text-2xl font-bold">Peers - AI Code Analysis Platform</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
               Olá, {user?.name || 'Usuario'}
@@ -171,6 +189,153 @@ const recentJobs = jobsList
           </Card>
         </div>
 
+        {/* Configuration & Automation Section */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Left Column - Configuration */}
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Configurações</h3>
+            
+            {/* GitHub Integration */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => router.push('/dashboard/settings/github')}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Github className="h-5 w-5 text-gray-800" />
+                  Integração GitHub
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure seu token do GitHub para acessar repositórios
+                </p>
+                <Badge variant={githubToken ? 'success' : 'secondary'}>
+                  {githubToken ? 'Conectado' : 'Não configurado'}
+                </Badge>
+              </CardContent>
+            </Card>
+
+            {/* Company Policies */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => router.push('/dashboard/settings')}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-blue-600" />
+                  Políticas da Empresa
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure políticas específicas da sua empresa
+                </p>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">
+                    {policies.length} políticas
+                  </Badge>
+                  {activePolicyId && (
+                    <Badge variant="success" className="text-xs">
+                      Ativa
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Settings */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => router.push('/dashboard/settings')}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-gray-600" />
+                  Configurações Gerais
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Configurações da empresa, logo e preferências
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Automation */}
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold">Automação</h3>
+            
+            {/* Scheduled Analyses */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => router.push('/dashboard/settings/scheduled')}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  Análises Agendadas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure análises automáticas para seus repositórios
+                </p>
+                <div className="flex gap-2">
+                  <Badge variant="outline">
+                    {scheduledStats.total} total
+                  </Badge>
+                  <Badge variant="success">
+                    {scheduledStats.active} ativas
+                  </Badge>
+                  {scheduledStats.due > 0 && (
+                    <Badge variant="warning">
+                      {scheduledStats.due} pendentes
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Scheduled Analysis */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => router.push('/dashboard/settings/scheduled')}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-green-600" />
+                  Nova Análise Agendada
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Configure uma nova análise automática recorrente
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Next Scheduled */}
+            {scheduledStats.nextDue && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-yellow-600" />
+                    Próxima Execução
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm font-medium mb-1">{scheduledStats.nextDue.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(scheduledStats.nextDue.nextRun).toLocaleDateString('pt-BR')}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
         {/* Recent Activity */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -223,9 +388,9 @@ const recentJobs = jobsList
                       </p>
                       {job.status === 'running' && (
                         <div className="flex items-center gap-2">
-                          <Progress value={job.progress} className="flex-1 h-2" />
+                          <Progress value={job.progress || 0} className="flex-1 h-2" />
                           <span className="text-xs text-muted-foreground">
-                            {job.progress}%
+                            {job.progress || 0}%
                           </span>
                         </div>
                       )}

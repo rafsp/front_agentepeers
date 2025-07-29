@@ -25,7 +25,7 @@ export default function HomePage() {
             </div>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            AI Code Analysis Platform
+            Peers - AI Analysis Platform
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
             Análise inteligente de código com IA multi-agentes. Automatize revisões, detecte problemas e melhore a qualidade do seu código.
