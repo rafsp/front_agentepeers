@@ -1,58 +1,84 @@
 'use client'
 
-import React from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2, FileCheck, AlertCircle } from 'lucide-react'
 import { useJobStore } from '@/stores/job-store'
+import { JobApprovalModal } from '@/components/job-approval-modal'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
+// Mapear todos os status possíveis
 const statusIcons = {
   pending: Clock,
+  pending_approval: AlertCircle,
+  approved: CheckCircle,
   running: Play,
+  refactoring_code: Play,
+  grouping_commits: Play,
+  writing_unit_tests: Play,
+  grouping_tests: Play,
+  populating_data: Play,
+  committing_to_github: Play,
   completed: CheckCircle,
   failed: XCircle,
   rejected: XCircle,
-}
+} as const
 
 const statusColors = {
-  pending: 'warning' as const,
-  running: 'default' as const,
-  completed: 'success' as const,
-  failed: 'destructive' as const,
-  rejected: 'destructive' as const,
-}
+  pending: 'warning',
+  pending_approval: 'warning',
+  approved: 'default',
+  running: 'default',
+  refactoring_code: 'default',
+  grouping_commits: 'default',
+  writing_unit_tests: 'default',
+  grouping_tests: 'default',
+  populating_data: 'default',
+  committing_to_github: 'default',
+  completed: 'success',
+  failed: 'destructive',
+  rejected: 'destructive',
+} as const
 
 const statusLabels = {
   pending: 'Pendente',
+  pending_approval: 'Aguardando Aprovação',
+  approved: 'Aprovado',
   running: 'Executando',
+  refactoring_code: 'Refatorando Código',
+  grouping_commits: 'Agrupando Commits',
+  writing_unit_tests: 'Escrevendo Testes',
+  grouping_tests: 'Agrupando Testes',
+  populating_data: 'Preparando Dados',
+  committing_to_github: 'Enviando para GitHub',
   completed: 'Concluído',
   failed: 'Falhou',
   rejected: 'Rejeitado',
-}
+} as const
 
 export default function JobsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { jobs, removeJob, clearCompleted } = useJobStore()
-
-  if (!jobs) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4">Carregando jobs...</p>
-        </div>
-      </div>
-    )
-  }
+  const [selectedJobForApproval, setSelectedJobForApproval] = useState<string | null>(null)
 
   const jobsList = Object.values(jobs).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
+
+  // Auto-abrir modal se há job aguardando aprovação
+  useEffect(() => {
+    const pendingApprovalJobs = jobsList.filter(job => job.status === 'pending_approval')
+    if (pendingApprovalJobs.length > 0 && !selectedJobForApproval) {
+      // Abrir modal para o primeiro job pendente
+      setSelectedJobForApproval(pendingApprovalJobs[0].id)
+    }
+  }, [jobsList, selectedJobForApproval])
 
   const handleViewReport = (jobId: string) => {
     router.push(`/dashboard/reports/${jobId}`)
@@ -60,8 +86,9 @@ export default function JobsPage() {
 
   const handleDownloadReport = (jobId: string) => {
     const job = jobs[jobId]
-    if (job?.report) {
-      const blob = new Blob([job.report], { type: 'text/markdown' })
+    if (job?.report || job?.initialReport) {
+      const reportContent = job.report || job.initialReport || ''
+      const blob = new Blob([reportContent], { type: 'text/markdown' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -71,6 +98,27 @@ export default function JobsPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     }
+  }
+
+  const handleApprovalClick = (jobId: string) => {
+    setSelectedJobForApproval(jobId)
+  }
+
+  const selectedJob = selectedJobForApproval ? jobs[selectedJobForApproval] : null
+
+  // Função helper para pegar ícone de status
+  const getStatusIcon = (status: string) => {
+    return statusIcons[status as keyof typeof statusIcons] || Play
+  }
+
+  // Função helper para pegar cor do status
+  const getStatusColor = (status: string) => {
+    return statusColors[status as keyof typeof statusColors] || 'default'
+  }
+
+  // Função helper para pegar label do status
+  const getStatusLabel = (status: string) => {
+    return statusLabels[status as keyof typeof statusLabels] || status
   }
 
   return (
@@ -128,7 +176,9 @@ export default function JobsPage() {
         ) : (
           <div className="grid gap-4">
             {jobsList.map((job) => {
-              const StatusIcon = statusIcons[job.status]
+              const StatusIcon = getStatusIcon(job.status)
+              const statusColor = getStatusColor(job.status)
+              const statusLabel = getStatusLabel(job.status)
               
               return (
                 <Card key={job.id} className="w-full">
@@ -138,9 +188,21 @@ export default function JobsPage() {
                         <StatusIcon className="h-5 w-5" />
                         <span className="truncate">{job.title}</span>
                       </div>
-                      <Badge variant={statusColors[job.status]}>
-                        {statusLabels[job.status]}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={statusColor as any}>
+                          {statusLabel}
+                        </Badge>
+                        {job.status === 'pending_approval' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprovalClick(job.id)}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            <FileCheck className="h-4 w-4 mr-2" />
+                            Revisar
+                          </Button>
+                        )}
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -148,9 +210,9 @@ export default function JobsPage() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Progresso</span>
-                        <span>{job.progress || 0}%</span>
+                        <span>{job.progress}%</span>
                       </div>
-                      <Progress value={job.progress || 0} className="h-2" />
+                      <Progress value={job.progress} className="h-2" />
                     </div>
 
                     {/* Job Details */}
@@ -161,12 +223,12 @@ export default function JobsPage() {
                         {job.branch && <p><strong>Branch:</strong> {job.branch}</p>}
                       </div>
                       <div>
-                        <p><strong>Criado:</strong> {formatDistanceToNow(new Date(job.createdAt), { 
+                        <p><strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { 
                           addSuffix: true, 
                           locale: ptBR 
                         })}</p>
                         {job.completedAt && (
-                          <p><strong>Concluído:</strong> {formatDistanceToNow(new Date(job.completedAt), { 
+                          <p><strong>Concluído:</strong> {formatDistanceToNow(job.completedAt, { 
                             addSuffix: true, 
                             locale: ptBR 
                           })}</p>
@@ -188,7 +250,7 @@ export default function JobsPage() {
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">
-                      {job.status === 'completed' && job.report && (
+                      {job.status === 'completed' && (
                         <>
                           <Button 
                             onClick={() => handleViewReport(job.id)} 
@@ -208,6 +270,17 @@ export default function JobsPage() {
                           </Button>
                         </>
                       )}
+
+                      {(job.report || job.initialReport) && job.status !== 'completed' && (
+                        <Button 
+                          onClick={() => handleDownloadReport(job.id)} 
+                          variant="outline" 
+                          size="sm"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Relatório
+                        </Button>
+                      )}
                       
                       <Button 
                         onClick={() => removeJob(job.id)} 
@@ -226,6 +299,15 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Aprovação */}
+      {selectedJob && (
+        <JobApprovalModal
+          job={selectedJob}
+          isOpen={!!selectedJobForApproval}
+          onClose={() => setSelectedJobForApproval(null)}
+        />
+      )}
     </div>
   )
 }
