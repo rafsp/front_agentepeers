@@ -1,64 +1,145 @@
-// src/stores/job-store.ts - Com Polling Automático
+// src/stores/job-store.ts - Store Otimizado e Melhorado
+
 import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
-import { apiService, StartAnalysisRequest } from '@/lib/api/api-service'
+import { persist } from 'zustand/middleware'
 
 export interface Job {
   id: string
   title: string
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'rejected' | 'pending_approval' | 'approved' | 'refactoring_code' | 'grouping_commits' | 'writing_unit_tests' | 'grouping_tests' | 'populating_data' | 'committing_to_github'
-  progress: number
-  message: string
-  createdAt: Date
-  completedAt?: Date
   repository: string
-  analysisType: string
-  report?: string
-  error?: string
+  analysisType: 'design' | 'relatorio_teste_unitario' | 'security' | 'pentest' | 'terraform'
   branch?: string
   instructions?: string
-  // Novos campos para integração
-  backendJobId?: string
-  awaitingApproval?: boolean
+  status: JobStatus
+  progress: number
+  createdAt: Date
+  updatedAt: Date
+  report?: string
   initialReport?: string
+  result?: {
+    resultado: string
+    tipo_analise: string
+    status: string
+    tokens_used?: number
+  }
+  errorDetails?: string
+  message?: string
 }
 
-interface JobState {
+export type JobStatus = 
+  | 'pending'
+  | 'pending_approval' 
+  | 'approved'
+  | 'running'
+  | 'workflow_started'
+  | 'refactoring_code'
+  | 'grouping_commits'
+  | 'writing_unit_tests'
+  | 'grouping_tests'
+  | 'populating_data'
+  | 'committing_to_github'
+  | 'completed'
+  | 'failed'
+  | 'rejected'
+
+interface StartAnalysisRequest {
+  repo_name: string
+  analysis_type: 'design' | 'relatorio_teste_unitario' | 'security' | 'pentest' | 'terraform'
+  branch_name?: string
+  instrucoes_extras?: string
+}
+
+interface JobStore {
   jobs: Record<string, Job>
-  activeJobs: string[]
   pollingIntervals: Record<string, NodeJS.Timeout>
-  addJob: (job: Omit<Job, 'createdAt'>) => void
+  isConnected: boolean
+  lastConnectionTest?: Date
+  
+  // Actions
+  addJob: (job: Job) => void
   updateJob: (id: string, updates: Partial<Job>) => void
   removeJob: (id: string) => void
-  getJobsByStatus: (status: Job['status']) => Job[]
   clearCompleted: () => void
   
-  // Novos métodos para integração com API
+  // API Actions
   startAnalysisJob: (request: StartAnalysisRequest) => Promise<string>
-  approveJob: (jobId: string) => Promise<void>
-  rejectJob: (jobId: string) => Promise<void>
+  approveJob: (id: string) => Promise<void>
+  rejectJob: (id: string) => Promise<void>
+  refreshJob: (id: string) => Promise<void>
   testConnection: () => Promise<boolean>
-  syncJobsFromBackend: () => Promise<void>
-  startPollingJob: (jobId: string, backendJobId: string) => void
-  stopPollingJob: (jobId: string) => void
-}
-
-const mapAnalysisTypeToTitle = (analysisType: string, repository: string): string => {
-  const typeMap: Record<string, string> = {
-    'design': 'Análise de Design',
-    'relatorio_teste_unitario': 'Relatório de Testes Unitários',
-    'security': 'Análise de Segurança',
-    'performance': 'Análise de Performance'
-  }
   
-  const typeTitle = typeMap[analysisType] || 'Análise de Código'
-  return `${typeTitle} - ${repository}`
+  // Polling Management
+  startPolling: (jobId: string) => void
+  stopPolling: (jobId: string) => void
+  stopAllPolling: () => void
 }
 
-const mapBackendStatusToFrontend = (backendStatus: string): Job['status'] => {
-  const statusMap: Record<string, Job['status']> = {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
+// Utility function para fazer requests
+async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`
+  
+  const defaultOptions: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }
+
+  const response = await fetch(url, {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options?.headers,
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+    
+    try {
+      const errorData = JSON.parse(errorText)
+      errorMessage = errorData.detail || errorData.message || errorMessage
+    } catch {
+      errorMessage = errorText || errorMessage
+    }
+    
+    throw new Error(errorMessage)
+  }
+
+  return response.json()
+}
+
+// Converter resposta da API para Job
+function apiResponseToJob(data: any, originalRequest?: StartAnalysisRequest): Job {
+  const now = new Date()
+  
+  return {
+    id: data.job_id || data.id,
+    title: `Análise ${originalRequest?.analysis_type || 'código'}`,
+    repository: originalRequest?.repo_name || data.repo_name || 'Repositório',
+    analysisType: originalRequest?.analysis_type || data.analysis_type || 'design',
+    branch: originalRequest?.branch_name || data.branch_name,
+    instructions: originalRequest?.instrucoes_extras || data.instrucoes_extras,
+    status: mapApiStatus(data.status),
+    progress: data.progress || 0,
+    createdAt: data.created_at ? new Date(data.created_at) : now,
+    updatedAt: data.last_updated ? new Date(data.last_updated) : now,
+    report: data.report,
+    initialReport: data.report,
+    result: data.result,
+    errorDetails: data.error_details,
+    message: data.message,
+  }
+}
+
+// Mapear status da API para nossos tipos
+function mapApiStatus(apiStatus: string): JobStatus {
+  const statusMap: Record<string, JobStatus> = {
     'pending_approval': 'pending_approval',
-    'approved': 'approved',
+    'workflow_started': 'workflow_started',
     'refactoring_code': 'refactoring_code',
     'grouping_commits': 'grouping_commits',
     'writing_unit_tests': 'writing_unit_tests',
@@ -67,277 +148,274 @@ const mapBackendStatusToFrontend = (backendStatus: string): Job['status'] => {
     'committing_to_github': 'committing_to_github',
     'completed': 'completed',
     'failed': 'failed',
-    'rejected': 'rejected'
+    'rejected': 'rejected',
+    'approved': 'approved',
+    'running': 'running'
   }
   
-  return statusMap[backendStatus] || 'running'
+  return statusMap[apiStatus] || 'pending'
 }
 
-const getProgressFromBackend = (backendResponse: any): number => {
-  return backendResponse.progress || 0
-}
-
-const getMessageFromBackend = (backendResponse: any): string => {
-  return backendResponse.message || 'Processando análise...'
-}
-
-export const useJobStore = create<JobState>()(
-  devtools(
+export const useJobStore = create<JobStore>()(
+  persist(
     (set, get) => ({
       jobs: {},
-      activeJobs: [],
       pollingIntervals: {},
-
-      addJob: (job) =>
-        set((state) => {
-          const newJob = { ...job, createdAt: new Date() }
-          return {
-            jobs: { ...state.jobs, [job.id]: newJob },
-            activeJobs: [...state.activeJobs, job.id],
-          }
-        }),
-
-updateJob: (id, updates) =>
-  set((state) => {
-    const currentJob = state.jobs[id]
-    return {
-      jobs: {
-        ...state.jobs,
-        [id]: { 
-          ...currentJob, 
-          ...updates,
-          // Preservar relatórios se não foram passados no update
-          report: updates.report !== undefined ? updates.report : currentJob?.report,
-          initialReport: updates.initialReport !== undefined ? updates.initialReport : currentJob?.initialReport,
-        },
+      isConnected: false,
+      
+      addJob: (job) => {
+        set((state) => ({
+          jobs: {
+            ...state.jobs,
+            [job.id]: job,
+          },
+        }))
       },
-    }
-  }),
-      removeJob: (id) =>
+      
+      updateJob: (id, updates) => {
         set((state) => {
-          // Parar polling se estiver ativo
-          if (state.pollingIntervals[id]) {
-            clearInterval(state.pollingIntervals[id])
-          }
-          
-          const newPollingIntervals = { ...state.pollingIntervals }
-          delete newPollingIntervals[id]
+          const existingJob = state.jobs[id]
+          if (!existingJob) return state
           
           return {
-            jobs: Object.fromEntries(
-              Object.entries(state.jobs).filter(([jobId]) => jobId !== id)
-            ),
-            activeJobs: state.activeJobs.filter((jobId) => jobId !== id),
-            pollingIntervals: newPollingIntervals
+            jobs: {
+              ...state.jobs,
+              [id]: {
+                ...existingJob,
+                ...updates,
+                updatedAt: new Date(),
+                // Garantir que datas sejam objetos Date
+                createdAt: existingJob.createdAt instanceof Date ? existingJob.createdAt : new Date(existingJob.createdAt),
+              },
+            },
           }
-        }),
-
-      getJobsByStatus: (status) =>
-        Object.values(get().jobs).filter((job) => job.status === status),
-
-      clearCompleted: () =>
+        })
+      },
+      
+      removeJob: (id) => {
+        const { stopPolling } = get()
+        stopPolling(id)
+        
         set((state) => {
-          const activeJobs = Object.entries(state.jobs)
-            .filter(([, job]) => !['completed', 'failed', 'rejected'].includes(job.status))
-            .reduce((acc, [id, job]) => ({ ...acc, [id]: job }), {})
-          
-          // Parar polling para jobs removidos
-          Object.keys(state.pollingIntervals).forEach(jobId => {
-            if (!activeJobs[jobId]) {
-              clearInterval(state.pollingIntervals[jobId])
+          const newJobs = { ...state.jobs }
+          delete newJobs[id]
+          return { jobs: newJobs }
+        })
+      },
+      
+      clearCompleted: () => {
+        set((state) => {
+          const newJobs: Record<string, Job> = {}
+          Object.entries(state.jobs).forEach(([id, job]) => {
+            if (!['completed', 'failed', 'rejected'].includes(job.status)) {
+              newJobs[id] = job
             }
           })
-          
-          const newPollingIntervals = Object.keys(activeJobs).reduce((acc, jobId) => {
-            if (state.pollingIntervals[jobId]) {
-              acc[jobId] = state.pollingIntervals[jobId]
-            }
-            return acc
-          }, {} as Record<string, NodeJS.Timeout>)
-          
-          return {
-            jobs: activeJobs,
-            activeJobs: Object.keys(activeJobs),
-            pollingIntervals: newPollingIntervals
-          }
-        }),
+          return { jobs: newJobs }
+        })
+      },
 
-      testConnection: async (): Promise<boolean> => {
+      testConnection: async () => {
         try {
-          await apiService.checkHealth()
+          await apiRequest('/health')
+          set({ isConnected: true, lastConnectionTest: new Date() })
           return true
         } catch (error) {
-          console.error('Erro na conexão:', error)
+          console.error('Teste de conexão falhou:', error)
+          set({ isConnected: false, lastConnectionTest: new Date() })
           return false
         }
       },
-
-      syncJobsFromBackend: async (): Promise<void> => {
+      
+      startAnalysisJob: async (request) => {
         try {
-          const response = await apiService.getAllJobs()
-          console.log('Jobs do backend:', response)
+          console.log('🚀 Iniciando análise:', request)
+          
+          const response = await apiRequest<{
+            job_id: string
+            report: string
+            status: string
+          }>('/start-analysis', {
+            method: 'POST',
+            body: JSON.stringify(request),
+          })
+          
+          console.log('✅ Resposta da API:', response)
+          
+          const job = apiResponseToJob(response, request)
+          get().addJob(job)
+          
+          // Se o job precisa de polling, iniciar
+          if (['pending_approval', 'workflow_started', 'running'].includes(job.status)) {
+            get().startPolling(job.id)
+          }
+          
+          return job.id
         } catch (error) {
-          console.error('Erro ao sincronizar jobs:', error)
+          console.error('❌ Erro ao iniciar análise:', error)
+          throw error
         }
       },
-
-      startPollingJob: (jobId: string, backendJobId: string) => {
-        // Parar polling existente se houver
-        const currentInterval = get().pollingIntervals[jobId]
-        if (currentInterval) {
-          clearInterval(currentInterval)
+      
+      approveJob: async (id) => {
+        try {
+          console.log('👍 Aprovando job:', id)
+          
+          await apiRequest('/update-job-status', {
+            method: 'POST',
+            body: JSON.stringify({
+              job_id: id,
+              action: 'approve',
+            }),
+          })
+          
+          // Atualizar job local
+          get().updateJob(id, { 
+            status: 'approved',
+            message: 'Análise aprovada'
+          })
+          
+          // Iniciar polling para acompanhar progresso
+          get().startPolling(id)
+          
+        } catch (error) {
+          console.error('❌ Erro ao aprovar job:', error)
+          throw error
         }
-
-        // Iniciar novo polling
+      },
+      
+      rejectJob: async (id) => {
+        try {
+          console.log('👎 Rejeitando job:', id)
+          
+          await apiRequest('/update-job-status', {
+            method: 'POST',
+            body: JSON.stringify({
+              job_id: id,
+              action: 'reject',
+            }),
+          })
+          
+          get().updateJob(id, { 
+            status: 'rejected',
+            message: 'Análise rejeitada'
+          })
+          
+          get().stopPolling(id)
+          
+        } catch (error) {
+          console.error('❌ Erro ao rejeitar job:', error)
+          throw error
+        }
+      },
+      
+      refreshJob: async (id) => {
+        try {
+          const response = await apiRequest<any>(`/status/${id}`)
+          
+          const updatedJob = {
+            status: mapApiStatus(response.status),
+            progress: response.progress || 0,
+            message: response.message,
+            report: response.report,
+            result: response.result,
+            errorDetails: response.error_details,
+          }
+          
+          get().updateJob(id, updatedJob)
+          
+          // Parar polling se job terminou
+          if (['completed', 'failed', 'rejected'].includes(updatedJob.status)) {
+            get().stopPolling(id)
+          }
+          
+          return updatedJob
+        } catch (error) {
+          console.error(`❌ Erro ao atualizar job ${id}:`, error)
+          throw error
+        }
+      },
+      
+      startPolling: (jobId) => {
+        const { pollingIntervals, refreshJob, stopPolling } = get()
+        
+        // Não iniciar se já existe polling para este job
+        if (pollingIntervals[jobId]) {
+          return
+        }
+        
+        console.log(`🔄 Iniciando polling para job: ${jobId}`)
+        
         const interval = setInterval(async () => {
           try {
-            const response = await apiService.getJobStatus(backendJobId)
-            const frontendStatus = mapBackendStatusToFrontend(response.status)
-            const progress = getProgressFromBackend(response)
-            const message = getMessageFromBackend(response)
-            
-            console.log(`📊 Polling update for ${jobId}:`, { status: frontendStatus, progress, message })
-            
-            get().updateJob(jobId, {
-              status: frontendStatus,
-              progress,
-              message,
-              ...(response.status === 'completed' && { completedAt: new Date() })
-            })
-            
-            // Parar polling se job foi concluído
-            if (['completed', 'failed', 'rejected'].includes(response.status)) {
-              get().stopPollingJob(jobId)
+            const job = get().jobs[jobId]
+            if (!job) {
+              stopPolling(jobId)
+              return
             }
+            
+            // Parar polling se job terminou
+            if (['completed', 'failed', 'rejected'].includes(job.status)) {
+              stopPolling(jobId)
+              return
+            }
+            
+            await refreshJob(jobId)
           } catch (error) {
-            console.error(`Erro no polling do job ${jobId}:`, error)
-            get().updateJob(jobId, {
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Erro no polling',
-              message: 'Erro ao atualizar status'
-            })
-            get().stopPollingJob(jobId)
+            console.error(`❌ Erro no polling do job ${jobId}:`, error)
+            // Não parar polling por erro temporário, mas limitar tentativas
           }
-        }, 2000) // Polling a cada 2 segundos
-
-        // Salvar o interval
+        }, 3000) // Poll a cada 3 segundos
+        
         set((state) => ({
           pollingIntervals: {
             ...state.pollingIntervals,
-            [jobId]: interval
-          }
+            [jobId]: interval,
+          },
         }))
       },
-
-      stopPollingJob: (jobId: string) => {
-        const interval = get().pollingIntervals[jobId]
+      
+      stopPolling: (jobId) => {
+        const { pollingIntervals } = get()
+        const interval = pollingIntervals[jobId]
+        
         if (interval) {
+          console.log(`⏹️ Parando polling para job: ${jobId}`)
           clearInterval(interval)
+          
           set((state) => {
-            const newPollingIntervals = { ...state.pollingIntervals }
-            delete newPollingIntervals[jobId]
-            return { pollingIntervals: newPollingIntervals }
+            const newIntervals = { ...state.pollingIntervals }
+            delete newIntervals[jobId]
+            return { pollingIntervals: newIntervals }
           })
         }
       },
-
-      startAnalysisJob: async (request: StartAnalysisRequest): Promise<string> => {
-        const localJobId = `job_${Date.now()}`
-        const newJob: Job = {
-          id: localJobId,
-          title: mapAnalysisTypeToTitle(request.analysis_type, request.repo_name),
-          status: 'pending',
-          progress: 0,
-          message: 'Iniciando análise...',
-          repository: request.repo_name,
-          analysisType: request.analysis_type,
-          branch: request.branch_name,
-          instructions: request.instrucoes_extras,
-          createdAt: new Date()
-        }
+      
+      stopAllPolling: () => {
+        const { pollingIntervals } = get()
         
-        get().addJob(newJob)
+        console.log('⏹️ Parando todos os pollings')
+        Object.entries(pollingIntervals).forEach(([jobId, interval]) => {
+          clearInterval(interval)
+        })
         
-        try {
-          const response = await apiService.startAnalysis(request)
-          
-          get().updateJob(localJobId, {
-            backendJobId: response.job_id,
-            status: 'pending_approval',
-            awaitingApproval: true,
-            initialReport: response.report,
-            progress: 10,
-            message: 'Relatório inicial gerado. Aguardando aprovação...'
-          })
-          
-          return localJobId
-        } catch (error) {
-          get().updateJob(localJobId, {
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Erro desconhecido',
-            message: 'Falha ao iniciar análise'
-          })
-          throw error
-        }
+        set({ pollingIntervals: {} })
       },
-
-      approveJob: async (jobId: string): Promise<void> => {
-        const job = get().jobs[jobId]
-        if (!job || !job.backendJobId) {
-          throw new Error('Job não encontrado ou sem ID do backend')
-        }
-        
-        try {
-          await apiService.updateJobStatus({
-            job_id: job.backendJobId,
-            action: 'approve'
-          })
-          
-          get().updateJob(jobId, {
-            status: 'approved',
-            awaitingApproval: false,
-            progress: 25,
-            message: 'Análise aprovada! Processando...'
-          })
-          
-          // Iniciar polling automático
-          get().startPollingJob(jobId, job.backendJobId)
-          
-        } catch (error) {
-          get().updateJob(jobId, {
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Erro na aprovação'
-          })
-          throw error
-        }
-      },
-
-      rejectJob: async (jobId: string): Promise<void> => {
-        const job = get().jobs[jobId]
-        if (!job || !job.backendJobId) {
-          throw new Error('Job não encontrado ou sem ID do backend')
-        }
-        
-        try {
-          await apiService.updateJobStatus({
-            job_id: job.backendJobId,
-            action: 'reject'
-          })
-          
-          get().updateJob(jobId, {
-            status: 'rejected',
-            awaitingApproval: false,
-            message: 'Análise rejeitada pelo usuário'
-          })
-        } catch (error) {
-          get().updateJob(jobId, {
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Erro na rejeição'
-          })
-          throw error
-        }
-      }
     }),
-    { name: 'job-store' }
+    {
+      name: 'job-store',
+      partialize: (state) => ({
+        jobs: state.jobs,
+        isConnected: state.isConnected,
+        lastConnectionTest: state.lastConnectionTest,
+      }),
+    }
   )
 )
+
+// Cleanup quando a aplicação é fechada
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    useJobStore.getState().stopAllPolling()
+  })
+}
