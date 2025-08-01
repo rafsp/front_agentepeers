@@ -1,490 +1,402 @@
-// Status únicos para filtro
-  const uniqueStatuses = Array.from(new Set(jobsList.map(job => job.status)))
+'use client'
 
-  // Funç'use client'
-
-import React, { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { 
-  ArrowLeft, 
-  Clock, 
-  Play, 
-  CheckCircle, 
-  XCircle, 
-  Download, 
-  Eye, 
-  Trash2, 
-  AlertCircle,
-  RefreshCw,
-  Filter,
-  Search,
-  Plus,
-  Activity
-} from 'lucide-react'
-import { useJobStore, JobStatus } from '@/stores/job-store'
-import { JobApprovalModal } from '@/components/job-approval-modal'
-import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { CheckCircle, XCircle, FileText, Loader2, AlertCircle, X, RefreshCw, Download, Eye } from 'lucide-react'
+import { Job, useJobStore } from '@/stores/job-store'
+import { useToast } from '@/components/ui/use-toast'
+import ReactMarkdown from 'react-markdown'
 
-// Configuração de status
-const statusConfig = {
-  pending: { 
-    icon: Clock, 
-    color: 'warning', 
-    label: 'Pendente',
-    description: 'Aguardando processamento'
-  },
-  pending_approval: { 
-    icon: AlertCircle, 
-    color: 'warning', 
-    label: 'Aguardando Aprovação',
-    description: 'Análise pronta para revisão'
-  },
-  approved: { 
-    icon: CheckCircle, 
-    color: 'default', 
-    label: 'Aprovado',
-    description: 'Aprovado para processamento'
-  },
-  running: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Executando',
-    description: 'Em processamento'
-  },
-  workflow_started: { 
-    icon: Activity, 
-    color: 'default', 
-    label: 'Iniciado',
-    description: 'Workflow em andamento'
-  },
-  refactoring_code: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Refatorando',
-    description: 'Aplicando mudanças no código'
-  },
-  grouping_commits: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Organizando',
-    description: 'Agrupando commits'
-  },
-  writing_unit_tests: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Testando',
-    description: 'Escrevendo testes unitários'
-  },
-  grouping_tests: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Agrupando Testes',
-    description: 'Organizando testes'
-  },
-  populating_data: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Preparando Dados',
-    description: 'Populando dados'
-  },
-  committing_to_github: { 
-    icon: Play, 
-    color: 'default', 
-    label: 'Enviando',
-    description: 'Commitando no GitHub'
-  },
-  completed: { 
-    icon: CheckCircle, 
-    color: 'success', 
-    label: 'Concluído',
-    description: 'Análise finalizada com sucesso'
-  },
-  failed: { 
-    icon: XCircle, 
-    color: 'destructive', 
-    label: 'Falhou',
-    description: 'Erro durante processamento'
-  },
-  rejected: { 
-    icon: XCircle, 
-    color: 'destructive', 
-    label: 'Rejeitado',
-    description: 'Análise rejeitada pelo usuário'
-  },
-} as const
+interface JobApprovalModalProps {
+  job: Job | null
+  isOpen: boolean
+  onClose: () => void
+}
 
-export default function JobsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { jobs, removeJob, clearCompleted, testConnection, isConnected } = useJobStore()
-  
-  // Estados locais
-  const [selectedJobForApproval, setSelectedJobForApproval] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<JobStatus | 'all'>('all')
-  const [isRefreshing, setIsRefreshing] = useState(false)
+interface AnalysisResult {
+  report: string
+  status: string
+  analysis_completed: boolean
+  ai_tokens_used?: number
+  report_length?: number
+}
 
-  // Processar jobs
-  const jobsList = Object.values(jobs).sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-  )
-
-  // Filtrar jobs
-  const filteredJobs = jobsList.filter(job => {
-    const matchesSearch = job.repository.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         job.title.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || job.status === statusFilter
-    return matchesSearch && matchesStatus
+export const JobApprovalModal: React.FC<JobApprovalModalProps> = ({
+  job,
+  isOpen,
+  onClose
+}) => {
+  const { toast } = useToast()
+  const { approveJob, rejectJob } = useJobStore()
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [action, setAction] = useState<'approve' | 'reject' | null>(null)
+  const [actualReport, setActualReport] = useState<string>('')
+  const [isLoadingReport, setIsLoadingReport] = useState(false)
+  const [reportMetadata, setReportMetadata] = useState<{
+    isAiGenerated: boolean
+    tokensUsed?: number
+    reportLength: number
+    lastUpdated?: string
+  }>({
+    isAiGenerated: false,
+    reportLength: 0
   })
 
-  // Estatísticas
-  const stats = {
-    total: jobsList.length,
-    pending: jobsList.filter(job => job.status === 'pending_approval').length,
-    running: jobsList.filter(job => ['running', 'workflow_started', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)).length,
-    completed: jobsList.filter(job => job.status === 'completed').length,
-    failed: jobsList.filter(job => ['failed', 'rejected'].includes(job.status)).length,
-  }
+  // Função para buscar o resultado real da API
+  const fetchActualReport = useCallback(async (jobId: string) => {
+    if (!jobId) return
 
-  // Auto-abrir modal para jobs pendentes
-  useEffect(() => {
-    const pendingJobs = jobsList.filter(job => job.status === 'pending_approval')
-    if (pendingJobs.length > 0 && !selectedJobForApproval) {
-      setSelectedJobForApproval(pendingJobs[0].id)
-    }
-  }, [jobsList, selectedJobForApproval])
-
-  // Testar conexão ao carregar
-  useEffect(() => {
-    testConnection()
-  }, [testConnection])
-
-  const handleRefreshConnection = async () => {
-    setIsRefreshing(true)
+    setIsLoadingReport(true)
     try {
-      await testConnection()
+      console.log(`🔍 Buscando resultado real para job: ${jobId}`)
+      
+      // Tentar buscar status completo primeiro
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/status/${jobId}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('📊 Dados recebidos da API:', {
+        status: data.status,
+        hasResult: !!data.result,
+        hasReport: !!data.report,
+        reportLength: data.report?.length || 0
+      })
+
+      // Priorizar resultado da IA sobre template inicial
+      let finalReport = ''
+      let isAiGenerated = false
+      let tokensUsed = undefined
+
+      if (data.result?.resultado && data.result.resultado.length > 1000) {
+        // Resultado da IA (geralmente > 1000 caracteres)
+        finalReport = data.result.resultado
+        isAiGenerated = true
+        tokensUsed = data.result.tokens_used
+        console.log('✅ Usando resultado da IA')
+      } else if (data.report && data.report.length > 1000) {
+        // Report principal
+        finalReport = data.report
+        isAiGenerated = !data.report.includes('Aguardando aprovação')
+        console.log('✅ Usando report principal')
+      } else {
+        // Fallback para template inicial
+        finalReport = data.report || job?.initialReport || 'Nenhum relatório disponível'
+        isAiGenerated = false
+        console.log('⚠️ Usando template inicial')
+      }
+
+      setActualReport(finalReport)
+      setReportMetadata({
+        isAiGenerated,
+        tokensUsed,
+        reportLength: finalReport.length,
+        lastUpdated: new Date().toISOString()
+      })
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar resultado:', error)
+      toast({
+        title: "Erro ao carregar relatório",
+        description: "Não foi possível carregar o resultado da análise. Usando dados locais.",
+        variant: "destructive"
+      })
+      
+      // Fallback para dados locais
+      const fallbackReport = job?.report || job?.initialReport || 'Relatório não disponível'
+      setActualReport(fallbackReport)
+      setReportMetadata({
+        isAiGenerated: false,
+        reportLength: fallbackReport.length
+      })
     } finally {
-      setIsRefreshing(false)
+      setIsLoadingReport(false)
+    }
+  }, [job, toast])
+
+  // Buscar relatório quando modal abrir
+  useEffect(() => {
+    if (isOpen && job?.id) {
+      console.log('🚀 Modal aberto para job:', job.id)
+      fetchActualReport(job.id)
+    }
+  }, [isOpen, job?.id, fetchActualReport])
+
+  // Auto-refresh para jobs em processamento
+  useEffect(() => {
+    if (!isOpen || !job?.id) return
+
+    // Se job ainda está sendo processado, fazer polling
+    if (['pending_approval', 'workflow_started', 'running'].includes(job.status)) {
+      const interval = setInterval(() => {
+        fetchActualReport(job.id)
+      }, 5000) // A cada 5 segundos
+
+      return () => clearInterval(interval)
+    }
+  }, [isOpen, job?.status, job?.id, fetchActualReport])
+
+  const handleApprove = async () => {
+    if (!job) return
+    
+    setIsProcessing(true)
+    setAction('approve')
+    
+    try {
+      await approveJob(job.id)
+      toast({
+        title: 'Análise aprovada!',
+        description: reportMetadata.isAiGenerated 
+          ? 'A análise foi aprovada e está sendo processada.'
+          : 'A análise foi aprovada. O processo completo será iniciado.',
+      })
+      onClose()
+    } catch (error) {
+      console.error('Erro ao aprovar:', error)
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao aprovar análise',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsProcessing(false)
+      setAction(null)
     }
   }
 
-  const handleViewReport = (jobId: string) => {
-    router.push(`/dashboard/reports/${jobId}`)
+  const handleReject = async () => {
+    if (!job) return
+    
+    setIsProcessing(true)
+    setAction('reject')
+    
+    try {
+      await rejectJob(job.id)
+      toast({
+        title: 'Análise rejeitada',
+        description: 'A análise foi rejeitada e não será processada.',
+      })
+      onClose()
+    } catch (error) {
+      console.error('Erro ao rejeitar:', error)
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao rejeitar análise',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsProcessing(false)
+      setAction(null)
+    }
   }
 
-  const handleDownloadReport = (jobId: string) => {
-    const job = jobs[jobId]
-    if (!job) return
+  const handleDownload = () => {
+    if (!actualReport || !job) return
 
-    const reportContent = job.result?.resultado || job.report || job.initialReport || ''
-    if (!reportContent) return
-
-    const blob = new Blob([reportContent], { type: 'text/markdown' })
+    const blob = new Blob([actualReport], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `analise-${job.repository.replace('/', '-')}-${job.id.slice(0, 8)}.md`
+    a.download = `analise-${job.repository?.replace('/', '-') || 'repo'}-${job.id.slice(0, 8)}.md`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+
+    toast({
+      title: 'Download iniciado',
+      description: 'O relatório está sendo baixado.',
+    })
   }
 
-  const selectedJob = selectedJobForApproval ? jobs[selectedJobForApproval] : null
+  const handleRefresh = () => {
+    if (job?.id) {
+      fetchActualReport(job.id)
+    }
+  }
 
-  // Status únicos para filtro
-  const uniqueStatuses = Array.from(new Set(jobsList.map(job => job.status)))
+  if (!isOpen || !job) return null
+
+  const displayReport = actualReport || job.report || job.initialReport || 'Carregando relatório...'
+  const isTemplate = displayReport.includes('Aguardando aprovação') || 
+                    displayReport.includes('Analisando...') ||
+                    displayReport.includes('Calculando...')
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Dashboard
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">Jobs de Análise</h1>
-                <p className="text-sm text-muted-foreground">
-                  Gerencie suas análises de código
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Badge variant={isConnected ? 'success' : 'destructive'} className="flex items-center gap-1">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                {isConnected ? 'Conectado' : 'Desconectado'}
-              </Badge>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshConnection}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Testar
-              </Button>
-
-              <Button onClick={() => router.push('/dashboard/new-analysis')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Análise
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-6">
-        {/* Estatísticas */}
-        <div className="grid md:grid-cols-5 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-              <div className="text-sm text-muted-foreground">Total</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-              <div className="text-sm text-muted-foreground">Pendentes</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.running}</div>
-              <div className="text-sm text-muted-foreground">Executando</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-              <div className="text-sm text-muted-foreground">Concluídos</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
-              <div className="text-sm text-muted-foreground">Falharam</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filtros */}
-        <div className="flex gap-4 mb-6">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por repositório ou título..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div className="relative bg-background border rounded-lg shadow-lg max-w-5xl max-h-[90vh] w-full mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5" />
+            <div>
+              <h2 className="text-lg font-semibold">
+                Análise: {job.title || job.repository}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {job.analysisType} • {job.repository}
+              </p>
             </div>
           </div>
           
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value as JobStatus | 'all')}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="all">Todos os Status</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>
-                {statusConfig[status]?.label || status}
-              </option>
-            ))}
-          </select>
-
-          {stats.completed > 0 && (
-            <Button 
-              variant="outline" 
-              onClick={clearCompleted}
-              className="flex items-center gap-2"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoadingReport}
             >
-              <Trash2 className="h-4 w-4" />
-              Limpar Concluídos
+              <RefreshCw className={`h-4 w-4 ${isLoadingReport ? 'animate-spin' : ''}`} />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Status e Metadata */}
+        <div className="p-4 bg-muted/30 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Badge variant={job.status === 'completed' ? 'success' : 'warning'} className="flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {job.status === 'pending_approval' ? 'Aguardando Aprovação' : job.status}
+              </Badge>
+              
+              {reportMetadata.isAiGenerated && (
+                <Badge variant="success" className="flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  Análise IA Completa
+                </Badge>
+              )}
+              
+              {isTemplate && (
+                <Badge variant="warning" className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Template Inicial
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              {reportMetadata.tokensUsed && (
+                <span>🤖 {reportMetadata.tokensUsed} tokens</span>
+              )}
+              <span>📝 {reportMetadata.reportLength.toLocaleString()} chars</span>
+              {reportMetadata.lastUpdated && (
+                <span>🕒 {new Date(reportMetadata.lastUpdated).toLocaleTimeString()}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Job Info */}
+        <div className="p-4 bg-muted/10 border-b">
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <strong>Repositório:</strong> {job.repository}
+            </div>
+            <div>
+              <strong>Tipo:</strong> {job.analysisType}
+            </div>
+            <div>
+              <strong>Branch:</strong> {job.branch || 'padrão'}
+            </div>
+          </div>
+          {job.instructions && (
+            <div className="mt-2 text-sm">
+              <strong>Instruções extras:</strong> {job.instructions}
+            </div>
           )}
         </div>
 
-        {/* Lista de Jobs */}
-        <div className="space-y-4">
-          {filteredJobs.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {jobsList.length === 0 ? 'Nenhuma análise ainda' : 'Nenhum resultado encontrado'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {jobsList.length === 0 
-                    ? 'Comece criando sua primeira análise de código'
-                    : 'Tente ajustar os filtros de busca'
-                  }
-                </p>
-                <Button onClick={() => router.push('/dashboard/new-analysis')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Análise
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Report Content */}
+        <div className="flex-1 overflow-hidden">
+          {isLoadingReport ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">Carregando resultado da análise...</p>
+              </div>
+            </div>
           ) : (
-            filteredJobs.map((job) => {
-              const config = statusConfig[job.status]
-              const StatusIcon = config.icon
-
-              return (
-                <Card key={job.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-lg">{job.title}</h3>
-                          <Badge variant={config.color as any} className="flex items-center gap-1">
-                            <StatusIcon className="h-3 w-3" />
-                            {config.label}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid md:grid-cols-2 gap-4 mb-4 text-sm text-muted-foreground">
-                          <div>
-                            <strong>Repositório:</strong> {job.repository}
-                          </div>
-                          <div>
-                            <strong>Tipo:</strong> {job.analysisType}
-                          </div>
-                          <div>
-                            <strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { addSuffix: true, locale: ptBR })}
-                          </div>
-                          <div>
-                            <strong>Atualizado:</strong> {formatDistanceToNow(job.updatedAt, { addSuffix: true, locale: ptBR })}
-                          </div>
-                        </div>
-
-                        {job.progress !== undefined && job.progress >= 0 && job.progress < 100 && (
-                          <div className="mb-4">
-                            <div className="flex justify-between text-sm mb-2">
-                              <span className="font-medium">
-                                {getProgressLabel(job.status, job.progress)}
-                              </span>
-                              <span className="text-muted-foreground">{job.progress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                              <div 
-                                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${getProgressColor(job.progress)}`}
-                                style={{ width: `${Math.max(job.progress, 5)}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {job.progress === 100 && job.status !== 'completed' && (
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 text-sm text-blue-600">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span>Finalizando análise...</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {job.message && (
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {job.message}
-                          </p>
-                        )}
-
-                        {job.errorDetails && (
-                          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
-                            <p className="text-sm text-red-800">{job.errorDetails}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-2 ml-4">
-                        {job.status === 'pending_approval' && (
-                          <Button 
-                            onClick={() => setSelectedJobForApproval(job.id)}
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            <AlertCircle className="h-4 w-4 mr-2" />
-                            Revisar
-                          </Button>
-                        )}
-
-                        {job.status === 'completed' && (
-                          <>
-                            <Button 
-                              onClick={() => handleViewReport(job.id)} 
-                              variant="default" 
-                              size="sm"
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Ver Relatório
-                            </Button>
-                            <Button 
-                              onClick={() => handleDownloadReport(job.id)} 
-                              variant="outline" 
-                              size="sm"
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </Button>
-                          </>
-                        )}
-
-                        {(job.report || job.initialReport || job.result?.resultado) && job.status !== 'completed' && (
-                          <Button 
-                            onClick={() => handleDownloadReport(job.id)} 
-                            variant="outline" 
-                            size="sm"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
-                        )}
-                        
-                        <Button 
-                          onClick={() => removeJob(job.id)} 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remover
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })
+            <div className="h-96 overflow-y-auto">
+              <div className="p-6">
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown className="text-sm leading-relaxed">
+                    {displayReport}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
           )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between p-6 border-t bg-muted/10">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={!displayReport || isLoadingReport}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isProcessing}
+            >
+              Fechar
+            </Button>
+            
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={isProcessing}
+            >
+              {isProcessing && action === 'reject' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Rejeitar
+            </Button>
+            
+            <Button
+              onClick={handleApprove}
+              disabled={isProcessing || isLoadingReport}
+            >
+              {isProcessing && action === 'approve' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-2" />
+              )}
+              {reportMetadata.isAiGenerated ? 'Aprovar Análise' : 'Aprovar e Executar'}
+            </Button>
+          </div>
         </div>
       </div>
-
-      {/* Modal de Aprovação */}
-      <JobApprovalModal
-        job={selectedJob}
-        isOpen={!!selectedJobForApproval}
-        onClose={() => setSelectedJobForApproval(null)}
-      />
     </div>
   )
 }
