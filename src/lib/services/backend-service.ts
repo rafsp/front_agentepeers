@@ -2,7 +2,7 @@
 
 export interface StartAnalysisRequest {
   repo_name: string
-  analysis_type: 'design' | 'security' | 'pentest' | 'terraform' | 'relatorio_teste_unitario'
+  analysis_type: "design" | "relatorio_teste_unitario" | "seguranca" | "pentest" | "terraform"  // MUDANÇA AQUI
   branch_name?: string
   instrucoes_extras?: string
 }
@@ -10,21 +10,22 @@ export interface StartAnalysisRequest {
 export interface StartAnalysisResponse {
   job_id: string
   report: string
+  status: string
+  mode?: string
 }
 
 export interface JobStatusResponse {
   job_id: string
-  status: 'pending_approval' | 'workflow_started' | 'analyzing' | 'generating_report' | 
-          'preparing_recommendations' | 'refactoring_code' | 'grouping_commits' | 
-          'writing_unit_tests' | 'grouping_tests' | 'populating_data' | 
-          'committing_to_github' | 'completed' | 'failed' | 'rejected'
-  message: string
-  progress: number
-  report?: string
-  error_details?: string
-  last_updated: number
+  status: 'pending_approval' | 'approved' | 'workflow_started' | 'refactoring_code' | 'grouping_commits' | 
+          'writing_unit_tests' | 'grouping_tests' | 'populating_data' | 'committing_to_github' | 
+          'completed' | 'failed' | 'rejected' | 'reading_repository' | 'analyzing_code'
   repo_name?: string
   analysis_type?: string
+  message?: string
+  progress?: number
+  real_mode?: boolean
+  error_details?: string
+  last_updated?: number
 }
 
 export interface UpdateJobRequest {

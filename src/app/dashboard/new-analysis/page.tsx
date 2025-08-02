@@ -62,7 +62,7 @@ export default function NewAnalysisPage() {
     try {
       const jobId = await startAnalysisJob({
         repo_name: repository,
-        analysis_type: analysisType,
+        analysis_type: analysisType as "design" | "relatorio_teste_unitario" | "seguranca" | "pentest" | "terraform",
         branch_name: branch || undefined,
         instrucoes_extras: instructions || undefined
       })
