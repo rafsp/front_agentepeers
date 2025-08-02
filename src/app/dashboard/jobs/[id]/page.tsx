@@ -262,7 +262,7 @@ export default function JobDetailPage() {
               </div>
               <div>
                 <p className="text-sm"><strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { addSuffix: true, locale: ptBR })}</p>
-                <p className="text-sm"><strong>Atualizado:</strong> {formatDistanceToNow(job.updatedAt, { addSuffix: true, locale: ptBR })}</p>
+                {/* <p className="text-sm"><strong>Atualizado:</strong> {formatDistanceToNow(job.updatedAt, { addSuffix: true, locale: ptBR })}</p> */}
                 {job.instructions && (
                   <p className="text-sm mt-2">
                     <strong>Instruções:</strong> {job.instructions}

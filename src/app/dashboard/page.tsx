@@ -1,119 +1,241 @@
+// src/app/dashboard/page.tsx - VERSÃO CORRIGIDA
+
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/auth/auth-context'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { 
-  LogOut, 
   Plus, 
   Activity, 
-  FileText, 
-  Clock, 
   CheckCircle, 
-  Play, 
+  Clock, 
+  Play,
   BarChart3,
-  Calendar,
   Settings,
-  Github,
-  Building2,
-  Upload
+  Zap,
+  FileText,
+  TrendingUp,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
-import { useJobStore } from '@/stores/job-store'
-import { useScheduledAnalysisStats } from '@/stores/scheduled-analysis-store'
-import { useCompanyStore } from '@/stores/company-store'
+import { useAuth } from '@/lib/auth/auth-context'
+import { ConnectivityStatus } from '@/components/connectivity-status'
+import { formatJobDate } from '@/lib/utils/date-utils'
+import { 
+  useJobs, 
+  useJobStatistics, 
+  useRecentJobs, 
+  useActiveJobs 
+} from '@/hooks/use-jobs'
+import { backendService, type BackendSystemInfo } from '@/lib/services/backend-service'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, logout, githubToken } = useAuth()
-  const { jobs } = useJobStore()
-  const scheduledStats = useScheduledAnalysisStats()
-  const { policies, activePolicyId } = useCompanyStore()
+  const { user } = useAuth()
+  
+  // Hooks customizados
+  const { jobsList, isConnected, testConnection } = useJobs()
+  const jobStats = useJobStatistics()
+  const recentJobs = useRecentJobs(5)
+  const { activeJobs, hasActiveJobs, pendingApproval, running } = useActiveJobs()
+  
+  // Estados locais
+  const [systemInfo, setSystemInfo] = useState<BackendSystemInfo | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const jobsList = Object.values(jobs || {})
-  const runningJobs = jobsList.filter(job => job.status === 'running')
-  const completedJobs = jobsList.filter(job => job.status === 'completed')
-  const pendingJobs = jobsList.filter(job => job.status === 'pending')
+  // Carregar dados do sistema
+  useEffect(() => {
+    const loadSystemData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Testar conectividade primeiro
+        await testConnection()
+        
+        // Carregar informações do sistema
+        const info = await backendService.getSystemInfo()
+        setSystemInfo(info)
+        
+      } catch (error) {
+        console.error('Erro ao carregar dados do dashboard:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  // Recent jobs (últimos 5)
-  const recentJobs = jobsList
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
+    loadSystemData()
+  }, [testConnection])
 
+  const getStatusIcon = (status: string) => {
+    const icons: Record<string, any> = {
+      'pending_approval': AlertCircle,
+      'running': Play,
+      'analyzing_code': Activity,
+      'ready_for_commit': CheckCircle,
+      'completed': CheckCircle,
+      'failed': AlertCircle,
+      'rejected': AlertCircle,
+    }
+    return icons[status] || Clock
+  }
+
+  const getStatusColor = (status: string): 'default' | 'success' | 'warning' | 'destructive' => {
+    const colors: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
+      'pending_approval': 'warning',
+      'running': 'default',
+      'analyzing_code': 'default',
+      'ready_for_commit': 'success',
+      'completed': 'success',
+      'failed': 'destructive',
+      'rejected': 'destructive',
+    }
+    return colors[status] || 'default'
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'pending_approval': 'Aguardando Aprovação',
+      'running': 'Executando',
+      'analyzing_code': 'Analisando Código',
+      'ready_for_commit': 'Pronto para Commit',
+      'completed': 'Concluído',
+      'failed': 'Falhou',
+      'rejected': 'Rejeitado',
+    }
+    return labels[status] || status
+  }
+
+  // Estatísticas para os cards principais
   const stats = [
     {
       title: 'Jobs Ativos',
-      value: runningJobs.length,
+      value: running.length,
       icon: Play,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
+      trend: hasActiveJobs ? 'Em execução' : 'Nenhum ativo'
     },
     {
       title: 'Concluídos',
-      value: completedJobs.length,
+      value: jobStats.byStatus['completed'] || 0,
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
+      trend: `${jobStats.successRate.toFixed(1)}% sucesso`
     },
     {
-      title: 'Pendentes',
-      value: pendingJobs.length,
+      title: 'Aguardando',
+      value: pendingApproval.length,
       icon: Clock,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
+      trend: pendingApproval.length > 0 ? 'Requer ação' : 'Nenhum pendente'
     },
     {
       title: 'Total',
-      value: jobsList.length,
+      value: jobStats.total,
       icon: BarChart3,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
-    },
+      trend: 'Todas análises'
+    }
   ]
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Carregando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Peers - AI Code Analysis Platform</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Olá, {user?.name || 'Usuario'}
-            </span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Dashboard</h1>
+              <p className="text-muted-foreground">
+                Bem-vindo de volta, {user?.name || 'Usuário'}!
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard/settings')}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+              <Button onClick={() => router.push('/dashboard/new-analysis')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Análise
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Welcome */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Bem-vindo à plataforma de análise de código com IA. Acompanhe suas análises e visualize relatórios.
-          </p>
-        </div>
+        {/* Status de conectividade */}
+        <ConnectivityStatus className="mb-6" />
 
-        {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => {
+        {/* Sistema Info */}
+        {systemInfo && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">Sistema v{systemInfo.version}</span>
+                  </div>
+                  <Badge variant={systemInfo.agentes_disponivel ? "default" : "warning"}>
+                    {systemInfo.agentes_disponivel ? "Agentes Ativos" : "Modo Simulado"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {systemInfo.total_analysis_types} tipos de análise disponíveis
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Cards de Estatísticas */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat, index) => {
             const Icon = stat.icon
             return (
-              <Card key={stat.title}>
+              <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-1">
                         {stat.title}
                       </p>
                       <p className="text-2xl font-bold">{stat.value}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {stat.trend}
+                      </p>
                     </div>
                     <div className={`p-3 rounded-full ${stat.bgColor}`}>
                       <Icon className={`h-6 w-6 ${stat.color}`} />
@@ -125,302 +247,171 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push('/dashboard/new-analysis')}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5 text-blue-600" />
-                Nova Análise
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Inicie uma nova análise de código em seus repositórios
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push('/dashboard/jobs')}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-green-600" />
-                Jobs Ativos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Acompanhe o progresso das análises em andamento
-              </p>
-              {runningJobs.length > 0 && (
-                <Badge variant="default" className="mt-2">
-                  {runningJobs.length} executando
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => router.push('/dashboard/reports')}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-600" />
-                Relatórios
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Visualize e baixe relatórios de análises concluídas
-              </p>
-              {completedJobs.length > 0 && (
-                <Badge variant="success" className="mt-2">
-                  {completedJobs.length} disponíveis
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Configuration & Automation Section */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Left Column - Configuration */}
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Configurações</h3>
-            
-            {/* GitHub Integration */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => router.push('/dashboard/settings/github')}
-            >
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Jobs Recentes */}
+          <div className="lg:col-span-2">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Github className="h-5 w-5 text-gray-800" />
-                  Integração GitHub
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Configure seu token do GitHub para acessar repositórios
-                </p>
-                <Badge variant={githubToken ? 'success' : 'secondary'}>
-                  {githubToken ? 'Conectado' : 'Não configurado'}
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Company Policies */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => router.push('/dashboard/settings')}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-blue-600" />
-                  Políticas da Empresa
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Configure políticas específicas da sua empresa
-                </p>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">
-                    {policies.length} políticas
-                  </Badge>
-                  {activePolicyId && (
-                    <Badge variant="success" className="text-xs">
-                      Ativa
-                    </Badge>
-                  )}
+                <div className="flex justify-between items-center">
+                  <CardTitle>Jobs Recentes</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/jobs')}
+                  >
+                    Ver Todos
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Settings */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => router.push('/dashboard/settings')}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-gray-600" />
-                  Configurações Gerais
-                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Configurações da empresa, logo e preferências
-                </p>
+                {recentJobs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhum job ainda</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Comece criando sua primeira análise de código.
+                    </p>
+                    <Button onClick={() => router.push('/dashboard/new-analysis')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Primeira Análise
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentJobs.map((job) => {
+                      const StatusIcon = getStatusIcon(job.status)
+                      return (
+                        <div
+                          key={job.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => router.push(`/dashboard/jobs/${job.id}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <StatusIcon className="h-5 w-5" />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{job.title}</span>
+                                <Badge variant={getStatusColor(job.status)}>
+                                  {getStatusLabel(job.status)}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {job.repository} • {formatJobDate(job.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            {(['running', 'analyzing_code'].includes(job.status)) && job.progress && (
+                              <div className="flex items-center gap-2 min-w-24">
+                                <Progress value={job.progress} className="w-16 h-2" />
+                                <span className="text-xs text-muted-foreground">
+                                  {job.progress}%
+                                </span>
+                              </div>
+                            )}
+                            {job.status === 'ready_for_commit' && (
+                              <Badge variant="default">
+                                <Zap className="h-3 w-3 mr-1" />
+                                Pronto
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Automation */}
+          {/* Sidebar */}
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold">Automação</h3>
-            
-            {/* Scheduled Analyses */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => router.push('/dashboard/settings/scheduled')}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  Análises Agendadas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Configure análises automáticas para seus repositórios
-                </p>
-                <div className="flex gap-2">
-                  <Badge variant="outline">
-                    {scheduledStats.total} total
-                  </Badge>
-                  <Badge variant="success">
-                    {scheduledStats.active} ativas
-                  </Badge>
-                  {scheduledStats.due > 0 && (
-                    <Badge variant="warning">
-                      {scheduledStats.due} pendentes
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Scheduled Analysis */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => router.push('/dashboard/settings/scheduled')}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5 text-green-600" />
-                  Nova Análise Agendada
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Configure uma nova análise automática recorrente
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Next Scheduled */}
-            {scheduledStats.nextDue && (
+            {/* Estatísticas por Categoria */}
+            {jobStats.total > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-yellow-600" />
-                    Próxima Execução
-                  </CardTitle>
+                  <CardTitle className="text-base">Análises por Tipo</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm font-medium mb-1">{scheduledStats.nextDue.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(scheduledStats.nextDue.nextRun).toLocaleDateString('pt-BR')}
-                  </p>
+                  <div className="space-y-3">
+                    {Object.entries(jobStats.byCategory).map(([category, count]) => (
+                      <div key={category} className="flex justify-between items-center">
+                        <span className="text-sm">{category}</span>
+                        <Badge variant="outline">{count}</Badge>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
 
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Atividade Recente</CardTitle>
-            {jobsList.length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => router.push('/dashboard/jobs')}
-              >
-                Ver Todos
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {recentJobs.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  Nenhuma atividade recente. Inicie sua primeira análise!
-                </p>
-                <Button onClick={() => router.push('/dashboard/new-analysis')}>
+            {/* Ações Rápidas */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Ações Rápidas</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => router.push('/dashboard/new-analysis')}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Análise
                 </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {recentJobs.map((job) => (
-                  <div 
-                    key={job.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium">{job.title}</h4>
-                        <Badge 
-                          variant={
-                            job.status === 'completed' ? 'success' :
-                            job.status === 'running' ? 'default' :
-                            job.status === 'failed' ? 'destructive' : 'warning'
-                          }
-                        >
-                          {job.status === 'completed' ? 'Concluído' :
-                           job.status === 'running' ? 'Executando' :
-                           job.status === 'failed' ? 'Falhou' : 'Pendente'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {job.repository} • {job.analysisType}
-                      </p>
-                      {job.status === 'running' && (
-                        <div className="flex items-center gap-2">
-                          <Progress value={job.progress || 0} className="flex-1 h-2" />
-                          <span className="text-xs text-muted-foreground">
-                            {job.progress || 0}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {job.status === 'completed' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => router.push(`/dashboard/reports/${job.id}`)}
-                        >
-                          Ver Relatório
-                        </Button>
-                      )}
-                      {job.status === 'running' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => router.push('/dashboard/jobs')}
-                        >
-                          Acompanhar
-                        </Button>
-                      )}
-                    </div>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => router.push('/dashboard/jobs')}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Ver Todos os Jobs
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => router.push('/dashboard/reports')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Relatórios
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Status do Sistema */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Status do Sistema</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>Backend</span>
+                    <Badge variant={isConnected ? "default" : "destructive"}>
+                      {isConnected ? "Online" : "Offline"}
+                    </Badge>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="flex justify-between">
+                    <span>Agentes IA</span>
+                    <Badge variant={systemInfo?.agentes_disponivel ? "default" : "warning"}>
+                      {systemInfo?.agentes_disponivel ? "Ativo" : "Simulado"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxa de Sucesso</span>
+                    <span className="font-medium">
+                      {jobStats.successRate.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   )

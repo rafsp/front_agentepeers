@@ -1,373 +1,374 @@
+// src/components/job-approval-modal.tsx - MODAL DE APROVAÇÃO
+
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, XCircle, FileText, Loader2, AlertCircle, X, RefreshCw, Download, Eye } from 'lucide-react'
-import { Job, useJobStore } from '@/stores/job-store'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { 
+  CheckCircle, 
+  XCircle, 
+  FileText, 
+  GitBranch, 
+  AlertCircle,
+  Clock,
+  Eye,
+  Download,
+  Settings
+} from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-import ReactMarkdown from 'react-markdown'
+import { backendService } from '@/lib/services/backend-service'
+import type { Job } from '@/stores/job-store'
 
 interface JobApprovalModalProps {
   job: Job | null
   isOpen: boolean
   onClose: () => void
+  onApprove?: (jobId: string) => void
+  onReject?: (jobId: string) => void
 }
 
-interface AnalysisResult {
-  report: string
-  status: string
-  analysis_completed: boolean
-  ai_tokens_used?: number
-  report_length?: number
-}
-
-export const JobApprovalModal: React.FC<JobApprovalModalProps> = ({
-  job,
-  isOpen,
-  onClose
-}) => {
+export function JobApprovalModal({ 
+  job, 
+  isOpen, 
+  onClose, 
+  onApprove, 
+  onReject 
+}: JobApprovalModalProps) {
   const { toast } = useToast()
-  const { approveJob, rejectJob } = useJobStore()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [action, setAction] = useState<'approve' | 'reject' | null>(null)
-  const [actualReport, setActualReport] = useState<string>('')
-  const [isLoadingReport, setIsLoadingReport] = useState(false)
-  const [reportMetadata, setReportMetadata] = useState<{
-    isAiGenerated: boolean
-    tokensUsed?: number
-    reportLength: number
-    lastUpdated?: string
-  }>({
-    isAiGenerated: false,
-    reportLength: 0
-  })
+  const [commitMessage, setCommitMessage] = useState('')
+  const [createBranch, setCreateBranch] = useState(false)
+  const [branchName, setBranchName] = useState('')
 
-  // Função para buscar o resultado real da API
-  const fetchActualReport = useCallback(async (jobId: string) => {
-    if (!jobId) return
+  if (!isOpen || !job) return null
 
-    setIsLoadingReport(true)
-    try {
-      console.log(`🔍 Buscando resultado real para job: ${jobId}`)
-      
-      // Tentar buscar status completo primeiro
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/status/${jobId}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log('📊 Dados recebidos da API:', {
-        status: data.status,
-        hasResult: !!data.result,
-        hasReport: !!data.report,
-        reportLength: data.report?.length || 0
-      })
-
-      // Priorizar resultado da IA sobre template inicial
-      let finalReport = ''
-      let isAiGenerated = false
-      let tokensUsed = undefined
-
-      if (data.result?.resultado && data.result.resultado.length > 1000) {
-        // Resultado da IA (geralmente > 1000 caracteres)
-        finalReport = data.result.resultado
-        isAiGenerated = true
-        tokensUsed = data.result.tokens_used
-        console.log('✅ Usando resultado da IA')
-      } else if (data.report && data.report.length > 1000) {
-        // Report principal
-        finalReport = data.report
-        isAiGenerated = !data.report.includes('Aguardando aprovação')
-        console.log('✅ Usando report principal')
-      } else {
-        // Fallback para template inicial
-        finalReport = data.report || job?.initialReport || 'Nenhum relatório disponível'
-        isAiGenerated = false
-        console.log('⚠️ Usando template inicial')
-      }
-
-      setActualReport(finalReport)
-      setReportMetadata({
-        isAiGenerated,
-        tokensUsed,
-        reportLength: finalReport.length,
-        lastUpdated: new Date().toISOString()
-      })
-
-    } catch (error) {
-      console.error('❌ Erro ao buscar resultado:', error)
-      toast({
-        title: "Erro ao carregar relatório",
-        description: "Não foi possível carregar o resultado da análise. Usando dados locais.",
-        variant: "destructive"
-      })
-      
-      // Fallback para dados locais
-      const fallbackReport = job?.report || job?.initialReport || 'Relatório não disponível'
-      setActualReport(fallbackReport)
-      setReportMetadata({
-        isAiGenerated: false,
-        reportLength: fallbackReport.length
-      })
-    } finally {
-      setIsLoadingReport(false)
-    }
-  }, [job, toast])
-
-  // Buscar relatório quando modal abrir
-  useEffect(() => {
-    if (isOpen && job?.id) {
-      console.log('🚀 Modal aberto para job:', job.id)
-      fetchActualReport(job.id)
-    }
-  }, [isOpen, job?.id, fetchActualReport])
-
-  // Auto-refresh para jobs em processamento
-  useEffect(() => {
-    if (!isOpen || !job?.id) return
-
-    // Se job ainda está sendo processado, fazer polling
-    if (['pending_approval', 'workflow_started', 'running'].includes(job.status)) {
-      const interval = setInterval(() => {
-        fetchActualReport(job.id)
-      }, 5000) // A cada 5 segundos
-
-      return () => clearInterval(interval)
-    }
-  }, [isOpen, job?.status, job?.id, fetchActualReport])
+  const isExecutableAnalysis = job.analysisType && [
+    'refatoracao', 'refatorador', 'escrever_testes', 
+    'agrupamento_testes', 'agrupamento_design', 'docstring'
+  ].includes(job.analysisType)
 
   const handleApprove = async () => {
-    if (!job) return
-    
-    setIsProcessing(true)
-    setAction('approve')
-    
-    try {
-      await approveJob(job.id)
-      toast({
-        title: 'Análise aprovada!',
-        description: reportMetadata.isAiGenerated 
-          ? 'A análise foi aprovada e está sendo processada.'
-          : 'A análise foi aprovada. O processo completo será iniciado.',
-      })
-      onClose()
-    } catch (error) {
-      console.error('Erro ao aprovar:', error)
+    if (!job.backendJobId) {
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao aprovar análise',
-        variant: 'destructive',
+        description: 'Job ID do backend não encontrado',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setIsProcessing(true)
+    try {
+      await backendService.updateJobStatus({
+        job_id: job.backendJobId,
+        action: 'approve'
+      })
+
+      toast({
+        title: 'Análise aprovada!',
+        description: isExecutableAnalysis 
+          ? 'As mudanças serão aplicadas automaticamente'
+          : 'Relatório aprovado com sucesso'
+      })
+
+      onApprove?.(job.id)
+      onClose()
+
+    } catch (error) {
+      toast({
+        title: 'Erro ao aprovar',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     } finally {
       setIsProcessing(false)
-      setAction(null)
     }
   }
 
   const handleReject = async () => {
-    if (!job) return
-    
-    setIsProcessing(true)
-    setAction('reject')
-    
-    try {
-      await rejectJob(job.id)
-      toast({
-        title: 'Análise rejeitada',
-        description: 'A análise foi rejeitada e não será processada.',
-      })
-      onClose()
-    } catch (error) {
-      console.error('Erro ao rejeitar:', error)
+    if (!job.backendJobId) {
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao rejeitar análise',
-        variant: 'destructive',
+        description: 'Job ID do backend não encontrado',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setIsProcessing(true)
+    try {
+      await backendService.updateJobStatus({
+        job_id: job.backendJobId,
+        action: 'reject'
+      })
+
+      toast({
+        title: 'Análise rejeitada',
+        description: 'A análise foi cancelada'
+      })
+
+      onReject?.(job.id)
+      onClose()
+
+    } catch (error) {
+      toast({
+        title: 'Erro ao rejeitar',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     } finally {
       setIsProcessing(false)
-      setAction(null)
     }
   }
 
-  const handleDownload = () => {
-    if (!actualReport || !job) return
+  const handleCommit = async () => {
+    if (!job.backendJobId) {
+      toast({
+        title: 'Erro',
+        description: 'Job ID do backend não encontrado',
+        variant: 'destructive'
+      })
+      return
+    }
 
-    const blob = new Blob([actualReport], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `analise-${job.repository?.replace('/', '-') || 'repo'}-${job.id.slice(0, 8)}.md`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    setIsProcessing(true)
+    try {
+      await backendService.updateJobStatus({
+        job_id: job.backendJobId,
+        action: 'commit',
+        commit_message: commitMessage || undefined,
+        create_branch: createBranch
+      })
 
-    toast({
-      title: 'Download iniciado',
-      description: 'O relatório está sendo baixado.',
-    })
-  }
+      toast({
+        title: 'Commit iniciado!',
+        description: createBranch 
+          ? `Criando nova branch e aplicando mudanças`
+          : 'Aplicando mudanças na branch atual'
+      })
 
-  const handleRefresh = () => {
-    if (job?.id) {
-      fetchActualReport(job.id)
+      onClose()
+
+    } catch (error) {
+      toast({
+        title: 'Erro no commit',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
-  if (!isOpen || !job) return null
+  const downloadReport = () => {
+    if (job.report || job.initialReport) {
+      const reportContent = job.report || job.initialReport || ''
+      const blob = new Blob([reportContent], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `analise-${job.repository.replace('/', '-')}-${job.id}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+  }
 
-  const displayReport = actualReport || job.report || job.initialReport || 'Carregando relatório...'
-  const isTemplate = displayReport.includes('Aguardando aprovação') || 
-                    displayReport.includes('Analisando...') ||
-                    displayReport.includes('Calculando...')
+  const getAnalysisTypeInfo = (type: string) => {
+    const types: Record<string, { name: string; icon: string; description: string }> = {
+      'design': { 
+        name: 'Análise de Design', 
+        icon: '🏗️', 
+        description: 'Auditoria de arquitetura e qualidade' 
+      },
+      'seguranca': { 
+        name: 'Auditoria de Segurança', 
+        icon: '🔒', 
+        description: 'Análise de vulnerabilidades OWASP' 
+      },
+      'pentest': { 
+        name: 'Plano de Pentest', 
+        icon: '🎯', 
+        description: 'Planejamento de testes de penetração' 
+      },
+      'terraform': { 
+        name: 'Análise de Terraform', 
+        icon: '☁️', 
+        description: 'Auditoria de infraestrutura' 
+      },
+      'relatorio_teste_unitario': { 
+        name: 'Relatório de Testes', 
+        icon: '📊', 
+        description: 'Análise de cobertura de testes' 
+      },
+      'refatoracao': { 
+        name: 'Refatoração', 
+        icon: '⚡', 
+        description: 'Aplicação de melhorias automáticas' 
+      },
+      'refatorador': { 
+        name: 'Refatorador Avançado', 
+        icon: '🔧', 
+        description: 'Refatoração com padrões' 
+      },
+      'escrever_testes': { 
+        name: 'Criar Testes', 
+        icon: '🧪', 
+        description: 'Geração de testes unitários' 
+      },
+      'agrupamento_testes': { 
+        name: 'Agrupar Testes', 
+        icon: '📦', 
+        description: 'Organização de testes' 
+      },
+      'agrupamento_design': { 
+        name: 'Agrupar Melhorias', 
+        icon: '📋', 
+        description: 'Organização de commits' 
+      },
+      'docstring': { 
+        name: 'Documentação', 
+        icon: '📚', 
+        description: 'Geração de documentação' 
+      }
+    }
+    return types[type] || { name: type, icon: '📄', description: 'Análise de código' }
+  }
+
+  const typeInfo = getAnalysisTypeInfo(job.analysisType)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal Content */}
-      <div className="relative bg-background border rounded-lg shadow-lg max-w-5xl max-h-[90vh] w-full mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5" />
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-auto">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{typeInfo.icon}</span>
+              <div>
+                <CardTitle className="text-xl">{typeInfo.name}</CardTitle>
+                <p className="text-muted-foreground">{typeInfo.description}</p>
+              </div>
+            </div>
+            <Badge variant="warning" className="flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Aguardando Aprovação
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Informações do Job */}
+          <div className="grid md:grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
             <div>
-              <h2 className="text-lg font-semibold">
-                Análise: {job.title || job.repository}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {job.analysisType} • {job.repository}
+              <h4 className="font-medium mb-2">Repositório</h4>
+              <p className="text-sm text-muted-foreground">{job.repository}</p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Branch</h4>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <GitBranch className="h-3 w-3" />
+                {job.branch || 'main'}
               </p>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoadingReport}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingReport ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Status e Metadata */}
-        <div className="p-4 bg-muted/30 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Badge variant={job.status === 'completed' ? 'success' : 'warning'} className="flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {job.status === 'pending_approval' ? 'Aguardando Aprovação' : job.status}
-              </Badge>
-              
-              {reportMetadata.isAiGenerated && (
-                <Badge variant="success" className="flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  Análise IA Completa
-                </Badge>
-              )}
-              
-              {isTemplate && (
-                <Badge variant="warning" className="flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Template Inicial
-                </Badge>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              {reportMetadata.tokensUsed && (
-                <span>🤖 {reportMetadata.tokensUsed} tokens</span>
-              )}
-              <span>📝 {reportMetadata.reportLength.toLocaleString()} chars</span>
-              {reportMetadata.lastUpdated && (
-                <span>🕒 {new Date(reportMetadata.lastUpdated).toLocaleTimeString()}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Job Info */}
-        <div className="p-4 bg-muted/10 border-b">
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <strong>Repositório:</strong> {job.repository}
-            </div>
-            <div>
-              <strong>Tipo:</strong> {job.analysisType}
-            </div>
-            <div>
-              <strong>Branch:</strong> {job.branch || 'padrão'}
-            </div>
-          </div>
-          {job.instructions && (
-            <div className="mt-2 text-sm">
-              <strong>Instruções extras:</strong> {job.instructions}
-            </div>
-          )}
-        </div>
-
-        {/* Report Content */}
-        <div className="flex-1 overflow-hidden">
-          {isLoadingReport ? (
-            <div className="flex items-center justify-center p-12">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">Carregando resultado da análise...</p>
+            {job.instructions && (
+              <div className="md:col-span-2">
+                <h4 className="font-medium mb-2">Instruções Específicas</h4>
+                <p className="text-sm text-muted-foreground bg-background p-3 rounded border">
+                  {job.instructions}
+                </p>
               </div>
-            </div>
-          ) : (
-            <div className="h-96 overflow-y-auto">
-              <div className="p-6">
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown className="text-sm leading-relaxed">
-                    {displayReport}
-                  </ReactMarkdown>
+            )}
+          </div>
+
+          {/* Relatório */}
+          {(job.report || job.initialReport) && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Relatório da Análise
+                </h4>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadReport}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
                 </div>
               </div>
+              
+              <div className="bg-muted p-4 rounded-lg max-h-96 overflow-auto">
+                <pre className="whitespace-pre-wrap text-sm font-mono">
+                  {job.report || job.initialReport}
+                </pre>
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between p-6 border-t bg-muted/10">
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              disabled={!displayReport || isLoadingReport}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-          </div>
-          
-          <div className="flex gap-2">
+          {/* Opções de Commit (para análises executáveis) */}
+          {isExecutableAnalysis && (
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings className="h-4 w-4" />
+                <h4 className="font-medium">Opções de Commit</h4>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Mensagem do Commit (opcional)
+                  </label>
+                  <Input
+                    placeholder="ex: Refatoração automática baseada em análise de design"
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="create-branch"
+                    checked={createBranch}
+                    onCheckedChange={setCreateBranch}
+                  />
+                  <label htmlFor="create-branch" className="text-sm">
+                    Criar nova branch para as mudanças
+                  </label>
+                </div>
+
+                {createBranch && (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Nome da Nova Branch
+                    </label>
+                    <Input
+                      placeholder="ex: feature/refactoring-improvements"
+                      value={branchName}
+                      onChange={(e) => setBranchName(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="flex gap-3 justify-end pt-4 border-t">
             <Button
               variant="outline"
               onClick={onClose}
               disabled={isProcessing}
             >
-              Fechar
+              Cancelar
             </Button>
             
             <Button
@@ -375,28 +376,30 @@ export const JobApprovalModal: React.FC<JobApprovalModalProps> = ({
               onClick={handleReject}
               disabled={isProcessing}
             >
-              {isProcessing && action === 'reject' ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <XCircle className="h-4 w-4 mr-2" />
-              )}
+              <XCircle className="h-4 w-4 mr-2" />
               Rejeitar
             </Button>
-            
-            <Button
-              onClick={handleApprove}
-              disabled={isProcessing || isLoadingReport}
-            >
-              {isProcessing && action === 'approve' ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
+
+            {isExecutableAnalysis ? (
+              <Button
+                onClick={handleCommit}
+                disabled={isProcessing}
+              >
                 <CheckCircle className="h-4 w-4 mr-2" />
-              )}
-              {reportMetadata.isAiGenerated ? 'Aprovar Análise' : 'Aprovar e Executar'}
-            </Button>
+                {isProcessing ? 'Processando...' : 'Aprovar e Implementar'}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleApprove}
+                disabled={isProcessing}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {isProcessing ? 'Processando...' : 'Aprovar Relatório'}
+              </Button>
+            )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
