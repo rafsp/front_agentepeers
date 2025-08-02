@@ -1,5 +1,4 @@
-// src/app/dashboard/jobs/page.tsx - VERSÃO CORRIGIDA
-
+// src/app/dashboard/jobs/page.tsx - CORRIGIDO
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -9,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2, FileCheck, AlertCircle } from 'lucide-react'
-import { useJobs } from '@/hooks/use-jobs'
-import { formatJobDate } from '@/lib/utils/date-utils'
+import { useJobStore } from '@/stores/job-store'
+import { JobApprovalModal } from '@/components/job-approval-modal'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 // Mapear todos os status possíveis
 const statusIcons = {
@@ -18,15 +19,12 @@ const statusIcons = {
   pending_approval: AlertCircle,
   approved: CheckCircle,
   running: Play,
-  analyzing_code: Play,
   refactoring_code: Play,
   grouping_commits: Play,
   writing_unit_tests: Play,
   grouping_tests: Play,
   populating_data: Play,
   committing_to_github: Play,
-  ready_for_commit: CheckCircle,
-  committing: Play,
   completed: CheckCircle,
   failed: XCircle,
   rejected: XCircle,
@@ -37,15 +35,12 @@ const statusColors = {
   pending_approval: 'warning',
   approved: 'default',
   running: 'default',
-  analyzing_code: 'default',
   refactoring_code: 'default',
   grouping_commits: 'default',
   writing_unit_tests: 'default',
   grouping_tests: 'default',
   populating_data: 'default',
   committing_to_github: 'default',
-  ready_for_commit: 'success',
-  committing: 'default',
   completed: 'success',
   failed: 'destructive',
   rejected: 'destructive',
@@ -56,15 +51,12 @@ const statusLabels = {
   pending_approval: 'Aguardando Aprovação',
   approved: 'Aprovado',
   running: 'Executando',
-  analyzing_code: 'Analisando Código',
   refactoring_code: 'Refatorando Código',
   grouping_commits: 'Agrupando Commits',
   writing_unit_tests: 'Escrevendo Testes',
   grouping_tests: 'Agrupando Testes',
   populating_data: 'Preparando Dados',
   committing_to_github: 'Enviando para GitHub',
-  ready_for_commit: 'Pronto para Commit',
-  committing: 'Fazendo Commit',
   completed: 'Concluído',
   failed: 'Falhou',
   rejected: 'Rejeitado',
@@ -72,26 +64,66 @@ const statusLabels = {
 
 export default function JobsPage() {
   const router = useRouter()
-  const { jobsList, removeJob, clearCompleted } = useJobs()
+  const searchParams = useSearchParams()
+  const { jobs, removeJob, clearCompleted } = useJobStore()
   const [selectedJobForApproval, setSelectedJobForApproval] = useState<string | null>(null)
 
-  const sortedJobs = jobsList.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const jobsList = Object.values(jobs).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
 
-  // Auto-abrir modal se há job aguardando aprovação
+  // 🔧 CORREÇÃO: Detectar automaticamente jobs aguardando aprovação
   useEffect(() => {
-    const pendingApprovalJobs = sortedJobs.filter(job => job.status === 'pending_approval')
+    const pendingApprovalJobs = jobsList.filter(job => job.status === 'pending_approval')
+    
+    // Verificar se há job pendente e se não há modal aberto
     if (pendingApprovalJobs.length > 0 && !selectedJobForApproval) {
+      console.log('📋 Jobs pendentes de aprovação:', pendingApprovalJobs.length)
+      console.log('🎯 Abrindo modal para job:', pendingApprovalJobs[0].id)
       setSelectedJobForApproval(pendingApprovalJobs[0].id)
     }
-  }, [sortedJobs, selectedJobForApproval])
+    
+    // Fechar modal se não há mais jobs pendentes
+    if (pendingApprovalJobs.length === 0 && selectedJobForApproval) {
+      console.log('✅ Não há mais jobs pendentes - fechando modal')
+      setSelectedJobForApproval(null)
+    }
+  }, [jobsList, selectedJobForApproval])
+
+  // 🔧 CORREÇÃO: Debug para verificar se jobs estão sendo detectados
+  useEffect(() => {
+    const pendingJobs = jobsList.filter(job => job.status === 'pending_approval')
+    console.log('🔍 Debug JobsPage:')
+    console.log('- Total jobs:', jobsList.length)
+    console.log('- Jobs pending_approval:', pendingJobs.length)
+    console.log('- Selected job for approval:', selectedJobForApproval)
+    console.log('- Jobs list:', jobsList.map(j => ({ 
+      id: j.id, 
+      status: j.status, 
+      title: j.title,
+      backendJobId: j.backendJobId,
+      awaitingApproval: j.awaitingApproval,
+      hasReport: !!(j.report || j.initialReport)
+    })))
+    
+    // 🔧 Debug individual de cada job
+    pendingJobs.forEach(job => {
+      console.log(`📋 Job ${job.id}:`, {
+        status: job.status,
+        awaitingApproval: job.awaitingApproval,
+        backendJobId: job.backendJobId,
+        hasInitialReport: !!job.initialReport,
+        hasReport: !!job.report
+      })
+    })
+  }, [jobsList, selectedJobForApproval])
 
   const handleViewReport = (jobId: string) => {
     router.push(`/dashboard/reports/${jobId}`)
   }
 
-  const handleDownloadReport = (job: any) => {
+  const handleDownloadReport = (jobId: string) => {
+    const job = jobs[jobId]
     if (job?.report || job?.initialReport) {
       const reportContent = job.report || job.initialReport || ''
       const blob = new Blob([reportContent], { type: 'text/markdown' })
@@ -107,236 +139,226 @@ export default function JobsPage() {
   }
 
   const handleApprovalClick = (jobId: string) => {
+    console.log('🖱️ Clique manual para aprovação do job:', jobId)
     setSelectedJobForApproval(jobId)
   }
 
-  const selectedJob = selectedJobForApproval ? 
-    sortedJobs.find(job => job.id === selectedJobForApproval) : null
-
-  // Função helper para pegar ícone de status
-  const getStatusIcon = (status: string) => {
-    return statusIcons[status as keyof typeof statusIcons] || Play
-  }
-
-  // Função helper para pegar cor do status
-  const getStatusColor = (status: string): 'default' | 'success' | 'warning' | 'destructive' => {
-    return statusColors[status as keyof typeof statusColors] || 'default'
-  }
-
-  // Função helper para pegar label do status
-  const getStatusLabel = (status: string) => {
-    return statusLabels[status as keyof typeof statusLabels] || status
-  }
+  const selectedJob = selectedJobForApproval ? jobs[selectedJobForApproval] : null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="space-y-6">
       {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
+            size="sm"
             onClick={() => router.push('/dashboard')}
-            className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Dashboard
+            Voltar
           </Button>
-          
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Jobs de Análise</h1>
-              <p className="text-muted-foreground">
-                Acompanhe o progresso de todas as suas análises
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={clearCompleted}
-                disabled={!sortedJobs.some(job => ['completed', 'failed', 'rejected'].includes(job.status))}
-              >
-                Limpar Concluídos
-              </Button>
-              <Button onClick={() => router.push('/dashboard/new-analysis')}>
-                Nova Análise
-              </Button>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold">Jobs de Análise</h1>
+          <Badge variant="outline">{jobsList.length} jobs</Badge>
         </div>
-      </header>
+        
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={clearCompleted}
+            disabled={!jobsList.some(job => ['completed', 'failed', 'rejected'].includes(job.status))}
+          >
+            Limpar Concluídos
+          </Button>
+        </div>
+      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        {sortedJobs.length === 0 ? (
+      {/* 🔧 CORREÇÃO: Debug Visual */}
+      <Card className="border-yellow-200 bg-yellow-50">
+        <CardContent className="p-4">
+          <p className="text-sm text-yellow-800">
+            <strong>Debug:</strong> Jobs pending_approval: {jobsList.filter(j => j.status === 'pending_approval').length} | 
+            Modal aberto: {selectedJobForApproval ? 'Sim' : 'Não'} | 
+            Selected ID: {selectedJobForApproval || 'None'}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Aguardando Aprovação</p>
+                <p className="text-2xl font-bold">
+                  {jobsList.filter(job => job.status === 'pending_approval').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Play className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Em Execução</p>
+                <p className="text-2xl font-bold">
+                  {jobsList.filter(job => ['running', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Concluídos</p>
+                <p className="text-2xl font-bold">
+                  {jobsList.filter(job => job.status === 'completed').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Com Problemas</p>
+                <p className="text-2xl font-bold">
+                  {jobsList.filter(job => ['failed', 'rejected'].includes(job.status)).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lista de Jobs */}
+      <div className="space-y-4">
+        {jobsList.length === 0 ? (
           <Card>
-            <CardContent className="text-center py-8">
-              <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <CardContent className="p-8 text-center">
+              <FileCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Nenhum job encontrado</h3>
-              <p className="text-muted-foreground mb-4">
-                Você ainda não iniciou nenhuma análise de código.
+              <p className="text-muted-foreground">
+                Inicie uma nova análise para ver os jobs aqui.
               </p>
-              <Button onClick={() => router.push('/dashboard/new-analysis')}>
-                Criar Primeira Análise
-              </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {sortedJobs.map((job) => {
-              const StatusIcon = getStatusIcon(job.status)
-              const statusColor = getStatusColor(job.status)
-              const statusLabel = getStatusLabel(job.status)
+          jobsList.map((job) => {
+            const StatusIcon = statusIcons[job.status] || Clock
+            const statusColor = statusColors[job.status] || 'default'
+            const statusLabel = statusLabels[job.status] || job.status
 
-              return (
-                <Card key={job.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <StatusIcon className="h-6 w-6" />
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{job.title}</h3>
-                            <Badge variant={statusColor}>
-                              {statusLabel}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {job.repository} • Criado: {formatJobDate(job.createdAt)}
-                            {job.updatedAt && job.updatedAt !== job.createdAt && (
-                              <> • Atualizado: {formatJobDate(job.updatedAt)}</>
-                            )}
-                          </p>
-                          {job.message && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {job.message}
-                            </p>
-                          )}
-                        </div>
+            return (
+              <Card key={job.id}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <StatusIcon className="h-5 w-5" />
+                        <h3 className="font-semibold">{job.title}</h3>
+                        <Badge variant={statusColor as any}>{statusLabel}</Badge>
+                        {job.status === 'pending_approval' && (
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                            🔔 Necessita Aprovação
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground mb-3">
+                        <p><strong>Repositório:</strong> {job.repository}</p>
+                        <p><strong>Tipo:</strong> {job.analysisType}</p>
+                        {job.branch && <p><strong>Branch:</strong> {job.branch}</p>}
+                        <p><strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { addSuffix: true, locale: ptBR })}</p>
                       </div>
 
-                      <div className="flex items-center gap-4">
-                        {/* Progress */}
-                        {['running', 'analyzing_code'].includes(job.status) && (
-                          <div className="flex items-center gap-2 min-w-32">
-                            <Progress value={job.progress || 0} className="w-24 h-2" />
-                            <span className="text-sm text-muted-foreground">
-                              {job.progress || 0}%
-                            </span>
-                          </div>
-                        )}
+                      {['running', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status) && (
+                        <div className="mb-3">
+                          <Progress value={job.progress} className="h-2" />
+                          <p className="text-sm text-muted-foreground mt-1">{job.message}</p>
+                        </div>
+                      )}
 
-                        {/* Actions */}
-                        <div className="flex gap-2">
-                          {job.status === 'pending_approval' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprovalClick(job.id)}
-                            >
-                              <FileCheck className="h-4 w-4 mr-2" />
-                              Revisar
-                            </Button>
-                          )}
+                      {job.error && (
+                        <div className="bg-red-50 border border-red-200 rounded p-3 mb-3">
+                          <p className="text-sm text-red-700">{job.error}</p>
+                        </div>
+                      )}
+                    </div>
 
-                          {(job.status === 'completed' || job.report) && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewReport(job.id)}
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                Ver
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownloadReport(job)}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </Button>
-                            </>
-                          )}
-
+                    {/* Actions */}
+                    <div className="flex gap-2 ml-4">
+                      {job.status === 'pending_approval' && (
+                        <Button
+                          onClick={() => handleApprovalClick(job.id)}
+                          className="bg-yellow-500 hover:bg-yellow-600"
+                        >
+                          <FileCheck className="h-4 w-4 mr-2" />
+                          Revisar e Aprovar
+                        </Button>
+                      )}
+                      
+                      {['completed', 'failed'].includes(job.status) && (job.report || job.initialReport) && (
+                        <>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => removeJob(job.id)}
+                            onClick={() => handleViewReport(job.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver
                           </Button>
-                        </div>
-                      </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadReport(job.id)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                        </>
+                      )}
+                      
+                      {['completed', 'failed', 'rejected'].includes(job.status) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeJob(job.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remover
+                        </Button>
+                      )}
                     </div>
-
-                    {/* Error Display */}
-                    {job.error && (
-                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-sm text-red-600">
-                          <strong>Erro:</strong> {job.error}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
         )}
       </div>
 
-      {/* Modal de Aprovação */}
-      {selectedJob && selectedJob.status === 'pending_approval' && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-4xl mx-4 max-h-[90vh] overflow-auto">
-            <CardHeader>
-              <CardTitle>Revisar Análise</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold">{selectedJob.title}</h3>
-                  <p className="text-muted-foreground">{selectedJob.repository}</p>
-                </div>
-
-                {selectedJob.initialReport && (
-                  <div className="prose max-w-none">
-                    <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-md">
-                      {selectedJob.initialReport}
-                    </pre>
-                  </div>
-                )}
-
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedJobForApproval(null)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      // rejectJob(selectedJob.id) - implementar se necessário
-                      setSelectedJobForApproval(null)
-                    }}
-                  >
-                    Rejeitar
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      // approveJob(selectedJob.id) - implementar se necessário
-                      setSelectedJobForApproval(null)
-                    }}
-                  >
-                    Aprovar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* 🔧 CORREÇÃO: Modal de Aprovação sempre renderizado */}
+      <JobApprovalModal
+        job={selectedJob}
+        isOpen={!!selectedJobForApproval && !!selectedJob}
+        onClose={() => {
+          console.log('🚪 Fechando modal de aprovação')
+          setSelectedJobForApproval(null)
+        }}
+      />
     </div>
   )
 }
