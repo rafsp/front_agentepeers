@@ -174,15 +174,42 @@ export const useJobStore = create<JobState>()(
           }
         }),
 
-      testConnection: async (): Promise<boolean> => {
-        try {
-          await backendService.healthCheck()
-          return true
-        } catch (error) {
-          console.error('Erro na conexão:', error)
-          return false
-        }
+testConnection: async (): Promise<boolean> => {
+  try {
+    console.log('🔍 Testando conexão com backend...')
+    
+    // Fazer requisição direta para o endpoint que sabemos que funciona
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+    
+    const response = await fetch(`${baseUrl}/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       },
+    })
+    
+    if (!response.ok) {
+      console.log(`❌ Response não OK: ${response.status}`)
+      return false
+    }
+    
+    const data = await response.json()
+    console.log('✅ Resposta do backend:', data)
+    
+    // Verificar se a resposta contém os campos esperados
+    if (data && data.message && data.status === 'online') {
+      console.log('✅ Backend está online e funcionando!')
+      return true
+    }
+    
+    console.log('⚠️ Backend respondeu mas não está no formato esperado')
+    return false
+  } catch (error) {
+    console.error('❌ Erro ao testar conexão:', error)
+    return false
+  }
+},
+      
 
       syncJobsFromBackend: async (): Promise<void> => {
         try {

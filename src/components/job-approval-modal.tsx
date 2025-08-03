@@ -1,259 +1,307 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  FileText, 
-  ThumbsUp, 
-  ThumbsDown,
-  ExternalLink,
-  Copy,
-  Download
-} from 'lucide-react'
-
-interface JobData {
-  id: string
-  title: string
-  repository: string
-  branch: string
-  analysisType: string
-  status: string
-  report?: string
-  createdAt: Date
-  estimatedTime?: string
-  metrics?: {
-    linesAnalyzed?: number
-    filesScanned?: number
-    issuesFound?: number
-    criticalIssues?: number
-  }
-}
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { CheckCircle, XCircle, FileText, Loader2, AlertCircle, X, Copy, Download, ExternalLink } from 'lucide-react'
+import { Job, useJobStore } from '@/stores/job-store'
+import { useToast } from '@/components/ui/use-toast'
 
 interface JobApprovalModalProps {
-  job: JobData | null
+  job: Job | null
   isOpen: boolean
   onClose: () => void
-  onApprove: (jobId: string) => void
-  onReject: (jobId: string) => void
-  isLoading?: boolean
 }
 
-export function JobApprovalModal({
+export const JobApprovalModal: React.FC<JobApprovalModalProps> = ({
   job,
   isOpen,
-  onClose,
-  onApprove,
-  onReject,
-  isLoading = false
-}: JobApprovalModalProps) {
-  
+  onClose
+}) => {
+  const { toast } = useToast()
+  const { approveJob, rejectJob } = useJobStore()
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [action, setAction] = useState<'approve' | 'reject' | null>(null)
+
+  const handleApprove = async () => {
+    if (!job) return
+    
+    setIsProcessing(true)
+    setAction('approve')
+    
+    try {
+      await approveJob(job.id)
+      toast({
+        title: 'Análise aprovada!',
+        description: 'O processo de refatoração foi iniciado.',
+      })
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao aprovar análise',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsProcessing(false)
+      setAction(null)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!job) return
+    
+    setIsProcessing(true)
+    setAction('reject')
+    
+    try {
+      await rejectJob(job.id)
+      toast({
+        title: 'Análise rejeitada',
+        description: 'A análise foi rejeitada e não será processada.',
+      })
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao rejeitar análise',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsProcessing(false)
+      setAction(null)
+    }
+  }
+
+  const handleCopyReport = () => {
+    if (job?.initialReport || job?.report) {
+      navigator.clipboard.writeText(job.initialReport || job.report || '')
+      toast({
+        title: 'Relatório copiado!',
+        description: 'O conteúdo do relatório foi copiado para a área de transferência.',
+      })
+    }
+  }
+
+  const handleDownloadReport = () => {
+    if (job?.initialReport || job?.report) {
+      const content = job.initialReport || job.report || ''
+      const blob = new Blob([content], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `analise-${job.repository.replace('/', '-')}-${job.id}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast({
+        title: 'Download iniciado!',
+        description: 'O relatório está sendo baixado.',
+      })
+    }
+  }
+
   if (!isOpen || !job) return null
 
-  const analysisTypeLabels = {
-    design: 'Análise de Design',
-    relatorio_teste_unitario: 'Testes Unitários',
-    terraform: 'Segurança Terraform',
-    performance: 'Performance'
-  }
-
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date()
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-    if (diffMinutes < 60) return `${diffMinutes}m atrás`
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h atrás`
-    return `${Math.floor(diffMinutes / 1440)}d atrás`
-  }
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div className="relative bg-background border rounded-xl shadow-xl max-w-5xl w-full mx-4 max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Análise Concluída - Aguardando Aprovação
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Revise os resultados antes de prosseguir com as implementações
-              </p>
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FileText className="h-5 w-5 text-blue-600" />
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              ✕
-            </button>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Análise Concluída - Aguardando Aprovação</h2>
+              <p className="text-sm text-gray-600">Revise os resultados antes de prosseguir com as implementações</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 flex min-h-0">
+          {/* Left Panel - Details */}
+          <div className="w-80 border-r bg-gray-50/50 p-6 space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Detalhes da Análise</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Tipo:</p>
+                  <p className="text-gray-900 font-medium">
+                    {job.analysisType === 'design' ? 'Análise de Design' : 'Relatório de Testes Unitários'}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Repositório:</p>
+                  <p className="text-gray-900 font-mono text-sm">{job.repository}</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Branch:</p>
+                  <p className="text-gray-900">{job.branch || 'main'}</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Criado:</p>
+                  <p className="text-gray-900 text-sm">
+                    {job.createdAt.toLocaleDateString('pt-BR')} às{' '}
+                    {job.createdAt.toLocaleTimeString('pt-BR')}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Status:</p>
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Aguardando Aprovação
+                  </Badge>
+                </div>
+                
+                {job.instructions && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Instruções:</p>
+                    <p className="text-gray-900 text-sm bg-white p-2 rounded border">
+                      {job.instructions}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Ações</h4>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyReport}
+                  className="w-full justify-start"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar Relatório
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadReport}
+                  className="w-full justify-start"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`https://github.com/${job.repository}`, '_blank')}
+                  className="w-full justify-start"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Ver no GitHub
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - Report */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="p-6 border-b bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Relatório de Análise</h3>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {job.analysisType === 'design' ? 'Arquitetura e Design' : 'Cobertura de Testes'}
+                </div>
+              </div>
+            </div>
+            
+            {/* Scrollable Report Content */}
+            <div className="flex-1 p-6 min-h-0">
+              <ScrollArea className="h-full w-full">
+                {job.initialReport || job.report ? (
+                  <div className="prose prose-sm max-w-none">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-gray-50 p-4 rounded-lg border">
+                      {job.initialReport || job.report}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <FileText className="h-16 w-16 text-gray-400 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">
+                      Relatório não disponível
+                    </h4>
+                    <p className="text-gray-600 max-w-md">
+                      O relatório ainda está sendo gerado ou não foi possível carregar o conteúdo.
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           </div>
         </div>
 
-        <div className="flex">
-          {/* Sidebar com informações do job */}
-          <div className="w-80 border-r border-gray-200 bg-gray-50">
-            <div className="p-6 space-y-6">
-              
-              {/* Job Info */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Detalhes da Análise</h3>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600">Tipo:</span>
-                    <p className="font-medium">
-                      {analysisTypeLabels[job.analysisType as keyof typeof analysisTypeLabels] || job.analysisType}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Repositório:</span>
-                    <p className="font-medium">{job.repository}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Branch:</span>
-                    <p className="font-medium">{job.branch}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Criado:</span>
-                    <p className="font-medium">{formatTimeAgo(job.createdAt)}</p>
-                  </div>
-                  {job.estimatedTime && (
-                    <div>
-                      <span className="text-gray-600">Tempo estimado:</span>
-                      <p className="font-medium">{job.estimatedTime}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Metrics */}
-              {job.metrics && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Métricas</h3>
-                  <div className="space-y-2 text-sm">
-                    {job.metrics.linesAnalyzed && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Linhas analisadas:</span>
-                        <span className="font-medium">{job.metrics.linesAnalyzed.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {job.metrics.filesScanned && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Arquivos:</span>
-                        <span className="font-medium">{job.metrics.filesScanned}</span>
-                      </div>
-                    )}
-                    {job.metrics.issuesFound && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Problemas:</span>
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700">
-                          {job.metrics.issuesFound}
-                        </Badge>
-                      </div>
-                    )}
-                    {job.metrics.criticalIssues && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Críticos:</span>
-                        <Badge variant="outline" className="bg-red-50 text-red-700">
-                          {job.metrics.criticalIssues}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Ações</h3>
-                <div className="space-y-2">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Relatório
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Ver no GitHub
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main content - Report */}
-          <div className="flex-1 flex flex-col">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-gray-600" />
-                <h3 className="font-semibold text-gray-900">Relatório de Análise</h3>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {job.report ? (
-                <div className="prose prose-sm max-w-none">
-                  <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg border font-mono">
-                    {job.report}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Relatório não disponível</p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer with approval buttons */}
-            <div className="border-t border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>
-                    {job.status === 'pending_approval' 
-                      ? 'Aguardando sua aprovação para prosseguir'
-                      : 'Análise processada'
-                    }
-                  </span>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => onReject(job.id)}
-                    disabled={isLoading}
-                    className="min-w-[100px]"
-                  >
-                    <ThumbsDown className="h-4 w-4 mr-2" />
-                    Rejeitar
-                  </Button>
-                  <Button
-                    onClick={() => onApprove(job.id)}
-                    disabled={isLoading}
-                    className="min-w-[100px] bg-[#10a37f] hover:bg-[#0d8566]"
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Aprovando...
-                      </>
-                    ) : (
-                      <>
-                        <ThumbsUp className="h-4 w-4 mr-2" />
-                        Aprovar
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Footer */}
+        <div className="flex gap-3 p-6 border-t bg-gray-50/50 rounded-b-xl">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isProcessing}
+            className="px-8"
+          >
+            Cancelar
+          </Button>
+          
+          <Button
+            variant="destructive"
+            onClick={handleReject}
+            disabled={isProcessing}
+            className="px-8"
+          >
+            {isProcessing && action === 'reject' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <XCircle className="h-4 w-4 mr-2" />
+            )}
+            Rejeitar
+          </Button>
+          
+          <Button
+            onClick={handleApprove}
+            disabled={isProcessing}
+            className="px-8 bg-green-600 hover:bg-green-700"
+          >
+            {isProcessing && action === 'approve' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle className="h-4 w-4 mr-2" />
+            )}
+            Aprovar e Continuar
+          </Button>
         </div>
       </div>
     </div>

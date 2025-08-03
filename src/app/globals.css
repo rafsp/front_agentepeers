@@ -1,335 +1,305 @@
-/* src/app/globals.css - APENAS CSS AQUI */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Paleta ChatGPT/Gemini */
-    --background: 255 255 255; /* Branco puro */
-    --foreground: 13 13 13; /* Quase preto */
-    --card: 255 255 255;
-    --card-foreground: 13 13 13;
-    --popover: 255 255 255;
-    --popover-foreground: 13 13 13;
+    /* Core Colors - Inspired by Gemini/ChatGPT */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
     
-    /* Primário - Verde suave do ChatGPT */
-    --primary: 16 163 127; /* #10a37f */
-    --primary-foreground: 255 255 255;
+    /* Primary - Modern Blue */
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
     
-    /* Secundário - Cinza neutro */
-    --secondary: 247 248 248; /* #f7f8f8 */
-    --secondary-foreground: 13 13 13;
+    /* Secondary - Soft Gray */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
     
-    /* Muted - Cinza claro */
-    --muted: 247 248 248; /* #f7f8f8 */
-    --muted-foreground: 107 114 126; /* #6b727e */
+    /* Muted - Clean Background */
+    --muted: 210 40% 98%;
+    --muted-foreground: 215.4 16.3% 46.9%;
     
-    /* Accent - Cinza muito claro */
-    --accent: 247 248 248;
-    --accent-foreground: 13 13 13;
+    /* Accent - Subtle Highlight */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
     
-    /* Destrutivo - Vermelho suave */
-    --destructive: 217 45 32; /* #d92d20 */
-    --destructive-foreground: 255 255 255;
+    /* Destructive - Red for errors */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
     
-    /* Bordas e inputs */
-    --border: 217 217 217; /* #d9d9d9 */
-    --input: 217 217 217;
-    --ring: 16 163 127; /* Verde ChatGPT */
+    /* Success - Green for success states */
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
     
-    --radius: 8px;
+    /* Warning - Orange for warnings */
+    --warning: 32 95% 44%;
+    --warning-foreground: 210 40% 98%;
+    
+    /* Border and input colors */
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    
+    /* Radius for modern look */
+    --radius: 0.75rem;
   }
 
   .dark {
-    /* Tema escuro estilo ChatGPT */
-    --background: 33 33 33; /* #212121 */
-    --foreground: 236 236 241; /* #ececf1 */
-    --card: 68 70 84; /* #444654 */
-    --card-foreground: 236 236 241;
-    --popover: 33 33 33;
-    --popover-foreground: 236 236 241;
-    
-    --primary: 25 195 125; /* Verde mais claro no dark */
-    --primary-foreground: 13 13 13;
-    
-    --secondary: 68 70 84;
-    --secondary-foreground: 236 236 241;
-    
-    --muted: 68 70 84;
-    --muted-foreground: 142 142 160;
-    --accent: 68 70 84;
-    --accent-foreground: 236 236 241;
-    
-    --destructive: 248 113 113;
-    --destructive-foreground: 13 13 13;
-    
-    --border: 68 70 84;
-    --input: 68 70 84;
-    --ring: 25 195 125;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
-  
+
   body {
-    @apply bg-background text-foreground;
-    font-family: "Söhne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Modern Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
-/* Override completo para remover qualquer amarelo */
-@layer utilities {
-  /* Remove TODOS os amarelos */
-  .bg-yellow-50,
-  .bg-yellow-100,
-  .bg-yellow-200,
-  .bg-yellow-300,
-  .bg-yellow-400,
-  .bg-yellow-500,
-  .bg-yellow-600,
-  .text-yellow-600,
-  .text-yellow-700,
-  .text-yellow-800,
-  .border-yellow-200,
-  .border-yellow-300 {
-    background-color: rgb(247 248 248) !important; /* Cinza neutro */
-    color: rgb(13 13 13) !important;
-    border-color: rgb(217 217 217) !important;
+@layer components {
+  /* Modern Card Styles */
+  .card-modern {
+    @apply bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 rounded-xl;
   }
 
-  /* Cards estilo ChatGPT/Gemini */
-  .chatgpt-card {
-    background-color: rgb(255 255 255);
-    border: 1px solid rgb(217 217 217);
-    border-radius: 8px;
-    transition: all 150ms ease;
+  .card-interactive {
+    @apply cursor-pointer hover:scale-[1.02] hover:shadow-lg transition-all duration-200;
   }
 
-  .chatgpt-card:hover {
-    border-color: rgb(16 163 127);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Botão estilo ChatGPT */
-  .chatgpt-button {
-    background-color: rgb(16 163 127);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-weight: 500;
-    transition: all 150ms ease;
-  }
-
-  .chatgpt-button:hover {
-    background-color: rgb(13 130 102);
-  }
-
-  .chatgpt-button-secondary {
-    background-color: rgb(247 248 248);
-    color: rgb(13 13 13);
-    border: 1px solid rgb(217 217 217);
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-weight: 500;
-    transition: all 150ms ease;
-  }
-
-  .chatgpt-button-secondary:hover {
-    background-color: rgb(236 236 241);
-  }
-
-  /* Status badges estilo Gemini */
+  /* Status Indicators */
   .status-success {
-    background-color: rgb(220 252 231) !important;
-    color: rgb(22 163 74) !important;
-    border-color: rgb(187 247 208) !important;
+    @apply bg-green-50 text-green-700 border-green-200;
   }
 
   .status-warning {
-    background-color: rgb(254 243 199) !important;
-    color: rgb(146 64 14) !important;
-    border-color: rgb(253 230 138) !important;
+    @apply bg-amber-50 text-amber-700 border-amber-200;
   }
 
   .status-error {
-    background-color: rgb(254 226 226) !important;
-    color: rgb(185 28 28) !important;
-    border-color: rgb(252 165 165) !important;
+    @apply bg-red-50 text-red-700 border-red-200;
   }
 
   .status-info {
-    background-color: rgb(219 234 254) !important;
-    color: rgb(29 78 216) !important;
-    border-color: rgb(191 219 254) !important;
+    @apply bg-blue-50 text-blue-700 border-blue-200;
   }
 
-  .status-neutral {
-    background-color: rgb(247 248 248) !important;
-    color: rgb(13 13 13) !important;
-    border-color: rgb(217 217 217) !important;
+  /* Gradient Backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
-  /* Layout geral */
-  .main-bg {
-    background-color: rgb(255 255 255);
+  .gradient-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
   }
 
-  .sidebar-bg {
-    background-color: rgb(247 248 248);
-    border-right: 1px solid rgb(217 217 217);
+  .gradient-warning {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
   }
 
-  .header-bg {
-    background-color: rgb(255 255 255);
-    border-bottom: 1px solid rgb(217 217 217);
+  /* Modern Button Styles */
+  .btn-modern {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 
+           shadow-sm hover:shadow-md transform hover:-translate-y-0.5;
   }
 
-  /* Typography estilo ChatGPT */
-  .heading-primary {
-    color: rgb(13 13 13);
-    font-weight: 600;
-    line-height: 1.2;
+  /* Layout Containers */
+  .main-container {
+    @apply min-h-screen bg-gray-50/50;
   }
 
-  .text-secondary {
-    color: rgb(107 114 126);
+  .content-container {
+    @apply container mx-auto px-4 py-8 max-w-7xl;
   }
 
-  .text-muted {
-    color: rgb(142 142 160);
+  .page-header {
+    @apply border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10;
   }
 
-  /* Remove qualquer gradiente colorido */
-  .bg-gradient-to-br,
-  .bg-gradient-to-r,
-  .gradient-bg {
-    background: rgb(255 255 255) !important;
+  /* Navigation Elements */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg font-medium
+           text-gray-700 hover:bg-gray-100 hover:text-gray-900
+           transition-all duration-200;
   }
 
-  /* Progress bar estilo ChatGPT */
+  .nav-item-active {
+    @apply bg-blue-50 text-blue-700 border border-blue-200;
+  }
+
+  /* Form Elements */
+  .form-input {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-lg
+           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+           transition-all duration-200;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+
+  /* Stats Cards */
+  .stats-card {
+    @apply bg-white p-6 rounded-xl border border-gray-100 shadow-sm
+           hover:shadow-md transition-all duration-200;
+  }
+
+  .stats-number {
+    @apply text-3xl font-bold text-gray-900;
+  }
+
+  .stats-label {
+    @apply text-sm text-gray-600;
+  }
+
+  /* Progress Indicators */
+  .progress-modern {
+    @apply h-2 bg-gray-200 rounded-full overflow-hidden;
+  }
+
   .progress-bar {
-    background-color: rgb(247 248 248);
-    border-radius: 4px;
-    overflow: hidden;
+    @apply h-full bg-gradient-to-r from-blue-500 to-blue-600 
+           transition-all duration-500 rounded-full;
   }
 
-  .progress-fill {
-    background-color: rgb(16 163 127);
-    height: 100%;
-    transition: width 300ms ease;
+  /* Badge Variants */
+  .badge-success {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+           bg-green-100 text-green-800 border border-green-200;
   }
 
-  /* Cards de análise perfeitamente alinhados */
-  .analysis-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-    align-items: stretch;
+  .badge-warning {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+           bg-amber-100 text-amber-800 border border-amber-200;
   }
 
-  .analysis-card {
-    display: flex;
-    flex-direction: column;
-    height: 200px; /* Aumentei a altura para mais espaço */
-    padding: 1.5rem;
-    border: 1px solid #d9d9d9;
-    border-radius: 8px;
-    background-color: white;
-    cursor: pointer;
-    transition: all 150ms ease;
+  .badge-error {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+           bg-red-100 text-red-800 border border-red-200;
   }
 
-  .analysis-card:hover {
-    border-color: #10a37f;
-    background-color: #f9f9f9;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  .badge-info {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+           bg-blue-100 text-blue-800 border border-blue-200;
   }
 
-  .analysis-card-header {
-    display: flex;
-    align-items: flex-start; /* Alinha no topo para títulos longos */
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    min-height: 48px; /* Altura mínima para consistência */
+  /* Animation Classes */
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-in-out;
   }
 
-  .analysis-card-icon {
-    width: 32px;
-    height: 32px;
-    background-color: #f7f8f8;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 150ms ease;
-    flex-shrink: 0; /* Não encolhe */
+  .animate-slideUp {
+    animation: slideUp 0.3s ease-out;
   }
 
-  .analysis-card:hover .analysis-card-icon {
-    background-color: #10a37f;
-    color: white;
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  .analysis-card-title {
-    font-weight: 500;
-    font-size: 0.875rem;
-    line-height: 1.3;
-    color: #0d0d0d;
-    margin: 0 0 0.25rem 0;
+  /* Loading States */
+  .loading-skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
   }
 
-  .analysis-card-count {
-    font-size: 0.75rem;
-    color: #6b727e;
-    margin: 0;
+  .loading-dots::after {
+    content: '';
+    animation: dots 2s infinite;
   }
 
-  .analysis-card-content {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
+  /* Empty States */
+  .empty-state {
+    @apply text-center py-12 px-4;
   }
 
-  .analysis-card-description {
-    font-size: 0.875rem;
-    color: #6b727e;
-    line-height: 1.4;
-    margin-bottom: 1.5rem;
-    flex: 1;
-    display: -webkit-box;
-    -webkit-line-clamp: 2; /* Limita a 2 linhas */
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: 2.4em; /* Altura fixa para 2 linhas */
+  .empty-state-icon {
+    @apply mx-auto h-16 w-16 text-gray-400 mb-4;
   }
 
-  .analysis-card-button {
-    background-color: #10a37f;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    transition: all 150ms ease;
-    margin-top: auto;
+  .empty-state-title {
+    @apply text-lg font-medium text-gray-900 mb-2;
   }
 
-  .analysis-card-button:hover {
-    background-color: #0d8566;
+  .empty-state-description {
+    @apply text-gray-600 max-w-md mx-auto;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Dark mode improvements */
+@media (prefers-color-scheme: dark) {
+  .card-modern {
+    @apply bg-gray-900 border-gray-800;
+  }
+  
+  .main-container {
+    @apply bg-gray-900;
+  }
+  
+  .page-header {
+    @apply bg-gray-900/80 border-gray-800;
   }
 }
