@@ -1,56 +1,34 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Remove 'appDir' - não é mais necessário no Next.js 13.4+
   experimental: {
-    appDir: true,
+    // Outras configurações experimentais podem ir aqui se necessário
   },
-  typescript: {
-    ignoreBuildErrors: false,
-  },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
+  // Configurações para desenvolvimento
+  reactStrictMode: true,
+  swcMinify: true,
+  
+  // Configurações para imagens (se necessário)
   images: {
-    domains: ['localhost', '127.0.0.1'],
+    domains: [
+      'localhost',
+      '127.0.0.1',
+      // Adicione outros domínios conforme necessário
+    ],
   },
   
-  // Configuração de proxy para conectar com o backend
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/:path*', // URL do backend FastAPI
-      },
-    ]
-  },
-  
-  // Headers para CORS se necessário
+  // Configurações para CORS durante desenvolvimento
   async headers() {
     return [
       {
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
         ],
       },
     ]
-  },
-  
-  // Configurações de ambiente
-  env: {
-    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
-  },
-  
-  // Otimizações
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-  
-  // Configurações para desenvolvimento
-  devIndicators: {
-    buildActivity: true,
-    buildActivityPosition: 'bottom-right',
   },
 }
 

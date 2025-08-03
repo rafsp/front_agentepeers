@@ -1,346 +1,408 @@
-// src/app/dashboard/jobs/page.tsx - CORRIGIDO
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Download, Eye, Trash2, FileCheck, AlertCircle } from 'lucide-react'
-import { useJobStore } from '@/stores/job-store'
-import { JobApprovalModal } from '@/components/job-approval-modal'
-import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { Progress } from '@/components/ui/progress'
+import { useAuth } from '@/lib/auth/auth-context'
+import { 
+  LogOut, 
+  Plus, 
+  Clock, 
+  CheckCircle, 
+  Play, 
+  BarChart3,
+  Code,
+  Shield,
+  Target,
+  Github,
+  Building2,
+  Settings,
+  Calendar,
+  Activity,
+  Brain,
+  ArrowRight,
+  ExternalLink,
+  Bell,
+  TrendingUp,
+  Users,
+  Zap
+} from 'lucide-react'
 
-// Mapear todos os status possíveis
-const statusIcons = {
-  pending: Clock,
-  pending_approval: AlertCircle,
-  approved: CheckCircle,
-  running: Play,
-  refactoring_code: Play,
-  grouping_commits: Play,
-  writing_unit_tests: Play,
-  grouping_tests: Play,
-  populating_data: Play,
-  committing_to_github: Play,
-  completed: CheckCircle,
-  failed: XCircle,
-  rejected: XCircle,
-} as const
+// Mock data
+const mockJobs = [
+  {
+    id: '1',
+    title: 'Análise de Design - projeto-frontend',
+    status: 'completed',
+    progress: 100,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    type: 'design',
+    repository: 'projeto-frontend'
+  },
+  {
+    id: '2', 
+    title: 'Testes Unitários - api-backend',
+    status: 'running',
+    progress: 65,
+    createdAt: new Date(Date.now() - 30 * 60 * 1000),
+    type: 'relatorio_teste_unitario',
+    repository: 'api-backend'
+  },
+  {
+    id: '3',
+    title: 'Segurança Terraform - infra-aws',
+    status: 'pending_approval',
+    progress: 25,
+    createdAt: new Date(Date.now() - 10 * 60 * 1000),
+    type: 'terraform',
+    repository: 'infra-aws'
+  }
+]
 
-const statusColors = {
-  pending: 'warning',
-  pending_approval: 'warning',
-  approved: 'default',
-  running: 'default',
-  refactoring_code: 'default',
-  grouping_commits: 'default',
-  writing_unit_tests: 'default',
-  grouping_tests: 'default',
-  populating_data: 'default',
-  committing_to_github: 'default',
-  completed: 'success',
-  failed: 'destructive',
-  rejected: 'destructive',
-} as const
-
-const statusLabels = {
-  pending: 'Pendente',
-  pending_approval: 'Aguardando Aprovação',
-  approved: 'Aprovado',
-  running: 'Executando',
-  refactoring_code: 'Refatorando Código',
-  grouping_commits: 'Agrupando Commits',
-  writing_unit_tests: 'Escrevendo Testes',
-  grouping_tests: 'Agrupando Testes',
-  populating_data: 'Preparando Dados',
-  committing_to_github: 'Enviando para GitHub',
-  completed: 'Concluído',
-  failed: 'Falhou',
-  rejected: 'Rejeitado',
-} as const
-
-export default function JobsPage() {
+export default function ChatGPTStyleDashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { jobs, removeJob, clearCompleted } = useJobStore()
-  const [selectedJobForApproval, setSelectedJobForApproval] = useState<string | null>(null)
+  const { user, logout } = useAuth()
+  const [jobs] = useState(mockJobs)
 
-  const jobsList = Object.values(jobs).sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  )
+  // Estatísticas
+  const stats = [
+    {
+      title: 'Análises Concluídas',
+      value: '127',
+      change: '+12%',
+      icon: CheckCircle,
+    },
+    {
+      title: 'Em Andamento',
+      value: '3',
+      change: 'Ativo',
+      icon: Activity,
+    },
+    {
+      title: 'Repositórios',
+      value: '24',
+      change: '+2 novos',
+      icon: Github,
+    },
+    {
+      title: 'Economia de Tempo',
+      value: '48h',
+      change: 'Este mês',
+      icon: TrendingUp,
+    },
+  ]
 
-  // 🔧 CORREÇÃO: Detectar automaticamente jobs aguardando aprovação
-  useEffect(() => {
-    const pendingApprovalJobs = jobsList.filter(job => job.status === 'pending_approval')
+  const analysisTypes = [
+    {
+      type: 'design',
+      title: 'Análise de Design',
+      description: 'Auditoria de arquitetura e qualidade',
+      icon: Code,
+      count: jobs.filter(j => j.type === 'design').length
+    },
+    {
+      type: 'relatorio_teste_unitario',
+      title: 'Testes Unitários',
+      description: 'Geração automática de testes',
+      icon: Shield,
+      count: jobs.filter(j => j.type === 'relatorio_teste_unitario').length
+    },
+    {
+      type: 'terraform',
+      title: 'Segurança Terraform',
+      description: 'Análise de segurança para IaC',
+      icon: Target,
+      count: jobs.filter(j => j.type === 'terraform').length
+    }
+  ]
+
+  const getStatusBadge = (status: string) => {
+    const configs = {
+      'completed': { class: 'status-success', label: 'Concluído' },
+      'running': { class: 'status-info', label: 'Em Andamento' },
+      'pending_approval': { class: 'status-warning', label: 'Aguardando Aprovação' },
+      'failed': { class: 'status-error', label: 'Falhou' }
+    }
+    return configs[status as keyof typeof configs] || { class: 'status-neutral', label: status }
+  }
+
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date()
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
     
-    // Verificar se há job pendente e se não há modal aberto
-    if (pendingApprovalJobs.length > 0 && !selectedJobForApproval) {
-      console.log('📋 Jobs pendentes de aprovação:', pendingApprovalJobs.length)
-      console.log('🎯 Abrindo modal para job:', pendingApprovalJobs[0].id)
-      setSelectedJobForApproval(pendingApprovalJobs[0].id)
-    }
-    
-    // Fechar modal se não há mais jobs pendentes
-    if (pendingApprovalJobs.length === 0 && selectedJobForApproval) {
-      console.log('✅ Não há mais jobs pendentes - fechando modal')
-      setSelectedJobForApproval(null)
-    }
-  }, [jobsList, selectedJobForApproval])
-
-  // 🔧 CORREÇÃO: Debug para verificar se jobs estão sendo detectados
-  useEffect(() => {
-    const pendingJobs = jobsList.filter(job => job.status === 'pending_approval')
-    console.log('🔍 Debug JobsPage:')
-    console.log('- Total jobs:', jobsList.length)
-    console.log('- Jobs pending_approval:', pendingJobs.length)
-    console.log('- Selected job for approval:', selectedJobForApproval)
-    console.log('- Jobs list:', jobsList.map(j => ({ id: j.id, status: j.status, title: j.title })))
-  }, [jobsList, selectedJobForApproval])
-
-  const handleViewReport = (jobId: string) => {
-    router.push(`/dashboard/reports/${jobId}`)
+    if (diffMinutes < 60) return `${diffMinutes}m atrás`
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h atrás`
+    return `${Math.floor(diffMinutes / 1440)}d atrás`
   }
-
-  const handleDownloadReport = (jobId: string) => {
-    const job = jobs[jobId]
-    if (job?.report || job?.initialReport) {
-      const reportContent = job.report || job.initialReport || ''
-      const blob = new Blob([reportContent], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `analise-${job.repository.replace('/', '-')}-${job.id}.md`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }
-  }
-
-  const handleApprovalClick = (jobId: string) => {
-    console.log('🖱️ Clique manual para aprovação do job:', jobId)
-    setSelectedJobForApproval(jobId)
-  }
-
-  const selectedJob = selectedJobForApproval ? jobs[selectedJobForApproval] : null
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <h1 className="text-2xl font-bold">Jobs de Análise</h1>
-          <Badge variant="outline">{jobsList.length} jobs</Badge>
+    <div className="min-h-screen main-bg">
+      {/* Header estilo ChatGPT */}
+      <header className="header-bg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-[#10a37f] rounded-lg flex items-center justify-center">
+                  <Brain className="h-5 w-5 text-white" />
+                </div>
+                <h1 className="text-xl heading-primary font-semibold">Peers AI</h1>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <Bell className="h-4 w-4 text-gray-600" />
+              </button>
+              
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium heading-primary">{user?.name}</p>
+                  <p className="text-xs text-secondary">{user?.email}</p>
+                </div>
+                {user?.avatar && (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.name} 
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
+              </div>
+              
+              <button 
+                onClick={logout}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <LogOut className="h-4 w-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={clearCompleted}
-            disabled={!jobsList.some(job => ['completed', 'failed', 'rejected'].includes(job.status))}
-          >
-            Limpar Concluídos
-          </Button>
-        </div>
-      </div>
+      </header>
 
-      {/* 🔧 CORREÇÃO: Debug Visual */}
-      <Card className="border-yellow-200 bg-yellow-50">
-        <CardContent className="p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Debug:</strong> Jobs pending_approval: {jobsList.filter(j => j.status === 'pending_approval').length} | 
-            Modal aberto: {selectedJobForApproval ? 'Sim' : 'Não'} | 
-            Selected ID: {selectedJobForApproval || 'None'}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Welcome section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold heading-primary mb-2">
+            Bem-vindo de volta, {user?.name?.split(' ')[0]}
+          </h2>
+          <p className="text-secondary">
+            Aqui está um resumo das suas análises de código
           </p>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-yellow-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Aguardando Aprovação</p>
-                <p className="text-2xl font-bold">
-                  {jobsList.filter(job => job.status === 'pending_approval').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Play className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Em Execução</p>
-                <p className="text-2xl font-bold">
-                  {jobsList.filter(job => ['running', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Concluídos</p>
-                <p className="text-2xl font-bold">
-                  {jobsList.filter(job => job.status === 'completed').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Com Problemas</p>
-                <p className="text-2xl font-bold">
-                  {jobsList.filter(job => ['failed', 'rejected'].includes(job.status)).length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Lista de Jobs */}
-      <div className="space-y-4">
-        {jobsList.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <FileCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum job encontrado</h3>
-              <p className="text-muted-foreground">
-                Inicie uma nova análise para ver os jobs aqui.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          jobsList.map((job) => {
-            const StatusIcon = statusIcons[job.status] || Clock
-            const statusColor = statusColors[job.status] || 'default'
-            const statusLabel = statusLabels[job.status] || job.status
-
+        {/* Stats Grid - Estilo ChatGPT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat) => {
+            const Icon = stat.icon
             return (
-              <Card key={job.id}>
-                <CardContent className="p-6">
+              <div key={stat.title} className="chatgpt-card p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-secondary">{stat.title}</p>
+                    <p className="text-2xl font-semibold heading-primary mt-1">{stat.value}</p>
+                    <p className="text-sm mt-1 text-[#10a37f]">{stat.change}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-gray-600" />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* Quick Actions - Estilo ChatGPT */}
+            <div className="chatgpt-card">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold heading-primary">Iniciar Nova Análise</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid md:grid-cols-3 gap-4">
+                  {analysisTypes.map((analysis) => {
+                    const Icon = analysis.icon
+                    return (
+                      <div
+                        key={analysis.type}
+                        className="p-4 border border-gray-200 rounded-lg hover:border-[#10a37f] hover:bg-gray-50 cursor-pointer transition-all group"
+                        onClick={() => router.push(`/dashboard/new-analysis?type=${analysis.type}`)}
+                      >
+                        <div className="flex items-center space-x-3 mb-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-[#10a37f] group-hover:text-white transition-colors">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium heading-primary">{analysis.title}</h4>
+                            <p className="text-xs text-secondary">{analysis.count} análises</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-secondary mb-3">{analysis.description}</p>
+                        <button className="chatgpt-button text-sm w-full">
+                          <Plus className="h-4 w-4 mr-2 inline" />
+                          Iniciar
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Jobs - Estilo ChatGPT */}
+            <div className="chatgpt-card">
+              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg font-semibold heading-primary">Análises Recentes</h3>
+                <button 
+                  onClick={() => router.push('/dashboard/jobs')}
+                  className="text-sm text-[#10a37f] hover:underline flex items-center"
+                >
+                  Ver todas
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </button>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  {jobs.map((job, index) => {
+                    const statusConfig = getStatusBadge(job.status)
+                    return (
+                      <div key={job.id} className={`p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors ${index !== jobs.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="font-medium heading-primary">{job.title}</h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusConfig.class}`}>
+                                {statusConfig.label}
+                              </span>
+                            </div>
+                            <p className="text-sm text-secondary">
+                              {job.repository} • {formatTimeAgo(job.createdAt)}
+                            </p>
+                            {job.status === 'running' && (
+                              <div className="mt-3 max-w-xs">
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="text-secondary">Progresso</span>
+                                  <span className="font-medium">{job.progress}%</span>
+                                </div>
+                                <div className="progress-bar h-2">
+                                  <div 
+                                    className="progress-fill" 
+                                    style={{ width: `${job.progress}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <button 
+                            onClick={() => router.push(`/dashboard/jobs?highlight=${job.id}`)}
+                            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            <ExternalLink className="h-4 w-4 text-gray-600" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar - Estilo ChatGPT */}
+          <div className="space-y-6">
+            
+            {/* Quick Stats */}
+            <div className="chatgpt-card">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold heading-primary">Resumo</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-secondary">GitHub conectado</span>
+                  <span className="status-success px-2 py-1 rounded-full text-xs font-medium">Ativo</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-secondary">Análises agendadas</span>
+                  <span className="status-info px-2 py-1 rounded-full text-xs font-medium">2 ativas</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-secondary">Políticas</span>
+                  <span className="status-neutral px-2 py-1 rounded-full text-xs font-medium">3 carregadas</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="chatgpt-card">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold heading-primary">Ações Rápidas</h3>
+              </div>
+              <div className="p-6 space-y-2">
+                <button 
+                  onClick={() => router.push('/dashboard/settings')}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center"
+                >
+                  <Settings className="h-4 w-4 mr-3 text-gray-600" />
+                  <span className="text-sm text-secondary">Configurações</span>
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard/settings/github')}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center"
+                >
+                  <Github className="h-4 w-4 mr-3 text-gray-600" />
+                  <span className="text-sm text-secondary">Repositórios</span>
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard/settings/scheduled')}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center"
+                >
+                  <Calendar className="h-4 w-4 mr-3 text-gray-600" />
+                  <span className="text-sm text-secondary">Análises Agendadas</span>
+                </button>
+                <button 
+                  onClick={() => router.push('/dashboard/jobs')}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors flex items-center"
+                >
+                  <BarChart3 className="h-4 w-4 mr-3 text-gray-600" />
+                  <span className="text-sm text-secondary">Relatórios</span>
+                </button>
+              </div>
+            </div>
+
+            {/* System Status */}
+            <div className="chatgpt-card">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold heading-primary">Status do Sistema</h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <StatusIcon className="h-5 w-5" />
-                        <h3 className="font-semibold">{job.title}</h3>
-                        <Badge variant={statusColor as any}>{statusLabel}</Badge>
-                        {job.status === 'pending_approval' && (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                            🔔 Necessita Aprovação
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="text-sm text-muted-foreground mb-3">
-                        <p><strong>Repositório:</strong> {job.repository}</p>
-                        <p><strong>Tipo:</strong> {job.analysisType}</p>
-                        {job.branch && <p><strong>Branch:</strong> {job.branch}</p>}
-                        <p><strong>Criado:</strong> {formatDistanceToNow(job.createdAt, { addSuffix: true, locale: ptBR })}</p>
-                      </div>
-
-                      {['running', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status) && (
-                        <div className="mb-3">
-                          <Progress value={job.progress} className="h-2" />
-                          <p className="text-sm text-muted-foreground mt-1">{job.message}</p>
-                        </div>
-                      )}
-
-                      {job.error && (
-                        <div className="bg-red-50 border border-red-200 rounded p-3 mb-3">
-                          <p className="text-sm text-red-700">{job.error}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 ml-4">
-                      {job.status === 'pending_approval' && (
-                        <Button
-                          onClick={() => handleApprovalClick(job.id)}
-                          className="bg-yellow-500 hover:bg-yellow-600"
-                        >
-                          <FileCheck className="h-4 w-4 mr-2" />
-                          Revisar e Aprovar
-                        </Button>
-                      )}
-                      
-                      {['completed', 'failed'].includes(job.status) && (job.report || job.initialReport) && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewReport(job.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Ver
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownloadReport(job.id)}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
-                        </>
-                      )}
-                      
-                      {['completed', 'failed', 'rejected'].includes(job.status) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeJob(job.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remover
-                        </Button>
-                      )}
+                    <span className="text-sm text-secondary">API Status</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-[#10a37f] rounded-full"></div>
+                      <span className="text-sm font-medium heading-primary">Operacional</span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )
-          })
-        )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-secondary">Tempo de Resposta</span>
+                    <span className="text-sm font-medium heading-primary">245ms</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-secondary">Uptime</span>
+                    <span className="text-sm font-medium heading-primary">99.9%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* 🔧 CORREÇÃO: Modal de Aprovação sempre renderizado */}
-      <JobApprovalModal
-        job={selectedJob}
-        isOpen={!!selectedJobForApproval && !!selectedJob}
-        onClose={() => {
-          console.log('🚪 Fechando modal de aprovação')
-          setSelectedJobForApproval(null)
-        }}
-      />
     </div>
   )
 }

@@ -1,145 +1,218 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { useRouter } from 'next/navigation'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 
-interface AuthContextType {
-  isAuthenticated: boolean
-  user: any
-  login: () => Promise<void>
-  logout: () => void
-  authMode: 'demo' | 'production'
-  switchToDemo: () => void
-  switchToProduction: () => void
-  githubToken?: string
-  setGithubToken: (token: string) => void
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-interface DemoUser {
+// Tipos
+interface User {
+  id: string
   name: string
   email: string
-  role: string
   avatar?: string
 }
 
-interface AuthProviderProps {
-  children: ReactNode
+interface AuthContextType {
+  user: User | null
+  isLoading: boolean
+  isAuthenticated: boolean
+  githubToken: string | null
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  setGithubToken: (token: string) => void
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const { instance, accounts } = useMsal()
-  const [authMode, setAuthMode] = useState<'demo' | 'production'>('demo')
-  const [demoUser, setDemoUser] = useState<DemoUser | null>(null)
-  const [githubToken, setGithubTokenState] = useState<string>()
+// Contexto
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Provider
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [githubToken, setGithubTokenState] = useState<string | null>(null)
+
+  // Inicializar dados do localStorage
   useEffect(() => {
-    // Carregar dados do localStorage
-    const demoToken = localStorage.getItem('demo_token')
-    const storedGithubToken = localStorage.getItem('github_token')
-    const storedAuthMode = localStorage.getItem('auth_mode') as 'demo' | 'production'
-    
-    if (storedAuthMode) {
-      setAuthMode(storedAuthMode)
-    }
-    
-    if (storedGithubToken) {
-      setGithubTokenState(storedGithubToken)
-    }
-    
-    if (demoToken && storedAuthMode === 'demo') {
-      try {
-        const user = JSON.parse(demoToken)
-        setDemoUser(user)
-      } catch (error) {
-        localStorage.removeItem('demo_token')
+    try {
+      const savedUser = localStorage.getItem('user')
+      const savedToken = localStorage.getItem('githubToken')
+      
+      if (savedUser) {
+        setUser(JSON.parse(savedUser))
       }
+      
+      if (savedToken) {
+        setGithubTokenState(savedToken)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do localStorage:', error)
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  const login = async () => {
-    if (authMode === 'demo') {
-      const demoUser = {
-        name: 'Demo User',
-        email: 'demo@example.com',
-        role: 'admin',
-        avatar: 'https://github.com/github.png'
+  // Login simulado
+  const login = async (email: string, password: string) => {
+    setIsLoading(true)
+    
+    try {
+      // Simular chamada para API
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Usuário mock para desenvolvimento
+      const mockUser: User = {
+        id: '1',
+        name: 'Desenvolvedor',
+        email: email,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent('Desenvolvedor')}&background=3b82f6&color=fff`
       }
-      localStorage.setItem('demo_token', JSON.stringify(demoUser))
-      localStorage.setItem('auth_mode', 'demo')
-      setDemoUser(demoUser)
-    } else {
-      try {
-        await instance.loginPopup({
-          scopes: ['User.Read'],
-        })
-        localStorage.setItem('auth_mode', 'production')
-      } catch (error) {
-        console.error('Login failed:', error)
-      }
+      
+      setUser(mockUser)
+      localStorage.setItem('user', JSON.stringify(mockUser))
+    } catch (error) {
+      throw new Error('Falha no login')
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  // Logout
   const logout = () => {
-    // Limpar todos os dados de autenticação
-    localStorage.removeItem('demo_token')
-    localStorage.removeItem('github_token')
-    localStorage.removeItem('auth_mode')
-    localStorage.removeItem('job-store')
-    localStorage.removeItem('company-store')
-    
-    setDemoUser(null)
-    setGithubTokenState(undefined)
-    
-    if (authMode === 'production') {
-      instance.logoutPopup()
-    }
-    
-    // Redirecionar para a página inicial
-    setTimeout(() => {
-      window.location.href = '/'
-    }, 100)
+    setUser(null)
+    setGithubTokenState(null)
+    localStorage.removeItem('user')
+    localStorage.removeItem('githubToken')
   }
 
-  const switchToDemo = () => {
-    logout()
-    setAuthMode('demo')
-  }
-
-  const switchToProduction = () => {
-    logout()
-    setAuthMode('production')
-  }
-
+  // Definir token do GitHub
   const setGithubToken = (token: string) => {
-    localStorage.setItem('github_token', token)
     setGithubTokenState(token)
+    localStorage.setItem('githubToken', token)
   }
 
-  const isAuthenticated = authMode === 'demo' ? !!demoUser : accounts.length > 0
-  const user = authMode === 'demo' ? demoUser : accounts[0]
-
-  const value = {
-    isAuthenticated,
+  const value: AuthContextType = {
     user,
+    isLoading,
+    isAuthenticated: !!user,
+    githubToken,
     login,
     logout,
-    authMode,
-    switchToDemo,
-    switchToProduction,
-    githubToken,
-    setGithubToken,
+    setGithubToken
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+// Hook para usar o contexto
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
+}
+
+// Componente de proteção de rota
+export function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="max-w-md w-full space-y-8 p-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900">Acesso Necessário</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Faça login para acessar esta página
+            </p>
+          </div>
+          <LoginForm />
+        </div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
+// Componente de login simples
+function LoginForm() {
+  const { login, isLoading } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    
+    try {
+      await login(email, password)
+    } catch (err) {
+      setError('Falha no login. Tente novamente.')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label htmlFor="email" className="sr-only">
+          Email
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Email"
+        />
+      </div>
+      <div>
+        <label htmlFor="password" className="sr-only">
+          Senha
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Senha"
+        />
+      </div>
+      
+      {error && (
+        <div className="text-red-600 text-sm text-center">{error}</div>
+      )}
+      
+      <div>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+        >
+          {isLoading ? 'Entrando...' : 'Entrar'}
+        </button>
+      </div>
+      
+      <div className="text-center">
+        <p className="text-xs text-gray-500">
+          Para desenvolvimento: qualquer email/senha funciona
+        </p>
+      </div>
+    </form>
+  )
 }
