@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Clock, Play, CheckCircle, XCircle, Loader2, Bot, AlertCircle, RefreshCw } from 'lucide-react'
-import { backendService } from '@/lib/services/backend-service'
+import { apiService } from '@/lib/api/api-service'
+import { useToast } from '@/components/ui/use-toast'
 
 interface BackendJob {
   job_id: string
@@ -15,7 +16,6 @@ interface BackendJob {
   analysis_type: string
   status: string
   progress: number
-  real_mode: boolean
   message: string
   created_at?: number
   last_updated?: number
@@ -25,8 +25,12 @@ const statusIcons = {
   pending_approval: AlertCircle,
   approved: CheckCircle,
   workflow_started: Bot,
-  reading_repository: Bot,
-  analyzing_code: Bot,
+  refactoring_code: Bot,
+  grouping_commits: Bot,
+  writing_unit_tests: Bot,
+  grouping_tests: Bot,
+  populating_data: Bot,
+  committing_to_github: Bot,
   completed: CheckCircle,
   failed: XCircle,
   rejected: XCircle,
@@ -35,9 +39,13 @@ const statusIcons = {
 const statusLabels = {
   pending_approval: 'Aguardando Aprovação',
   approved: 'Aprovado',
-  workflow_started: 'Iniciando Agentes',
-  reading_repository: 'Lendo Repositório',
-  analyzing_code: 'Analisando Código',
+  workflow_started: 'Iniciando Workflow',
+  refactoring_code: 'Refatorando Código',
+  grouping_commits: 'Agrupando Commits',
+  writing_unit_tests: 'Escrevendo Testes',
+  grouping_tests: 'Agrupando Testes',
+  populating_data: 'Preparando Dados',
+  committing_to_github: 'Enviando para GitHub',
   completed: 'Concluído',
   failed: 'Falhou',
   rejected: 'Rejeitado',
@@ -45,6 +53,7 @@ const statusLabels = {
 
 export default function JobsPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [jobs, setJobs] = useState<BackendJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +62,6 @@ export default function JobsPage() {
   // Buscar jobs do backend
   const fetchJobs = async () => {
     try {
-      setLoading(true)
       setError(null)
       
       const response = await fetch('http://localhost:8000/jobs')
@@ -79,13 +87,13 @@ export default function JobsPage() {
   // Verificar status de um job específico
   const checkJobStatus = async (jobId: string) => {
     try {
-      const response = await backendService.getJobStatus(jobId)
+      const response = await apiService.getJobStatus(jobId)
       console.log(`🔍 Status do job ${jobId}:`, response)
       
       // Atualizar o job na lista
       setJobs(prev => prev.map(job => 
         job.job_id === jobId 
-          ? { ...job, ...response }
+          ? { ...job, status: response.status, progress: job.progress, message: response.status || job.message }
           : job
       ))
     } catch (err) {
@@ -97,12 +105,16 @@ export default function JobsPage() {
   const handleApprove = async (jobId: string) => {
     setLoadingActions(prev => ({ ...prev, [jobId]: 'approve' }))
     try {
-      const response = await backendService.updateJobStatus({
+      const response = await apiService.updateJobStatus({
         job_id: jobId,
         action: 'approve'
       })
 
-      alert("✅ Análise Aprovada! Agentes reais iniciados!")
+      toast({
+        title: "✅ Análise Aprovada!",
+        description: "O workflow foi iniciado com os agentes reais.",
+      })
+      
       console.log('🎯 Job aprovado:', response)
       
       // Recarregar jobs após 1 segundo
@@ -115,12 +127,16 @@ export default function JobsPage() {
         checkJobStatus(jobId)
       }, 3000) // Verificar a cada 3 segundos
       
-      // Parar monitoramento após 2 minutos
-      setTimeout(() => clearInterval(interval), 120000)
+      // Parar monitoramento após 5 minutos
+      setTimeout(() => clearInterval(interval), 300000)
       
     } catch (error) {
       console.error('❌ Erro ao aprovar:', error)
-      alert(`Erro ao aprovar: ${error instanceof Error ? error.message : "Erro desconhecido"}`)
+      toast({
+        title: "Erro ao aprovar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      })
     } finally {
       setLoadingActions(prev => ({ ...prev, [jobId]: null }))
     }
@@ -130,17 +146,25 @@ export default function JobsPage() {
   const handleReject = async (jobId: string) => {
     setLoadingActions(prev => ({ ...prev, [jobId]: 'reject' }))
     try {
-      await backendService.updateJobStatus({
+      await apiService.updateJobStatus({
         job_id: jobId,
         action: 'reject'
       })
 
-      alert("Análise rejeitada com sucesso!")
+      toast({
+        title: "Análise rejeitada",
+        description: "A análise foi cancelada.",
+      })
+      
       fetchJobs() // Recarregar lista
       
     } catch (error) {
       console.error('❌ Erro ao rejeitar:', error)
-      alert(`Erro ao rejeitar: ${error instanceof Error ? error.message : "Erro desconhecido"}`)
+      toast({
+        title: "Erro ao rejeitar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      })
     } finally {
       setLoadingActions(prev => ({ ...prev, [jobId]: null }))
     }
@@ -172,7 +196,10 @@ export default function JobsPage() {
   }
 
   const pendingJobs = jobs.filter(job => job.status === 'pending_approval')
-  const processingJobs = jobs.filter(job => ['approved', 'workflow_started', 'reading_repository', 'analyzing_code'].includes(job.status))
+  const processingJobs = jobs.filter(job => 
+    ['approved', 'workflow_started', 'refactoring_code', 'grouping_commits', 
+     'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)
+  )
   const completedJobs = jobs.filter(job => job.status === 'completed')
   const failedJobs = jobs.filter(job => ['failed', 'rejected'].includes(job.status))
 
@@ -205,7 +232,7 @@ export default function JobsPage() {
             <div>
               <h1 className="text-2xl font-bold">Jobs de Análise</h1>
               <p className="text-muted-foreground">
-                Conectado ao backend - {jobs.length} jobs encontrados
+                {jobs.length} {jobs.length === 1 ? 'job encontrado' : 'jobs encontrados'}
               </p>
             </div>
             
@@ -289,16 +316,15 @@ export default function JobsPage() {
               const statusLabel = getStatusLabel(job.status)
               const isLoading = loadingActions[job.job_id]
               const needsApproval = job.status === 'pending_approval'
-              const isProcessing = ['approved', 'workflow_started', 'reading_repository', 'analyzing_code'].includes(job.status)
+              const isProcessing = processingJobs.some(j => j.job_id === job.job_id)
               
               return (
-                <Card key={job.job_id} className={`w-full ${needsApproval ? 'ring-2 ring-yellow-200 bg-yellow-50/30' : ''}`}>
+                <Card key={job.job_id} className={needsApproval ? 'ring-2 ring-yellow-200 bg-yellow-50/30' : ''}>
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <StatusIcon className={`h-5 w-5 ${isProcessing ? 'animate-pulse' : ''}`} />
                         <span className="truncate">{job.analysis_type} - {job.repo_name}</span>
-                        {job.real_mode && <Bot className="h-4 w-4 text-green-600" title="Agentes Reais" />}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={needsApproval ? 'secondary' : job.status === 'completed' ? 'default' : 'outline'}>
@@ -309,13 +335,15 @@ export default function JobsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Progress Bar */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progresso</span>
-                        <span>{job.progress}%</span>
+                    {job.progress > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progresso</span>
+                          <span>{job.progress}%</span>
+                        </div>
+                        <Progress value={job.progress} className="h-2" />
                       </div>
-                      <Progress value={job.progress} className="h-2" />
-                    </div>
+                    )}
 
                     {/* Job Info */}
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -329,18 +357,20 @@ export default function JobsPage() {
                       </div>
                       <div>
                         <p className="font-medium text-muted-foreground">Job ID</p>
-                        <p className="font-mono text-xs">{job.job_id.slice(-8)}</p>
+                        <p className="font-mono text-xs">{job.job_id.slice(0, 8)}</p>
                       </div>
                       <div>
-                        <p className="font-medium text-muted-foreground">Modo</p>
-                        <p>{job.real_mode ? '🤖 Real' : '⚡ Simulação'}</p>
+                        <p className="font-medium text-muted-foreground">Status</p>
+                        <p>{statusLabel}</p>
                       </div>
                     </div>
 
                     {/* Status Message */}
-                    <div className="p-3 bg-muted rounded-md">
-                      <p className="text-sm">{job.message || 'Processando...'}</p>
-                    </div>
+                    {job.message && (
+                      <div className="p-3 bg-muted rounded-md">
+                        <p className="text-sm">{job.message}</p>
+                      </div>
+                    )}
 
                     {/* Approval Actions */}
                     {needsApproval && (
@@ -383,7 +413,7 @@ export default function JobsPage() {
                             ) : (
                               <>
                                 <CheckCircle className="h-3 w-3 mr-1" />
-                                🤖 Aprovar Análise Real
+                                Aprovar Análise
                               </>
                             )}
                           </Button>
@@ -397,7 +427,7 @@ export default function JobsPage() {
                         <div className="flex items-center justify-center gap-2 text-blue-600">
                           <Bot className="h-4 w-4 animate-pulse" />
                           <span className="text-sm font-medium">
-                            🤖 Agentes reais executando...
+                            Agentes executando...
                           </span>
                         </div>
                       </div>
