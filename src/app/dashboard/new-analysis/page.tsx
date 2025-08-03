@@ -1,4 +1,4 @@
-// src/app/dashboard/new-analysis/page.tsx - CORRIGIDO
+// src/app/dashboard/new-analysis/page.tsx - VERSÃO FINAL
 'use client'
 
 import React, { useState } from 'react'
@@ -6,328 +6,343 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, GitBranch, Play, Loader2, CheckCircle, AlertCircle, Github, ExternalLink } from 'lucide-react'
-import { useJobStore } from '@/stores/job-store'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ArrowLeft, Play, Bot, AlertCircle, CheckCircle, Zap } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { ConnectionStatus, useConnectionStatus } from '@/components/connection-status'
+import { AnalysisLoading } from '@/components/analysis-loading'
 import { JobApprovalModal } from '@/components/job-approval-modal'
+import { useAnalysisProgress } from '@/hooks/use-analysis-progress'
 
 export default function NewAnalysisPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { startAnalysisJob, jobs, testConnection } = useJobStore()
-  
+  const connectionStatus = useConnectionStatus()
+  const { progress, startAnalysis, resetProgress } = useAnalysisProgress()
+
+  // Form state
   const [repository, setRepository] = useState('')
-  const [analysisType, setAnalysisType] = useState<'design' | 'relatorio_teste_unitario' | 'escrever_testes'>('escrever_testes')
+  const [analysisType, setAnalysisType] = useState<'design' | 'relatorio_teste_unitario'>('design')
   const [branch, setBranch] = useState('')
   const [instructions, setInstructions] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown')
-  const [createdJobId, setCreatedJobId] = useState<string | null>(null)
 
-  // Testar conexão com backend
-  const handleTestConnection = async () => {
-    try {
-      const isConnected = await testConnection()
-      setConnectionStatus(isConnected ? 'connected' : 'disconnected')
-      if (isConnected) {
-        toast({
-          title: 'Conexão OK!',
-          description: 'Backend está funcionando corretamente.',
-        })
-      } else {
-        toast({
-          title: 'Erro de Conexão',
-          description: 'Não foi possível conectar com o backend.',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      setConnectionStatus('disconnected')
-      toast({
-        title: 'Erro de Conexão',
-        description: 'Backend não está disponível. Verifique se está rodando.',
-        variant: 'destructive',
-      })
-    }
-  }
+  // UI state
+  const [createdJob, setCreatedJob] = useState<any>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repository || !analysisType) return
-
-    setIsLoading(true)
-
-    try {
-      const jobId = await startAnalysisJob({
-        repo_name: repository,
-        analysis_type: analysisType as "design" | "relatorio_teste_unitario" | "seguranca" | "pentest" | "terraform",
-        branch_name: branch || undefined,
-        instrucoes_extras: instructions || undefined
-      })
-
-      // Definir o job criado para abrir o modal automaticamente
-      setCreatedJobId(jobId)
-
+    
+    if (!repository || !analysisType) {
       toast({
-        title: 'Análise iniciada!',
-        description: 'A análise foi criada e está aguardando aprovação.',
-      })
-
-      // Redirecionar para a página de jobs após um breve delay
-      setTimeout(() => {
-        router.push('/dashboard/jobs')
-      }, 1500)
-
-    } catch (error) {
-      console.error('Erro ao iniciar análise:', error)
-      toast({
-        title: 'Erro ao iniciar análise',
-        description: error instanceof Error ? error.message : 'Ocorreu um erro inesperado',
+        title: 'Campos obrigatórios',
+        description: 'Por favor, preencha o repositório e tipo de análise.',
         variant: 'destructive',
       })
-    } finally {
-      setIsLoading(false)
+      return
+    }
+
+    if (!connectionStatus.isConnected) {
+      toast({
+        title: 'Backend desconectado',
+        description: 'Verifique a conexão com o backend antes de iniciar a análise.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      console.log('🚀 Iniciando análise:', { repository, analysisType, branch, instructions })
+
+      const result = await startAnalysis({
+        repository,
+        analysisType,
+        branch: branch || undefined,
+        instructions: instructions || undefined,
+      })
+
+      console.log('✅ Análise completada:', result)
+      setCreatedJob(result)
+
+      toast({
+        title: 'Análise concluída!',
+        description: `Relatório gerado para ${repository}. Revise e aprove para continuar.`,
+      })
+
+    } catch (error) {
+      console.error('❌ Erro ao criar análise:', error)
+      
+      toast({
+        title: 'Erro ao iniciar análise',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive',
+      })
     }
   }
 
-  const createdJob = createdJobId ? jobs[createdJobId] : null
+  const handleApprovalClose = () => {
+    setCreatedJob(null)
+    resetProgress()
+    
+    // Resetar form
+    setRepository('')
+    setBranch('')
+    setInstructions('')
+    
+    // Ir para dashboard de jobs
+    router.push('/dashboard/jobs')
+  }
+
+  const isLoading = progress.phase === 'starting' || progress.phase === 'analyzing'
+  const showAnalysisLoading = isLoading
+  const showApprovalModal = progress.phase === 'completed' && createdJob
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard')}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <h1 className="text-2xl font-bold">Nova Análise de Código</h1>
-      </div>
-
-      {/* Status de Conexão */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-500' : 
-                connectionStatus === 'disconnected' ? 'bg-red-500' : 'bg-yellow-500'
-              }`} />
-              <span className="text-sm">
-                Backend: {
-                  connectionStatus === 'connected' ? 'Conectado' :
-                  connectionStatus === 'disconnected' ? 'Desconectado' : 'Verificando...'
-                }
-              </span>
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/dashboard')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar ao Dashboard
+          </Button>
+          
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Nova Análise de Código</h1>
+              <p className="text-muted-foreground">
+                Inicie uma análise inteligente com IA para seu repositório
+              </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestConnection}
-            >
-              Testar Conexão
-            </Button>
+            
+            {/* Status de Conexão Compacto */}
+            <ConnectionStatus compact />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </header>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Formulário */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Github className="h-5 w-5" />
-              Configuração da Análise
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Repositório */}
-              <div className="space-y-2">
-                <label htmlFor="repository" className="text-sm font-medium">
-                  Repositório *
-                </label>
-                <Input
-                  id="repository"
-                  placeholder="ex: usuario/repositorio ou github.com/usuario/repositorio"
-                  value={repository}
-                  onChange={(e) => setRepository(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Formato: owner/repo ou URL completa do GitHub
-                </p>
-              </div>
-
-              {/* Tipo de Análise */}
-              <div className="space-y-2">
-                <label htmlFor="analysisType" className="text-sm font-medium">
-                  Tipo de Análise *
-                </label>
-                <Select value={analysisType} onValueChange={(value: any) => setAnalysisType(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de análise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="escrever_testes">
-                      <div className="flex flex-col items-start">
-                        <span>Criar Testes Unitários</span>
-                        <span className="text-xs text-muted-foreground">
-                          Gera testes automaticamente para o código
-                        </span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="design">
-                      <div className="flex flex-col items-start">
-                        <span>Análise de Design</span>
-                        <span className="text-xs text-muted-foreground">
-                          Revisa padrões e arquitetura do código
-                        </span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="relatorio_teste_unitario">
-                      <div className="flex flex-col items-start">
-                        <span>Relatório de Testes</span>
-                        <span className="text-xs text-muted-foreground">
-                          Analisa cobertura e qualidade dos testes
-                        </span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Branch */}
-              <div className="space-y-2">
-                <label htmlFor="branch" className="text-sm font-medium">
-                  Branch
-                </label>
-                <div className="relative">
-                  <GitBranch className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="branch"
-                    placeholder="main (padrão)"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Deixe em branco para usar a branch padrão (main/master)
-                </p>
-              </div>
-
-              {/* Instruções Extras */}
-              <div className="space-y-2">
-                <label htmlFor="instructions" className="text-sm font-medium">
-                  Instruções Extras
-                </label>
-                <Textarea
-                  id="instructions"
-                  placeholder="Instruções específicas para a análise (opcional)"
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              {/* Botão Submit */}
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading || !repository || connectionStatus === 'disconnected'}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Criando Análise...
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Iniciar Análise
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Informações */}
-        <div className="space-y-6">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          {/* Card Principal */}
           <Card>
             <CardHeader>
-              <CardTitle>Como Funciona</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Configurar Análise
+                {isLoading && <Zap className="h-4 w-4 text-yellow-500 animate-pulse" />}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                  1
+            <CardContent>
+              {/* Progress Indicator quando carregando */}
+              {isLoading && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-3">
+                    <Bot className="h-5 w-5 text-blue-600 animate-pulse" />
+                    <div className="flex-1">
+                      <p className="font-medium text-blue-900 dark:text-blue-100">
+                        {progress.currentStep}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${progress.progress}%` }}
+                          />
+                        </div>
+                        <span className="text-sm text-blue-700 dark:text-blue-300">
+                          {Math.round(progress.progress)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {progress.timeElapsed > 0 && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      {Math.floor(progress.timeElapsed / 60)}m {progress.timeElapsed % 60}s decorridos
+                    </p>
+                  )}
                 </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Repositório */}
                 <div>
-                  <h4 className="font-medium">Análise Inicial</h4>
-                  <p className="text-sm text-muted-foreground">
-                    O sistema analisa o repositório e gera um relatório inicial
+                  <Label htmlFor="repository" className="text-sm font-medium mb-2 block">
+                    Repositório GitHub *
+                  </Label>
+                  <Input
+                    id="repository"
+                    placeholder="ex: usuario/nome-do-repositorio"
+                    value={repository}
+                    onChange={(e) => setRepository(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Formato: owner/repository-name
                   </p>
                 </div>
-              </div>
-              
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                  2
-                </div>
+
+                {/* Tipo de Análise */}
                 <div>
-                  <h4 className="font-medium">Aprovação</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Você revisa e aprova as mudanças sugeridas
+                  <Label className="text-sm font-medium mb-2 block">
+                    Tipo de Análise *
+                  </Label>
+                  <Select 
+                    value={analysisType} 
+                    onValueChange={(value: 'design' | 'relatorio_teste_unitario') => setAnalysisType(value)}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo de análise" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="design">
+                        <div className="flex flex-col items-start">
+                          <span>Análise de Design</span>
+                          <span className="text-xs text-muted-foreground">
+                            Arquitetura, padrões SOLID, refatoração
+                          </span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="relatorio_teste_unitario">
+                        <div className="flex flex-col items-start">
+                          <span>Relatório de Testes Unitários</span>
+                          <span className="text-xs text-muted-foreground">
+                            Cobertura, gaps, geração de testes
+                          </span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Branch */}
+                <div>
+                  <Label htmlFor="branch" className="text-sm font-medium mb-2 block">
+                    Branch (opcional)
+                  </Label>
+                  <Input
+                    id="branch"
+                    placeholder="ex: main, develop, feature/nova-funcionalidade"
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se não especificado, será usada a branch padrão do repositório
                   </p>
                 </div>
-              </div>
-              
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                  3
-                </div>
+
+                {/* Instruções Extras */}
                 <div>
-                  <h4 className="font-medium">Aplicação</h4>
-                  <p className="text-sm text-muted-foreground">
-                    As mudanças são aplicadas automaticamente no repositório
+                  <Label htmlFor="instructions" className="text-sm font-medium mb-2 block">
+                    Instruções Extras (opcional)
+                  </Label>
+                  <Textarea
+                    id="instructions"
+                    placeholder="Instruções específicas para a análise, pontos de atenção, contexto adicional..."
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    rows={4}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Estas instruções serão consideradas pelo agente de IA durante a análise
                   </p>
                 </div>
-              </div>
+
+                {/* Status de Conexão */}
+                {!connectionStatus.isConnected && (
+                  <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-medium">Backend desconectado</span>
+                    </div>
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      Verifique se o servidor backend está rodando antes de iniciar a análise.
+                    </p>
+                  </div>
+                )}
+
+                {/* Error state */}
+                {progress.phase === 'error' && (
+                  <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-medium">Erro na análise</span>
+                    </div>
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      {progress.error}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={resetProgress}
+                      className="mt-2"
+                    >
+                      Tentar Novamente
+                    </Button>
+                  </div>
+                )}
+
+                {/* Botão de Submit */}
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={!repository || !analysisType || isLoading || !connectionStatus.isConnected}
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Bot className="h-4 w-4 mr-2 animate-pulse" />
+                      Análise em Andamento...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Iniciar Análise Inteligente
+                    </>
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
 
-          {/* Status de Conexão Detalhado */}
-          {connectionStatus === 'disconnected' && (
-            <Card className="border-red-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-700">
-                  <AlertCircle className="h-5 w-5" />
-                  Backend Indisponível
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <p>O backend não está acessível. Verifique se:</p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>O servidor backend está rodando</li>
-                    <li>A URL está correta (localhost:8000)</li>
-                    <li>Não há problemas de CORS</li>
-                  </ul>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleTestConnection}
-                    className="mt-2"
-                  >
-                    Tentar Novamente
-                  </Button>
+          {/* Preview do que vai acontecer */}
+          {progress.phase === 'idle' && (
+            <Card className="mt-6">
+              <CardContent className="p-4">
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  O que vai acontecer:
+                </h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>IA vai conectar ao GitHub e ler seu código</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>
+                      {analysisType === 'design' 
+                        ? 'Análise de arquitetura, padrões SOLID e oportunidades de refatoração'
+                        : 'Identificação de gaps de cobertura e geração de testes unitários'
+                      }
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>Relatório detalhado será gerado para sua aprovação</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span>Após aprovação, mudanças serão aplicadas automaticamente</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -335,12 +350,21 @@ export default function NewAnalysisPage() {
         </div>
       </div>
 
+      {/* Loading de Análise Detalhado */}
+      <AnalysisLoading
+        analysisType={analysisType}
+        repository={repository}
+        branch={branch}
+        isVisible={showAnalysisLoading}
+        onComplete={() => {}}
+      />
+
       {/* Modal de Aprovação */}
-      {createdJob && (
+      {showApprovalModal && (
         <JobApprovalModal
           job={createdJob}
-          isOpen={!!createdJob && createdJob.status === 'pending_approval'}
-          onClose={() => setCreatedJobId(null)}
+          isOpen={true}
+          onClose={handleApprovalClose}
         />
       )}
     </div>
