@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,11 +19,19 @@ import {
   Zap,
   Users,
   Star,
-  Globe
+  Globe,
+  Bot,
+  Clock
 } from 'lucide-react'
+import { redirect } from 'next/navigation'
 
-export default function ModernLandingPage() {
+export default function HomePage() {
   const router = useRouter()
+  const { isAuthenticated, login, authMode, switchToDemo, switchToProduction } = useAuth()
+
+  if (isAuthenticated) {
+    redirect('/dashboard')
+  }
 
   const features = [
     {
@@ -46,21 +55,21 @@ export default function ModernLandingPage() {
   ]
 
   const stats = [
-    { value: '500+', label: 'Repositórios Analisados' },
-    { value: '1.2K+', label: 'Problemas Detectados' },
-    { value: '300+', label: 'PRs Automatizados' },
-    { value: '2.4K+', label: 'Horas Economizadas' }
+    { value: '500+', label: 'Repositórios Analisados', icon: Code, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { value: '1.2K+', label: 'Problemas Detectados', icon: BarChart3, color: 'text-red-600', bgColor: 'bg-red-50' },
+    { value: '300+', label: 'PRs Automatizados', icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { value: '2.4K+', label: 'Horas Economizadas', icon: Clock, color: 'text-purple-600', bgColor: 'bg-purple-50' }
   ]
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
+      {/* Navigation - Logo igual ao dashboard */}
       <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Brain className="h-5 w-5 text-white" />
+              <div className="p-2 bg-primary rounded-lg">
+                <Bot className="h-6 w-6 text-primary-foreground" />
               </div>
               <span className="text-xl font-semibold text-slate-900">Peers AI</span>
             </div>
@@ -68,8 +77,27 @@ export default function ModernLandingPage() {
               <Button variant="ghost" onClick={() => router.push('/dashboard')}>
                 Dashboard
               </Button>
-              <Button onClick={() => router.push('/dashboard/new-analysis')}>
-                Começar Análise
+              
+              {/* Auth Mode Selector */}
+              <div className="flex gap-2">
+                <Button
+                  variant={authMode === 'demo' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={switchToDemo}
+                >
+                  Demo
+                </Button>
+                <Button
+                  variant={authMode === 'production' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={switchToProduction}
+                >
+                  Produção
+                </Button>
+              </div>
+
+              <Button onClick={login}>
+                {authMode === 'demo' ? 'Começar Demo' : 'Entrar com Microsoft'}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
@@ -98,9 +126,9 @@ export default function ModernLandingPage() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" onClick={() => router.push('/dashboard/new-analysis')} className="bg-blue-600 hover:bg-blue-700">
+              <Button size="lg" onClick={login} className="bg-blue-600 hover:bg-blue-700">
                 <Play className="h-5 w-5 mr-2" />
-                Começar Análise Gratuita
+                {authMode === 'demo' ? 'Começar Análise Gratuita' : 'Entrar com Microsoft'}
               </Button>
               <Button size="lg" variant="outline" onClick={() => router.push('/dashboard')}>
                 Ver Dashboard
@@ -111,16 +139,38 @@ export default function ModernLandingPage() {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Stats Section - Usando componente igual ao dashboard */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</div>
-                <div className="text-sm text-slate-600">{stat.label}</div>
-              </div>
-            ))}
+          <div className="text-center mb-8">
+            <Badge className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+              <Zap className="h-4 w-4 mr-1" />
+              Powered by Multi-Agent AI
+            </Badge>
+          </div>
+          
+          {/* Stats Grid - Igual ao dashboard */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon
+              return (
+                <Card key={index} className="border-0 shadow-sm hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="text-2xl font-bold">{stat.value}</p>
+                      </div>
+                      <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                        <Icon className={`h-6 w-6 ${stat.color}`} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -185,7 +235,13 @@ export default function ModernLandingPage() {
                 <Card 
                   key={index}
                   className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer hover:border-blue-300"
-                  onClick={() => router.push(`/dashboard/new-analysis?type=${analysis.title.toLowerCase().replace(/\s+/g, '_')}`)}
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      router.push(`/dashboard/new-analysis?type=${analysis.title.toLowerCase().replace(/\s+/g, '_')}`)
+                    } else {
+                      login()
+                    }
+                  }}
                 >
                   <CardHeader className="text-center">
                     <div className="mx-auto mb-4 w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm">
@@ -219,9 +275,9 @@ export default function ModernLandingPage() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" onClick={() => router.push('/dashboard/new-analysis')} className="bg-white text-blue-600 hover:bg-slate-50">
+              <Button size="lg" variant="secondary" onClick={login} className="bg-white text-blue-600 hover:bg-slate-50">
                 <Play className="h-5 w-5 mr-2" />
-                Começar Análise Gratuita
+                {authMode === 'demo' ? 'Começar Análise Gratuita' : 'Entrar com Microsoft'}
               </Button>
               <Button size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-blue-600" onClick={() => router.push('/dashboard')}>
                 <BarChart3 className="h-5 w-5 mr-2" />
@@ -238,8 +294,8 @@ export default function ModernLandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Brain className="h-5 w-5 text-white" />
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Bot className="h-5 w-5 text-white" />
                 </div>
                 <span className="text-xl font-semibold text-white">Peers AI</span>
               </div>
