@@ -1,216 +1,96 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { 
-  Play, 
-  FileText, 
+  Plus, 
   Activity, 
-  Settings, 
-  Github, 
+  FileText, 
+  Clock, 
+  CheckCircle, 
+  Play, 
   BarChart3,
-  Code2,
-  Clock,
-  CheckCircle,
-  AlertCircle,
+  Settings,
+  Github,
+  Building2,
+  Calendar,
   TrendingUp,
-  Users,
-  Folder,
-  Zap
+  Zap,
+  ArrowRight
 } from 'lucide-react'
-import { useJobStore } from '@/stores/job-store'
-import { useCompanyStore } from '@/stores/company-store'
-import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { jobs } = useJobStore()
-  const { githubToken } = useCompanyStore()
-  const [currentTime, setCurrentTime] = useState(new Date())
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const jobsList = Object.values(jobs)
-  const runningJobs = jobsList.filter(job => 
-    ['running', 'refactoring_code', 'grouping_commits', 'writing_unit_tests', 'grouping_tests', 'populating_data', 'committing_to_github'].includes(job.status)
-  )
-  const completedJobs = jobsList.filter(job => job.status === 'completed')
-  const pendingJobs = jobsList.filter(job => job.status === 'pending_approval')
-
+  // Dados mockados - substituir pelos reais depois
   const stats = [
     {
-      label: 'Análises Executando',
-      value: runningJobs.length,
-      icon: Activity,
-      color: 'blue',
-      description: 'Em andamento agora'
-    },
-    {
-      label: 'Relatórios Gerados',
-      value: completedJobs.length,
-      icon: FileText,
-      color: 'green',
-      description: 'Prontos para visualização'
-    },
-    {
-      label: 'Aguardando Aprovação',
-      value: pendingJobs.length,
-      icon: AlertCircle,
-      color: 'amber',
-      description: 'Necessitam sua decisão'
-    },
-    {
-      label: 'Total de Jobs',
-      value: jobsList.length,
-      icon: BarChart3,
-      color: 'purple',
-      description: 'Histórico completo'
-    }
-  ]
-
-  const quickActions = [
-    {
-      title: 'Nova Análise',
-      description: 'Inicie uma análise de código em seus repositórios',
-      icon: Code2,
-      color: 'blue',
-      href: '/dashboard/new-analysis'
-    },
-    {
       title: 'Jobs Ativos',
-      description: 'Acompanhe o progresso das análises',
-      icon: Activity,
-      color: 'green',
-      href: '/dashboard/jobs',
-      badge: runningJobs.length > 0 ? `${runningJobs.length}` : null
+      value: 0,
+      icon: Play,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200'
     },
     {
-      title: 'Relatórios',
-      description: 'Visualize e baixe relatórios concluídos',
-      icon: FileText,
-      color: 'purple',
-      href: '/dashboard/reports',
-      badge: completedJobs.length > 0 ? `${completedJobs.length}` : null
+      title: 'Concluídos',
+      value: 0,
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200'
     },
     {
-      title: 'Configurações',
-      description: 'Configure integrações e automações',
-      icon: Settings,
-      color: 'gray',
-      href: '/dashboard/settings'
+      title: 'Pendentes',
+      value: 0,
+      icon: Clock,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200'
+    },
+    {
+      title: 'Total',
+      value: 0,
+      icon: BarChart3,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200'
     }
   ]
-
-  const getStatColor = (color: string) => {
-    const colors = {
-      blue: 'text-blue-600 bg-blue-50 border-blue-200',
-      green: 'text-green-600 bg-green-50 border-green-200',
-      amber: 'text-amber-600 bg-amber-50 border-amber-200',
-      purple: 'text-purple-600 bg-purple-50 border-purple-200'
-    }
-    return colors[color as keyof typeof colors] || colors.blue
-  }
-
-  const getActionColor = (color: string) => {
-    const colors = {
-      blue: 'bg-blue-500 hover:bg-blue-600',
-      green: 'bg-green-500 hover:bg-green-600',
-      purple: 'bg-purple-500 hover:bg-purple-600',
-      gray: 'bg-gray-500 hover:bg-gray-600'
-    }
-    return colors[color as keyof typeof colors] || colors.blue
-  }
 
   return (
-    <div className="main-container">
-      {/* Header */}
-      <header className="page-header">
-        <div className="content-container !py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Dashboard
-              </h1>
-              <p className="text-gray-600">
-                Bem-vindo à sua plataforma de análise de código com IA
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500 mb-1">
-                {currentTime.toLocaleDateString('pt-BR', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </p>
-              <p className="text-lg font-mono text-gray-700">
-                {currentTime.toLocaleTimeString('pt-BR')}
-              </p>
-            </div>
-          </div>
+    <div className="h-full">
+      {/* Header com gradiente sutil */}
+      <div className="bg-gradient-to-r from-white to-gray-50 border-b border-gray-200 px-8 py-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+          <p className="text-gray-600 text-lg">
+            Bem-vindo, Usuário! Acompanhe suas análises e visualize relatórios.
+          </p>
         </div>
-      </header>
+      </div>
 
-      <div className="content-container">
-        {/* Status do GitHub */}
-        {!githubToken && (
-          <Card className="mb-8 border-amber-200 bg-amber-50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-100 rounded-full">
-                  <Github className="h-6 w-6 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-amber-900 mb-1">
-                    Configure sua integração com o GitHub
-                  </h3>
-                  <p className="text-amber-700 text-sm">
-                    Para começar a usar a plataforma, você precisa configurar seu token do GitHub
-                  </p>
-                </div>
-                <Button 
-                  onClick={() => router.push('/dashboard/settings/github')}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  Configurar Agora
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => {
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Stats Cards - Design melhorado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          {stats.map((stat) => {
             const Icon = stat.icon
             return (
-              <Card key={index} className="card-modern hover:shadow-lg transition-all duration-200">
+              <Card key={stat.title} className={`border-2 ${stat.borderColor} hover:shadow-lg transition-all duration-200 bg-white`}>
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-xl border ${getStatColor(stat.color)}`}>
-                      <Icon className="h-6 w-6" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-600 mb-1">
+                        {stat.title}
+                      </p>
+                      <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {stat.value}
-                      </div>
+                    <div className={`p-4 rounded-xl ${stat.bgColor} shadow-sm`}>
+                      <Icon className={`h-6 w-6 ${stat.color}`} />
                     </div>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">
-                      {stat.label}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {stat.description}
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -218,143 +98,176 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Ações Rápidas */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Ações Rápidas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon
-              return (
-                <Card 
-                  key={index} 
-                  className="card-modern card-interactive group"
-                  onClick={() => router.push(action.href)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`p-3 rounded-xl text-white transition-colors duration-200 ${getActionColor(action.color)}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      {action.badge && (
-                        <Badge className="bg-red-500 text-white">
-                          {action.badge}
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {action.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Jobs Recentes */}
-        {jobsList.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Jobs Recentes</h2>
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/dashboard/jobs')}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                Ver Todos
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              {jobsList.slice(0, 5).map((job) => {
-                const getStatusColor = (status: string) => {
-                  if (['completed'].includes(status)) return 'badge-success'
-                  if (['failed', 'rejected'].includes(status)) return 'badge-error'
-                  if (['pending_approval'].includes(status)) return 'badge-warning'
-                  return 'badge-info'
-                }
-
-                const getStatusIcon = (status: string) => {
-                  if (['completed'].includes(status)) return CheckCircle
-                  if (['failed', 'rejected'].includes(status)) return AlertCircle
-                  if (['pending_approval'].includes(status)) return Clock
-                  return Activity
-                }
-
-                const StatusIcon = getStatusIcon(job.status)
-                
-                return (
-                  <Card key={job.id} className="card-modern">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 bg-gray-100 rounded-lg">
-                            <StatusIcon className="h-5 w-5 text-gray-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900">
-                              {job.repository}
-                            </h4>
-                            <p className="text-sm text-gray-600">
-                              {formatDistanceToNow(job.createdAt, { 
-                                addSuffix: true, 
-                                locale: ptBR 
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge className={getStatusColor(job.status)}>
-                            {job.status === 'completed' && 'Concluído'}
-                            {job.status === 'running' && 'Executando'}
-                            {job.status === 'pending_approval' && 'Aguardando'}
-                            {job.status === 'failed' && 'Falhou'}
-                            {job.status === 'rejected' && 'Rejeitado'}
-                          </Badge>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => router.push(`/dashboard/jobs?job=${job.id}`)}
-                          >
-                            Ver Detalhes
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {jobsList.length === 0 && githubToken && (
-          <Card className="card-modern">
-            <CardContent className="empty-state">
-              <div className="empty-state-icon">
-                <Zap className="h-16 w-16 text-gray-400" />
-              </div>
-              <h3 className="empty-state-title">
-                Pronto para começar!
-              </h3>
-              <p className="empty-state-description mb-6">
-                Sua plataforma está configurada. Inicie sua primeira análise de código
-                selecionando um repositório do GitHub.
+        {/* Quick Actions - Layout em grid melhorado */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+          {/* Nova Análise - Destaque principal */}
+          <Card className="lg:col-span-1 border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                onClick={() => router.push('/dashboard/new-analysis')}>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-blue-900">
+                <div className="p-2 bg-blue-500 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                  <Plus className="h-5 w-5 text-white" />
+                </div>
+                Nova Análise
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-blue-800">
+                Inicie uma nova análise de código para seu repositório
               </p>
-              <Button 
-                onClick={() => router.push('/dashboard/new-analysis')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
-              >
-                <Code2 className="h-4 w-4 mr-2" />
-                Criar Primeira Análise
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 group-hover:scale-105 transition-transform">
+                <Zap className="h-4 w-4 mr-2" />
+                Começar Análise
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
           </Card>
-        )}
+
+          {/* Jobs Ativos */}
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-2 border-gray-200"
+                onClick={() => router.push('/dashboard/jobs')}>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-gray-900">
+                <div className="p-2 bg-green-500 rounded-lg shadow-sm">
+                  <Activity className="h-5 w-5 text-white" />
+                </div>
+                Jobs Ativos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Nenhuma análise em execução
+              </p>
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="bg-gray-50">
+                  0 ativas
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Relatórios */}
+          <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-2 border-gray-200"
+                onClick={() => router.push('/dashboard/reports')}>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-gray-900">
+                <div className="p-2 bg-purple-500 rounded-lg shadow-sm">
+                  <FileText className="h-5 w-5 text-white" />
+                </div>
+                Relatórios
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Nenhum relatório ainda
+              </p>
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="bg-gray-50">
+                  0 concluídos
+                </Badge>
+                <ArrowRight className="h-4 w-4 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Section inferior - Configurações e Atividade */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Atividade Recente */}
+          <Card className="border-2 border-gray-200">
+            <CardHeader className="bg-gray-50 rounded-t-lg">
+              <CardTitle className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-gray-700" />
+                Atividade Recente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Activity className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma atividade recente</h3>
+                <p className="text-gray-500">
+                  Suas análises aparecerão aqui quando iniciadas
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Configuração Rápida */}
+          <Card className="border-2 border-gray-200">
+            <CardHeader className="bg-gray-50 rounded-t-lg">
+              <CardTitle className="flex items-center gap-3">
+                <Settings className="h-5 w-5 text-gray-700" />
+                Configuração Rápida
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {/* GitHub Status */}
+              <div className="flex items-center justify-between p-4 border-2 border-orange-200 bg-orange-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Github className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">GitHub</p>
+                    <p className="text-sm text-gray-600">Não configurado</p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-medium"
+                  onClick={() => router.push('/dashboard/settings/github')}
+                >
+                  Configurar
+                </Button>
+              </div>
+
+              {/* Políticas da Empresa */}
+              <div className="flex items-center justify-between p-4 border-2 border-blue-200 bg-blue-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Building2 className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Políticas da Empresa</p>
+                    <p className="text-sm text-gray-600">Nenhuma política configurada</p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => router.push('/dashboard/settings')}
+                >
+                  Gerenciar
+                </Button>
+              </div>
+
+              {/* Análises Agendadas */}
+              <div className="flex items-center justify-between p-4 border-2 border-purple-200 bg-purple-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Calendar className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Análises Agendadas</p>
+                    <p className="text-sm text-gray-600">0 análises ativas</p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                  onClick={() => router.push('/dashboard/settings')}
+                >
+                  Configurar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
