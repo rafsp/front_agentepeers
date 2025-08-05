@@ -24,6 +24,7 @@ import {
   Clock
 } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { PeersLogo } from '@/components/peers-logo'
 
 export default function HomePage() {
   const router = useRouter()
@@ -63,15 +64,22 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation - Logo igual ao dashboard */}
+      {/* Navigation - Logo do GitHub sem texto */}
       <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <Bot className="h-6 w-6 text-primary-foreground" />
+              <div className="p-4 bg-slate-900 rounded-2xl shadow-lg">
+                <img 
+                  src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
+                  alt="Peers Logo" 
+                  className="w-32 h-16 object-contain"
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement
+                    target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjUwIiB2aWV3Qm94PSIwIDAgMTAwIDUwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjx0ZXh0IHg9IjUwIiB5PSIyNSIgZmlsbD0iIzAwZmZmZiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+UEVFUlM8L3RleHQ+PC9zdmc+"
+                  }}
+                />
               </div>
-              <span className="text-xl font-semibold text-slate-900">Peers AI</span>
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="ghost" onClick={() => router.push('/dashboard')}>
@@ -294,10 +302,17 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-600 rounded-lg">
-                  <Bot className="h-5 w-5 text-white" />
+                <div className="p-5 bg-slate-900 rounded-2xl shadow-xl">
+                  <img 
+                    src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
+                    alt="Peers Logo" 
+                    className="w-40 h-20 object-contain"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement
+                      target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjUwIiB2aWV3Qm94PSIwIDAgMTAwIDUwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjx0ZXh0IHg9IjUwIiB5PSIyNSIgZmlsbD0iI2ZmZmZmZiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+UEVFUlM8L3RleHQ+PC9zdmc+"
+                    }}
+                  />
                 </div>
-                <span className="text-xl font-semibold text-white">Peers AI</span>
               </div>
               <p className="text-sm text-slate-400">
                 Plataforma inteligente para análise automatizada de código com IA multi-agentes.

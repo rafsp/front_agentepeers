@@ -1,3 +1,4 @@
+// app/dashboard/new-analysis/page.tsx - VERSÃO MELHORADA
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -31,9 +32,18 @@ import {
 import { useJobStore } from '@/stores/job-store'
 import { useToast } from '@/components/ui/use-toast'
 import { JobApprovalModal } from '@/components/job-approval-modal'
-import { mapAnalysisForBackend, type FrontendAnalysisType } from '@/lib/analysis-mapper'
+import { LoadingOverlay } from '@/components/loading-overlay'
 
-// Definição das categorias e tipos de análise
+// Tipos
+type FrontendAnalysisType = 
+  | 'design' 
+  | 'refatoracao'
+  | 'docstring'
+  | 'security'
+  | 'pentest'
+  | 'relatorio_teste_unitario'
+  | 'escrever_testes'
+  | 'terraform'
 const analysisCategories = {
   'Código & Arquitetura': [
     {
@@ -83,7 +93,7 @@ const analysisCategories = {
       label: 'Penetration Testing',
       description: 'SAST, vetores de ataque, análise avançada',
       icon: Bug,
-      color: 'red',
+      color: 'purple',
       complexity: 'Muito Alto'
     }
   ],
@@ -91,358 +101,321 @@ const analysisCategories = {
     {
       value: 'relatorio_teste_unitario' as const,
       label: 'Relatório de Testes',
-      description: 'Cobertura atual, casos de borda, qualidade',
+      description: 'Análise de cobertura e qualidade dos testes',
       icon: FileCheck,
-      color: 'purple',
+      color: 'yellow',
       complexity: 'Baixo'
     },
     {
       value: 'escrever_testes' as const,
       label: 'Criação de Testes',
-      description: 'Gerar testes unitários e de integração',
+      description: 'Geração automática de testes unitários',
       icon: Beaker,
-      color: 'cyan',
+      color: 'teal',
       complexity: 'Médio'
     }
   ]
-}
-
-const getComplexityColor = (complexity: string) => {
-  switch (complexity) {
-    case 'Baixo': return 'bg-green-100 text-green-700 border-green-200'
-    case 'Médio': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-    case 'Alto': return 'bg-orange-100 text-orange-700 border-orange-200'
-    case 'Muito Alto': return 'bg-red-100 text-red-700 border-red-200'
-    default: return 'bg-gray-100 text-gray-700 border-gray-200'
-  }
-}
-
-const getIconColor = (color: string, selected: boolean) => {
-  const colors = {
-    blue: selected ? 'text-blue-600 bg-blue-100' : 'text-blue-500 bg-blue-50',
-    green: selected ? 'text-green-600 bg-green-100' : 'text-green-500 bg-green-50',
-    indigo: selected ? 'text-indigo-600 bg-indigo-100' : 'text-indigo-500 bg-indigo-50',
-    red: selected ? 'text-red-600 bg-red-100' : 'text-red-500 bg-red-50',
-    purple: selected ? 'text-purple-600 bg-purple-100' : 'text-purple-500 bg-purple-50',
-    cyan: selected ? 'text-cyan-600 bg-cyan-100' : 'text-cyan-500 bg-cyan-50',
-    orange: selected ? 'text-orange-600 bg-orange-100' : 'text-orange-500 bg-orange-50'
-  }
-  return colors[color as keyof typeof colors] || colors.blue
 }
 
 export default function NewAnalysisPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { startAnalysisJob, jobs } = useJobStore()
+  const { createJob, jobs } = useJobStore()
+
+  // Estados do formulário
+  const [repository, setRepository] = useState('')
+  const [branch, setBranch] = useState('main')
+  const [analysisType, setAnalysisType] = useState<FrontendAnalysisType | ''>('')
+  const [extraInstructions, setExtraInstructions] = useState('')
   
-  const urlRepo = searchParams.get('repo')
-  
-  const [repository, setRepository] = useState(urlRepo || '')
-  const [analysisType, setAnalysisType] = useState<FrontendAnalysisType>('design')
-  const [branch, setBranch] = useState('')
-  const [instructions, setInstructions] = useState('')
+  // Estados de controle
   const [isLoading, setIsLoading] = useState(false)
-  const [isTestingConnection, setIsTestingConnection] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'disconnected'>('unknown')
   const [createdJobId, setCreatedJobId] = useState<string | null>(null)
-  const [showMappingInfo, setShowMappingInfo] = useState(false)
+  const [backendStatus, setBackendStatus] = useState<'unknown' | 'connected' | 'error'>('unknown')
 
-  // Função para testar conexão
-  const testBackendConnection = async (): Promise<boolean> => {
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
-      const response = await fetch(`${baseUrl}/`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        return data.status === 'online'
-      }
-      return false
-    } catch (error) {
-      return false
-    }
-  }
+  // Job atual
+  const createdJob = createdJobId ? jobs[createdJobId] : null
 
+  // Controlar quando mostrar o loading overlay
+  const showLoadingOverlay = isLoading && (!createdJob || createdJob.status === 'pending')
+  
+  // Controlar quando mostrar o modal de aprovação
+  const showApprovalModal = !!createdJob && createdJob.status === 'pending_approval'
+
+  // Pré-preencher do query params
   useEffect(() => {
-    handleTestConnection()
+    const repoParam = searchParams.get('repo')
+    const branchParam = searchParams.get('branch') 
+    const typeParam = searchParams.get('type')
+
+    if (repoParam) setRepository(repoParam)
+    if (branchParam) setBranch(branchParam)
+    if (typeParam && isValidAnalysisType(typeParam)) {
+      setAnalysisType(typeParam as FrontendAnalysisType)
+    }
+  }, [searchParams])
+
+  // Verificar status do backend
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/health')
+        if (response.ok) {
+          setBackendStatus('connected')
+        } else {
+          setBackendStatus('error')
+        }
+      } catch (error) {
+        setBackendStatus('error')
+      }
+    }
+
+    checkBackendStatus()
+    const interval = setInterval(checkBackendStatus, 10000) // Verificar a cada 10s
+    return () => clearInterval(interval)
   }, [])
 
-  const handleTestConnection = async () => {
-    setIsTestingConnection(true)
-    try {
-      const isConnected = await testBackendConnection()
-      setConnectionStatus(isConnected ? 'connected' : 'disconnected')
-    } catch (error) {
-      setConnectionStatus('disconnected')
-    } finally {
-      setIsTestingConnection(false)
-    }
+  const isValidAnalysisType = (type: string): boolean => {
+    return Object.values(analysisCategories)
+      .flat()
+      .some(option => option.value === type)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repository || !analysisType) return
-
-    if (connectionStatus !== 'connected') {
-      await handleTestConnection()
+    
+    if (!repository || !analysisType) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Repositório e tipo de análise são obrigatórios.',
+        variant: 'destructive'
+      })
+      return
     }
 
     setIsLoading(true)
 
     try {
-      // 🔄 USAR O MAPEADOR INTELIGENTE
-      const mappedData = mapAnalysisForBackend(analysisType, instructions)
-      
-      console.log('🔄 Mapeamento:', {
-        frontend: analysisType,
-        backend: mappedData.analysis_type,
-        instructions: mappedData.instrucoes_extras.substring(0, 100) + '...'
-      })
-
-      const jobId = await startAnalysisJob({
-        repo_name: repository,
-        analysis_type: mappedData.analysis_type,
-        branch_name: branch || undefined,
-        instrucoes_extras: mappedData.instrucoes_extras
+      const jobId = await createJob({
+        title: `Análise de ${analysisType} - ${repository}`,
+        repository,
+        branch,
+        analysisType: analysisType as FrontendAnalysisType,
+        extraInstructions
       })
 
       setCreatedJobId(jobId)
-
+      
       toast({
         title: 'Análise iniciada!',
-        description: `A análise do repositório ${repository} foi iniciada com sucesso.`,
+        description: 'Gerando relatório inicial para aprovação...',
       })
 
     } catch (error) {
-      console.error('Erro ao iniciar análise:', error)
+      console.error('Erro ao criar job:', error)
       toast({
         title: 'Erro ao iniciar análise',
-        description: error instanceof Error ? error.message : 'Falha ao iniciar a análise.',
-        variant: 'destructive',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive'
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getConnectionIcon = () => {
-    if (isTestingConnection) return <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-    if (connectionStatus === 'connected') return <Wifi className="h-5 w-5 text-green-600" />
-    if (connectionStatus === 'disconnected') return <WifiOff className="h-5 w-5 text-red-600" />
-    return <AlertCircle className="h-5 w-5 text-yellow-600" />
+  const getComplexityColor = (complexity: string) => {
+    switch (complexity) {
+      case 'Baixo': return 'bg-green-100 text-green-800'
+      case 'Médio': return 'bg-blue-100 text-blue-800'
+      case 'Alto': return 'bg-orange-100 text-orange-800'
+      case 'Muito Alto': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
   }
 
-  const createdJob = createdJobId ? jobs[createdJobId] : null
-  
-  // Encontrar a opção selecionada
-  const selectedOption = Object.values(analysisCategories)
-    .flat()
-    .find(opt => opt.value === analysisType)
+  const getTypeColor = (color: string) => {
+    const colorMap: Record<string, string> = {
+      blue: 'border-blue-300 bg-blue-50 hover:bg-blue-100',
+      green: 'border-green-300 bg-green-50 hover:bg-green-100',
+      indigo: 'border-indigo-300 bg-indigo-50 hover:bg-indigo-100',
+      orange: 'border-orange-300 bg-orange-50 hover:bg-orange-100',
+      red: 'border-red-300 bg-red-50 hover:bg-red-100',
+      purple: 'border-purple-300 bg-purple-50 hover:bg-purple-100',
+      yellow: 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100',
+      teal: 'border-teal-300 bg-teal-50 hover:bg-teal-100'
+    }
+    return colorMap[color] || 'border-gray-300 bg-gray-50 hover:bg-gray-100'
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Nova Análise de Código</h1>
-            <p className="text-gray-600 mt-1">
-              Escolha o tipo de análise e configure os parâmetros
-            </p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Loading Overlay */}
+      <LoadingOverlay
+        isVisible={showLoadingOverlay}
+        title="Iniciando Análise Inteligente"
+        currentStep={createdJob?.status || 'pending_approval'}
+        progress={createdJob?.progress}
+        message={createdJob?.message}
+        repository={repository}
+        analysisType={analysisType}
+      />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-5xl mx-auto space-y-8">
-          
-          {/* Status da Conexão */}
-          <Card className={`border-2 ${connectionStatus === 'connected' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {getConnectionIcon()}
-                  <div>
-                    <h3 className="font-semibold">
-                      {connectionStatus === 'connected' ? 'Backend Online' : 'Backend Offline'}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {connectionStatus === 'connected' 
-                        ? 'Pronto para análises' 
-                        : 'Verifique se o servidor está rodando'
-                      }
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setShowMappingInfo(!showMappingInfo)}
-                  >
-                    <Info className="h-4 w-4 mr-2" />
-                    Como Funciona
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleTestConnection}
-                    disabled={isTestingConnection}
-                  >
-                    {isTestingConnection ? 'Testando...' : 'Testar'}
-                  </Button>
-                </div>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => router.back()}
+                className="hover:bg-gray-100"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Nova Análise</h1>
+                <p className="text-gray-600">Configure uma análise inteligente de código</p>
               </div>
-              
-              {/* Info sobre o mapeamento */}
-              {showMappingInfo && (
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-blue-900 mb-2">🔄 Mapeamento Inteligente</h4>
-                      <p className="text-sm text-blue-800 mb-3">
-                        O frontend oferece 8 tipos organizados por categoria, mas o backend usa apenas 2 tipos. 
-                        O sistema faz mapeamento automático com instruções específicas.
-                      </p>
-                    </div>
-                  </div>
+            </div>
+            
+            {/* Status do Backend */}
+            <div className="flex items-center gap-2">
+              {backendStatus === 'connected' ? (
+                <div className="flex items-center gap-2 text-green-600">
+                  <Wifi className="h-4 w-4" />
+                  <span className="text-sm">Backend Conectado</span>
+                </div>
+              ) : backendStatus === 'error' ? (
+                <div className="flex items-center gap-2 text-red-600">
+                  <WifiOff className="h-4 w-4" />
+                  <span className="text-sm">Backend Desconectado</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Verificando...</span>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          {/* Formulário */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            
-            {/* Repositório */}
+      {/* Conteúdo Principal */}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Informações do Repositório */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Github className="h-5 w-5" />
-                  Repositório
+                  Informações do Repositório
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Input
-                    placeholder="ex: usuario/meu-repositorio"
-                    value={repository}
-                    onChange={(e) => setRepository(e.target.value)}
-                    required
-                    className="text-lg"
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    Formato: owner/repository-name
-                  </p>
-                </div>
-                
-                <div>
-                  <Input
-                    placeholder="ex: main, develop, feature/nova-funcionalidade"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    Branch (opcional) - se não especificado, usará a branch padrão
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Repositório *
+                    </label>
+                    <Input
+                      placeholder="ex: username/repository-name"
+                      value={repository}
+                      onChange={(e) => setRepository(e.target.value)}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Branch
+                    </label>
+                    <Input
+                      placeholder="main"
+                      value={branch}
+                      onChange={(e) => setBranch(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Tipos de Análise por Categoria */}
+            {/* Tipo de Análise */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GitBranch className="h-5 w-5" />
-                  Tipo de Análise
-                </CardTitle>
+                <CardTitle>Tipo de Análise *</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-8">
-                {Object.entries(analysisCategories).map(([categoryName, options]) => (
-                  <div key={categoryName}>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      {categoryName}
-                    </h3>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {options.map((option) => {
-                        const Icon = option.icon
-                        const isSelected = analysisType === option.value
-                        return (
-                          <Card
+              <CardContent>
+                <div className="space-y-6">
+                  {Object.entries(analysisCategories).map(([category, options]) => (
+                    <div key={category}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">{category}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {options.map((option) => (
+                          <label
                             key={option.value}
-                            className={`cursor-pointer border-2 transition-all duration-200 ${
-                              isSelected 
-                                ? 'border-blue-500 bg-blue-50 shadow-md' 
-                                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                            className={`p-4 border-2 rounded-lg cursor-pointer transition-all block ${
+                              analysisType === option.value 
+                                ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-200' 
+                                : getTypeColor(option.color)
                             }`}
-                            onClick={() => setAnalysisType(option.value)}
                           >
-                            <CardContent className="p-6">
-                              <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                  <div className={`p-3 rounded-xl ${getIconColor(option.color, isSelected)}`}>
-                                    <Icon className="h-6 w-6" />
-                                  </div>
-                                  {isSelected && (
-                                    <CheckCircle className="h-5 w-5 text-blue-600" />
-                                  )}
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-900 mb-2">
-                                    {option.label}
-                                  </h4>
-                                  <p className="text-sm text-gray-600 mb-3">
-                                    {option.description}
-                                  </p>
-                                </div>
-                                
-                                <div className="flex flex-wrap gap-2">
-                                  <Badge className={getComplexityColor(option.complexity)}>
+                            <input
+                              type="radio"
+                              name="analysisType"
+                              value={option.value}
+                              checked={analysisType === option.value}
+                              onChange={(e) => {
+                                console.log('Selecionado:', e.target.value)
+                                setAnalysisType(e.target.value as FrontendAnalysisType)
+                              }}
+                              className="sr-only"
+                            />
+                            <div className="flex items-start gap-3">
+                              <option.icon className={`h-5 w-5 mt-0.5 ${
+                                analysisType === option.value ? 'text-blue-600' : 'text-gray-600'
+                              }`} />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-gray-900">{option.label}</span>
+                                  <Badge className={`text-xs ${getComplexityColor(option.complexity)}`}>
                                     {option.complexity}
                                   </Badge>
                                 </div>
+                                <p className="text-sm text-gray-600">{option.description}</p>
                               </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
             {/* Instruções Extras */}
             <Card>
               <CardHeader>
-                <CardTitle>Instruções Extras (opcional)</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5" />
+                  Instruções Extras (opcional)
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
                   placeholder="Instruções específicas adicionais para a análise..."
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  rows={4}
-                  className="resize-none"
+                  value={extraInstructions}
+                  onChange={(e) => setExtraInstructions(e.target.value)}
+                  className="min-h-[100px] resize-none"
                 />
                 <p className="text-sm text-gray-500 mt-2">
-                  ℹ️ O sistema já adiciona instruções automáticas específicas para cada tipo. 
-                  Use este campo apenas para requisitos adicionais.
+                  O sistema já adiciona instruções automáticas específicas para cada tipo. Use este campo apenas para requisitos adicionais.
                 </p>
               </CardContent>
             </Card>
@@ -451,7 +424,7 @@ export default function NewAnalysisPage() {
             <Button 
               type="submit" 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold" 
-              disabled={!repository || !analysisType || isLoading}
+              disabled={!repository || !analysisType || isLoading || backendStatus === 'error'}
               size="lg"
             >
               {isLoading ? (
@@ -473,7 +446,7 @@ export default function NewAnalysisPage() {
       {/* Modal de Aprovação */}
       <JobApprovalModal
         job={createdJob}
-        isOpen={!!createdJob && createdJob.status === 'pending_approval'}
+        isOpen={showApprovalModal}
         onClose={() => {
           setCreatedJobId(null)
           router.push('/dashboard/jobs')
