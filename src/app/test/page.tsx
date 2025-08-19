@@ -108,32 +108,14 @@ export default function TestPage() {
       })
       
       const data = await response.json()
-      console.log('Resposta completa do backend:', data)
-      
-      // Tentar encontrar o ID em diferentes formatos possíveis
-      let jobId = data.job_id || data.task_id || data.id
-      
-      // Se não encontrou ID, pode estar em um formato diferente
-      if (!jobId && typeof data === 'string') {
-        // Se a resposta for uma string, pode ser o ID direto
-        jobId = data
-      }
-      
-      // Se ainda não tem ID, criar um temporário e alertar
-      if (!jobId) {
-        console.warn('ID não encontrado na resposta:', data)
-        alert('Atenção: O job foi criado mas o ID não foi retornado corretamente. Verifique o console.')
-        jobId = `temp-${Date.now()}`
-      } else {
-        console.log('Job ID encontrado:', jobId)
-      }
+      console.log('Job criado:', data)
       
       // Adicionar novo job à lista
       const newJob: Job = {
-        id: jobId,
-        status: data.status || 'processing',
+        id: data.job_id || data.task_id || data.id || `temp-${Date.now()}`,
+        status: data.status || 'pending_approval',
         progress: 10,
-        message: data.message || 'Job criado com sucesso!',
+        message: data.message || 'Job criado, aguardando processamento...',
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -141,17 +123,18 @@ export default function TestPage() {
       setJobs(prev => [newJob, ...prev])
       setSelectedJob(newJob)
       
-      // Só iniciar polling se temos um ID válido (não temporário)
-      if (!jobId.startsWith('temp-')) {
-        console.log('Iniciando polling para job:', jobId)
-        startPolling(jobId)
-      } else {
-        alert('ID temporário criado. O polling não será iniciado automaticamente.')
+      // Se o modo é "gerar_relatorio_apenas", o job pode não precisar de aprovação
+      if (formData.gerar_relatorio_apenas) {
+        console.log('Modo apenas relatório - iniciando polling direto')
+        startPolling(newJob.id)
+      } else if (data.job_id || data.task_id || data.id) {
+        // Iniciar polling automático apenas se temos um ID válido
+        startPolling(newJob.id)
       }
       
     } catch (error) {
-      console.error('Erro ao criar job:', error)
-      alert('Erro ao criar job. Verifique o console para mais detalhes.')
+      console.error('Erro:', error)
+      alert('Erro ao criar job. Verifique o console.')
     } finally {
       setIsSubmitting(false)
     }

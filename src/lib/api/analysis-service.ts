@@ -27,7 +27,7 @@ class AnalysisService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net';
   }
 
   async startAnalysis(request: StartAnalysisRequest): Promise<StartAnalysisResponse> {

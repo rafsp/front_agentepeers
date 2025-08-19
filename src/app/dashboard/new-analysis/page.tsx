@@ -160,7 +160,7 @@ export default function NewAnalysisPage() {
   useEffect(() => {
     const checkBackendStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/health')
+        const response = await fetch('https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net/health')
         if (response.ok) {
           setBackendStatus('connected')
         } else {

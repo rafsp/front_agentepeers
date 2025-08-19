@@ -35,7 +35,7 @@ class ApiService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'
+  this.baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
   }
 
   private async request<T>(

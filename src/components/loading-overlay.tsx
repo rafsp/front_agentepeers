@@ -16,7 +16,9 @@ import {
   Code2,
   RefreshCw,
   TestTube,
-  Upload
+  Upload,
+  Eye,
+  Shield
 } from 'lucide-react'
 
 interface LoadingOverlayProps {
@@ -31,7 +33,10 @@ interface LoadingOverlayProps {
 
 const stepIcons = {
   'pending': Loader2,
-  'pending_approval': FileText,
+  'iniciando_relatorio': FileText,
+  'lendo_codigos': Eye,
+  'validando_praticas': Shield,
+  'pending_approval': CheckCircle,
   'refactoring_code': RefreshCw,
   'grouping_commits': GitBranch,
   'writing_unit_tests': TestTube,
@@ -43,6 +48,9 @@ const stepIcons = {
 
 const stepLabels = {
   'pending': 'Iniciando Processamento',
+  'iniciando_relatorio': 'Iniciando Relatório de Análise',
+  'lendo_codigos': 'Lendo Códigos',
+  'validando_praticas': 'Validando Melhores Práticas',
   'pending_approval': 'Aguardando Aprovação',
   'refactoring_code': 'Refatorando Código', 
   'grouping_commits': 'Agrupando Commits',
@@ -55,6 +63,9 @@ const stepLabels = {
 
 const stepDescriptions = {
   'pending': 'Iniciando processamento...',
+  'iniciando_relatorio': 'Iniciando processo de análise e preparando relatório detalhado...',
+  'lendo_codigos': 'Examinando estrutura de arquivos e padrões de código...',
+  'validando_praticas': 'Verificando conformidade com melhores práticas de desenvolvimento...',
   'pending_approval': 'Relatório gerado! Aguardando sua aprovação.',
   'refactoring_code': 'Aplicando melhorias e boas práticas no código...',
   'grouping_commits': 'Organizando mudanças por categoria...',
@@ -115,18 +126,14 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
             {/* Current Step */}
             <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
               <div className="flex-shrink-0">
-                {currentStep === 'pending_approval' ? (
-                  <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
-                ) : (
-                  <StepIcon className="h-5 w-5 text-blue-600" />
-                )}
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-900 text-sm">
-                  {stepLabel}
+                  Processando análise...
                 </div>
                 <div className="text-xs text-gray-600 mt-1">
-                  {stepDescription}
+                  Agentes de IA analisando o código automaticamente
                 </div>
               </div>
             </div>
@@ -141,41 +148,6 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
                 <Progress value={progress} className="h-2" />
               </div>
             )}
-
-            {/* Process Steps */}
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700 mb-3">
-                Etapas do Processo:
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {Object.entries(stepLabels).map(([step, label]) => {
-                  const isActive = step === currentStep
-                  const isCompleted = progress > 0 && getStepProgress(step) <= progress
-                  
-                  return (
-                    <div 
-                      key={step}
-                      className={`flex items-center gap-2 p-2 rounded text-xs ${
-                        isActive 
-                          ? 'bg-blue-100 text-blue-700' 
-                          : isCompleted 
-                          ? 'bg-green-50 text-green-700'
-                          : 'text-gray-500'
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle className="h-3 w-3" />
-                      ) : isActive ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Clock className="h-3 w-3" />
-                      )}
-                      <span className="truncate">{label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Footer */}
@@ -194,10 +166,13 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
 // Helper function para calcular progresso de cada step
 function getStepProgress(step: string): number {
   const stepProgressMap = {
-    'pending': 10,
-    'pending_approval': 25,
-    'refactoring_code': 40,
-    'grouping_commits': 55,
+    'pending': 5,
+    'iniciando_relatorio': 15,
+    'lendo_codigos': 25,
+    'validando_praticas': 35,
+    'pending_approval': 40,
+    'refactoring_code': 50,
+    'grouping_commits': 60,
     'writing_unit_tests': 70,
     'grouping_tests': 80,
     'populating_data': 90,

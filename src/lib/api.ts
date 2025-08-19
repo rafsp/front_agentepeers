@@ -1,7 +1,8 @@
 // lib/api.ts
 import type { FrontendAnalysisType } from '@/lib/analysis-mapper'
 
-const API_BASE_URL = 'http://127.0.0.1:8000'
+const API_BASE_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+
 
 // Tipos para as APIs
 export interface StartAnalysisRequest {
