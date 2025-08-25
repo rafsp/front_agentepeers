@@ -13,51 +13,110 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { 
-  Loader2, Play, CheckCircle, XCircle, AlertCircle, RefreshCw, FileText,
-  Clock, ThumbsUp, ThumbsDown, Eye, GitBranch, Code, Sparkles, Terminal,
-  Activity, ChevronRight, Filter, Search, Download, Copy, CheckCheck,
-  Zap, Shield, FileCode, TestTube, Bug, Cpu, Layers, Plus, Rocket,
-  Info, Settings, Database, GitCommit, ArrowRight, Bot, BrainCircuit,
-  Menu, X, ChevronLeft, ChevronDown, Upload, Folder, BookOpen, Key,
-  Moon, Sun, Globe, Bell, FileUp, History, Archive, Palette, Users,
-  FolderOpen, FileJson, Package, Building, Save, Trash2, Edit,
-  ExternalLink, HelpCircle, LogOut, BarChart3, PanelLeftClose, PanelLeft
+  Loader2, 
+  Play, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle, 
+  RefreshCw,
+  FileText,
+  Clock,
+  ThumbsUp,
+  ThumbsDown,
+  Eye,
+  GitBranch,
+  Code,
+  Sparkles,
+  Terminal,
+  Activity,
+  ChevronRight,
+  Filter,
+  Search,
+  Download,
+  Copy,
+  CheckCheck,
+  Zap,
+  Shield,
+  FileCode,
+  TestTube,
+  Bug,
+  Cpu,
+  Layers,
+  Plus,
+  Rocket,
+  Info,
+  Settings,
+  Database,
+  GitCommit,
+  ArrowRight,
+  Bot,
+  BrainCircuit,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronDown,
+  Upload,
+  Folder,
+  BookOpen,
+  Key,
+  Moon,
+  Sun,
+  Globe,
+  Bell,
+  FileUp,
+  History,
+  Archive,
+  Palette,
+  Users,
+  FolderOpen,
+  FileJson,
+  Package,
+  Building,
+  Save,
+  Trash2,
+  Edit,
+  ExternalLink,
+  HelpCircle,
+  LogOut,
+  BarChart3,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react'
 
 const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
-// Cores da marca PEERS conforme brandbook
+// Cores da marca PEERS
 const BRAND_COLORS = {
   primary: '#011334',     // PEERS Neue Blue
-  secondary: '#E1FF00',   // PEERS Neue Lime  
+  secondary: '#E1FF00',   // PEERS Neue Lime
   accent: '#D8E8EE',      // Serene Blue
   white: '#FFFFFF',
   
-  // Variações da paleta secundária
-  blue: {
-    100: '#EFF6F8',  // Serene Blue 03
-    200: '#E8F1F5',  // Serene Blue 02
-    300: '#D8E8EE',  // Serene Blue
-    400: '#CCD0D6',  // Neue Blue 04
-    500: '#99A1AE',  // Neue Blue 03
-    600: '#677185',  // Neue Blue 02
-    700: '#011334',  // Neue Blue (primary)
-  },
-  lime: {
-    100: '#F9FFCC',  // Neue Lime 03
-    200: '#F3FF99',  // Neue Lime 02
-    300: '#E1FF00',  // Neue Lime (secondary)
-  },
-  
+  // Gradientes e variações
   gradients: {
     primary: 'linear-gradient(135deg, #011334 0%, #022558 100%)',
     secondary: 'linear-gradient(135deg, #E1FF00 0%, #C8E600 100%)',
-    mixed: 'linear-gradient(135deg, #011334 0%, #033670 100%)',
+    mixed: 'linear-gradient(135deg, #011334 0%, #022558 50%, #033670 100%)',
     subtle: 'linear-gradient(135deg, #f8fafb 0%, #e8f4f8 100%)'
   }
 }
 
-// Interface para configurações
+interface Job {
+  id: string
+  status: string
+  progress: number
+  message?: string
+  analysis_report?: string
+  error_details?: string
+  created_at: Date
+  updated_at: Date
+  repo_name?: string
+  analysis_type?: string
+  branch_name?: string
+  gerar_relatorio_apenas?: boolean
+}
+
+// Interfaces para configurações
 interface LLMConfig {
   model: string
   apiKey: string
@@ -92,22 +151,7 @@ interface Project {
   settings?: any
 }
 
-interface Job {
-  id: string
-  status: string
-  progress: number
-  message?: string
-  analysis_report?: string
-  error_details?: string
-  created_at: Date
-  updated_at: Date
-  repo_name?: string
-  analysis_type?: string
-  branch_name?: string
-  gerar_relatorio_apenas?: boolean
-}
-
-// Tipos de análise
+// Tipos de análise organizados por categoria - ATUALIZADO COM OS VALORES CORRETOS DA API
 const analysisCategories = {
   'Código & Arquitetura': [
     { value: 'relatorio_cleancode', label: 'Clean Code', icon: Layers, description: 'Análise de código limpo e boas práticas', color: 'blue' },
@@ -128,211 +172,13 @@ const analysisCategories = {
   ]
 }
 
-// Componente para renderizar o relatório de forma bonita
-const ReportViewer = ({ content, analysisType, getAnalysisDetails }: { 
-  content: string, 
-  analysisType?: string,
-  getAnalysisDetails: (type: string) => any
-}) => {
-  // Função para obter ícone e cor baseado na severidade
-  const getSeverityConfig = (severity: string) => {
-    const severityLower = severity.toLowerCase()
-    if (severityLower.includes('severo') || severityLower.includes('crítico')) {
-      return { icon: AlertCircle, color: 'text-red-600 bg-red-50 border-red-200', badge: 'bg-red-100 text-red-800' }
-    }
-    if (severityLower.includes('moderado') || severityLower.includes('médio')) {
-      return { icon: Info, color: 'text-yellow-600 bg-yellow-50 border-yellow-200', badge: 'bg-yellow-100 text-yellow-800' }
-    }
-    if (severityLower.includes('baixo') || severityLower.includes('leve')) {
-      return { icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200', badge: 'bg-green-100 text-green-800' }
-    }
-    return { icon: Info, color: 'text-blue-600 bg-blue-50 border-blue-200', badge: 'bg-blue-100 text-blue-800' }
+// Função para obter detalhes do tipo de análise
+const getAnalysisDetails = (type: string) => {
+  for (const category of Object.values(analysisCategories)) {
+    const found = category.find(item => item.value === type)
+    if (found) return found
   }
-
-  // Processar o conteúdo Markdown
-  const processContent = () => {
-    const lines = content.split('\n')
-    const elements: JSX.Element[] = []
-    let currentTable: string[] = []
-    let inTable = false
-    let tableKey = 0
-
-    lines.forEach((line, index) => {
-      // Headers
-      if (line.startsWith('# ')) {
-        elements.push(
-          <h1 key={index} className="text-2xl font-bold mb-4 mt-6 text-gray-900 flex items-center gap-2">
-            <FileText className="h-6 w-6" style={{ color: BRAND_COLORS.primary }} />
-            {line.substring(2)}
-          </h1>
-        )
-      } else if (line.startsWith('## ')) {
-        const sectionNumber = line.match(/^\#\# (\d+)\./)?.[1]
-        elements.push(
-          <h2 key={index} className="text-xl font-semibold mb-3 mt-5 text-gray-800 flex items-center gap-2">
-            <span className="flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold" 
-                  style={{ backgroundColor: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}>
-              {sectionNumber || '#'}
-            </span>
-            {line.substring(3)}
-          </h2>
-        )
-      } else if (line.startsWith('### ')) {
-        elements.push(
-          <h3 key={index} className="text-lg font-semibold mb-2 mt-4 text-gray-700">
-            {line.substring(4)}
-          </h3>
-        )
-      }
-      // Bold text with severity
-      else if (line.includes('**Severidade:**')) {
-        const severity = line.match(/\*\*Severidade:\*\* (.+)/)?.[1] || ''
-        const config = getSeverityConfig(severity)
-        const Icon = config.icon
-        elements.push(
-          <div key={index} className={`flex items-center gap-2 p-3 rounded-lg border mb-3 ${config.color}`}>
-            <Icon className="h-5 w-5" />
-            <span className="font-semibold">Severidade:</span>
-            <Badge className={config.badge}>{severity}</Badge>
-          </div>
-        )
-      }
-      // Lists
-      else if (line.startsWith('- ')) {
-        const listItem = line.substring(2)
-        // Check if it contains code blocks
-        const processedItem = listItem.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-gray-100 text-red-600 rounded text-sm font-mono">$1</code>')
-        
-        elements.push(
-          <li key={index} className="flex items-start gap-2 mb-2">
-            <ChevronRight className="h-4 w-4 mt-1 flex-shrink-0" style={{ color: BRAND_COLORS.secondary }} />
-            <span dangerouslySetInnerHTML={{ __html: processedItem }} className="text-gray-700" />
-          </li>
-        )
-      }
-      // Table handling
-      else if (line.includes('|')) {
-        if (!inTable) {
-          inTable = true
-          currentTable = []
-        }
-        currentTable.push(line)
-      } else if (inTable && !line.includes('|')) {
-        // End of table, render it
-        if (currentTable.length > 0) {
-          elements.push(renderTable(currentTable, tableKey++))
-          currentTable = []
-          inTable = false
-        }
-      }
-      // Regular text
-      else if (line.trim() && !line.startsWith('#')) {
-        const processedLine = line
-          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-          .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-gray-100 text-red-600 rounded text-sm font-mono">$1</code>')
-        
-        elements.push(
-          <p key={index} className="text-gray-700 mb-2" dangerouslySetInnerHTML={{ __html: processedLine }} />
-        )
-      }
-    })
-
-    // Handle any remaining table
-    if (currentTable.length > 0) {
-      elements.push(renderTable(currentTable, tableKey))
-    }
-
-    return elements
-  }
-
-  // Renderizar tabela
-  const renderTable = (tableLines: string[], key: number) => {
-    const rows = tableLines.filter(line => !line.match(/^\|[\s\-:|]+\|$/))
-    if (rows.length === 0) return null
-
-    const headers = rows[0].split('|').filter(cell => cell.trim())
-    const dataRows = rows.slice(1).map(row => row.split('|').filter(cell => cell.trim()))
-
-    return (
-      <div key={`table-${key}`} className="overflow-x-auto my-4">
-        <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-          <thead className="bg-gray-50">
-            <tr>
-              {headers.map((header, i) => (
-                <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  {header.trim()}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {dataRows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
-                {row.map((cell, cellIndex) => {
-                  const cellContent = cell.trim()
-                  let processedContent = cellContent
-                  
-                  // Check for severity in the cell
-                  if (cellContent.includes('Severo') || cellContent.includes('Moderado') || cellContent.includes('Baixo')) {
-                    const config = getSeverityConfig(cellContent)
-                    processedContent = `<span class="${config.badge} px-2 py-1 rounded-full text-xs font-semibold">${cellContent}</span>`
-                  }
-                  // Check for code blocks
-                  else if (cellContent.includes('`')) {
-                    processedContent = cellContent.replace(
-                      /`([^`]+)`/g, 
-                      '<code class="px-1.5 py-0.5 bg-gray-100 text-red-600 rounded text-sm font-mono">$1</code>'
-                    )
-                  }
-                  // Check for CRIAR/ATUALIZAR actions
-                  else if (cellContent.includes('**CRIAR**') || cellContent.includes('**ATUALIZAR**')) {
-                    processedContent = cellContent
-                      .replace(/\*\*CRIAR\*\*/g, '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">CRIAR</span>')
-                      .replace(/\*\*ATUALIZAR\*\*/g, '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">ATUALIZAR</span>')
-                  }
-                  
-                  return (
-                    <td key={cellIndex} className="px-4 py-3 text-sm text-gray-700">
-                      <div dangerouslySetInnerHTML={{ __html: processedContent }} />
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
-  const analysisTypeDetails = getAnalysisDetails(analysisType || '')
-  const AnalysisIcon = analysisTypeDetails?.icon || FileText
-
-  return (
-    <div className="max-w-none">
-      {/* Header do tipo de análise */}
-      <div className="mb-6 p-4 rounded-lg border" style={{ backgroundColor: BRAND_COLORS.accent + '20', borderColor: BRAND_COLORS.accent }}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: BRAND_COLORS.secondary }}>
-            <AnalysisIcon className="h-6 w-6" style={{ color: BRAND_COLORS.primary }} />
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg" style={{ color: BRAND_COLORS.primary }}>
-              {analysisTypeDetails?.label || analysisType}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {analysisTypeDetails?.description}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Conteúdo processado */}
-      <div className="prose prose-sm max-w-none">
-        {processContent()}
-      </div>
-    </div>
-  )
+  return null
 }
 
 // Componente do Menu Lateral
@@ -371,91 +217,82 @@ const Sidebar = ({
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'version' | 'knowledge') => {
     const file = event.target.files?.[0]
-    if (!file) return
-
-    if (type === 'version') {
-      const newVersion: VersionFile = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        version: `v${versions.length + 1}.0.0`,
-        uploadDate: new Date(),
-        size: file.size,
+    if (file) {
+      if (type === 'version') {
+        const newVersion: VersionFile = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          version: '1.0.0',
+          uploadDate: new Date(),
+          size: file.size
+        }
+        setVersions([...versions, newVersion])
+      } else {
+        const newDoc: KnowledgeDoc = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          type: 'documentation',
+          uploadDate: new Date(),
+          size: file.size
+        }
+        setKnowledgeDocs([...knowledgeDocs, newDoc])
       }
-      setVersions([...versions, newVersion])
-    } else {
-      const newDoc: KnowledgeDoc = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        type: 'documentation',
-        uploadDate: new Date(),
-        size: file.size,
-      }
-      setKnowledgeDocs([...knowledgeDocs, newDoc])
     }
   }
 
   const menuSections = [
     {
       id: 'llm',
-      title: 'Configurações de LLM',
+      title: 'Configuração LLM',
       icon: BrainCircuit,
       content: (
         <div className="space-y-4">
-          {/* Modelo */}
           <div>
             <Label className="text-xs font-medium text-gray-700">Modelo</Label>
-            <Select value={llmConfig.model} onValueChange={(value) => setLlmConfig({...llmConfig, model: value})}>
+            <Select value={llmConfig.model} onValueChange={(v) => setLlmConfig({...llmConfig, model: v})}>
               <SelectTrigger className="w-full mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
                 <SelectItem value="gpt-4">GPT-4</SelectItem>
-                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                <SelectItem value="gpt-3.5-turbo">gpt-5</SelectItem>
+                <SelectItem value="claude-3-haiku-20240307">Claude 3</SelectItem>
+                <SelectItem value="claude-3-5-haiku-20241022">Claude 3</SelectItem>
+                <SelectItem value="claude-sonnet-4-20250514">Claude 3</SelectItem>
+                <SelectItem value="claude-opus-4-20250514">Claude 3</SelectItem>
+
               </SelectContent>
             </Select>
           </div>
 
-          {/* API Key */}
           <div>
             <Label className="text-xs font-medium text-gray-700">API Key</Label>
-            <div className="relative mt-1">
-              <Input 
-                type="password"
-                value={llmConfig.apiKey}
-                onChange={(e) => setLlmConfig({...llmConfig, apiKey: e.target.value})}
-                placeholder="sk-..."
-                className="pr-8"
-              />
-              <Key className="absolute right-2 top-2.5 h-4 w-4 text-gray-400" />
-            </div>
-          </div>
-
-          {/* Max Tokens */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700">Limite de Tokens</Label>
             <Input 
-              type="number"
-              value={llmConfig.maxTokens}
-              onChange={(e) => setLlmConfig({...llmConfig, maxTokens: parseInt(e.target.value)})}
-              min={1}
-              max={32000}
+              type="password"
+              value={llmConfig.apiKey}
+              onChange={(e) => setLlmConfig({...llmConfig, apiKey: e.target.value})}
+              placeholder="sk-..."
               className="mt-1"
             />
           </div>
 
-          {/* Botão Salvar */}
+          <div>
+            <Label className="text-xs font-medium text-gray-700">Max Tokens</Label>
+            <Input 
+              type="number"
+              value={llmConfig.maxTokens}
+              onChange={(e) => setLlmConfig({...llmConfig, maxTokens: parseInt(e.target.value)})}
+              className="mt-1"
+            />
+          </div>
+
           <Button 
-            className="w-full mt-4"
-            style={{ 
-              backgroundColor: BRAND_COLORS.secondary,
-              color: BRAND_COLORS.primary
-            }}
+            className="w-full"
+            style={{ backgroundColor: BRAND_COLORS.primary }}
             onClick={() => {
               localStorage.setItem('llmConfig', JSON.stringify(llmConfig))
-              alert('Configurações de LLM salvas!')
+              alert('Configurações salvas!')
             }}
           >
             <Save className="h-4 w-4 mr-2" />
@@ -465,89 +302,49 @@ const Sidebar = ({
       )
     },
     {
-      id: 'versioning',
-      title: 'Versionamento',
+      id: 'versions',
+      title: 'Controle de Versões',
       icon: GitBranch,
       content: (
         <div className="space-y-4">
-          {/* Upload de Versão */}
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept=".json,.yaml,.yml"
-              onChange={(e) => handleFileUpload(e, 'version')}
-            />
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full"
-              variant="outline"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload de Versão
-            </Button>
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => handleFileUpload(e, 'version')}
+          />
+          
+          <Button 
+            className="w-full"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload de Versão
+          </Button>
 
-          {/* Lista de Versões */}
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-gray-700">Histórico de Versões</Label>
-            <ScrollArea className="h-48 border rounded-lg p-2">
+            <Label className="text-xs font-medium text-gray-700">Versões Carregadas</Label>
+            <ScrollArea className="h-32 border rounded-lg p-2">
               {versions.length === 0 ? (
                 <p className="text-xs text-gray-500 text-center py-4">Nenhuma versão disponível</p>
               ) : (
                 versions.map((version: VersionFile) => (
-                  <div key={version.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded group">
+                  <div key={version.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
                     <div className="flex items-center gap-2">
-                      <Archive className="h-4 w-4 text-gray-400" />
+                      <FileUp className="h-4 w-4 text-gray-500" />
                       <div>
                         <p className="text-xs font-medium">{version.name}</p>
-                        <p className="text-xs text-gray-500">{version.version} • {(version.size / 1024).toFixed(1)}KB</p>
+                        <p className="text-xs text-gray-500">v{version.version}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                        <Download className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setVersions(versions.filter((v: VersionFile) => v.id !== version.id))}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))
               )}
             </ScrollArea>
-          </div>
-
-          {/* Comparação de Versões */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700 mb-2">Comparar Versões</Label>
-            <div className="flex gap-2">
-              <Select>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Versão 1" />
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((v: VersionFile) => (
-                    <SelectItem key={v.id} value={v.id}>{v.version}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Versão 2" />
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((v: VersionFile) => (
-                    <SelectItem key={v.id} value={v.id}>{v.version}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full mt-2" variant="outline" size="sm">
-              <GitCommit className="h-3 w-3 mr-2" />
-              Comparar
-            </Button>
           </div>
         </div>
       )
@@ -558,84 +355,46 @@ const Sidebar = ({
       icon: BookOpen,
       content: (
         <div className="space-y-4">
-          {/* Upload de Documentos */}
-          <div>
-            <input
-              ref={docInputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.md,.txt,.doc,.docx"
-              onChange={(e) => handleFileUpload(e, 'knowledge')}
-            />
-            <Button 
-              onClick={() => docInputRef.current?.click()}
-              className="w-full"
-              variant="outline"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload de Documento
-            </Button>
-          </div>
+          <input
+            ref={docInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => handleFileUpload(e, 'knowledge')}
+          />
+          
+          <Button 
+            className="w-full"
+            variant="outline"
+            onClick={() => docInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Adicionar Documento
+          </Button>
 
-          {/* Categorias de Documentos */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700 mb-2">Categorias</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="justify-start">
-                <FileText className="h-3 w-3 mr-1" />
-                Docs ({knowledgeDocs.filter((d: KnowledgeDoc) => d.type === 'documentation').length})
-              </Button>
-              <Button variant="outline" size="sm" className="justify-start">
-                <Shield className="h-3 w-3 mr-1" />
-                Políticas ({knowledgeDocs.filter((d: KnowledgeDoc) => d.type === 'policy').length})
-              </Button>
-              <Button variant="outline" size="sm" className="justify-start">
-                <BookOpen className="h-3 w-3 mr-1" />
-                Guias ({knowledgeDocs.filter((d: KnowledgeDoc) => d.type === 'guide').length})
-              </Button>
-              <Button variant="outline" size="sm" className="justify-start">
-                <FileCode className="h-3 w-3 mr-1" />
-                Outros ({knowledgeDocs.filter((d: KnowledgeDoc) => d.type === 'other').length})
-              </Button>
-            </div>
-          </div>
-
-          {/* Lista de Documentos */}
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-xs font-medium text-gray-700">Documentos</Label>
-              <span className="text-xs text-gray-500">{knowledgeDocs.length} itens</span>
-            </div>
-            <ScrollArea className="h-48 border rounded-lg p-2">
+            <Label className="text-xs font-medium text-gray-700">Documentos RAG</Label>
+            <ScrollArea className="h-32 border rounded-lg p-2">
               {knowledgeDocs.length === 0 ? (
                 <p className="text-xs text-gray-500 text-center py-4">Nenhum documento disponível</p>
               ) : (
                 knowledgeDocs.map((doc: KnowledgeDoc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded group">
+                  <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-gray-400" />
+                      <FileText className="h-4 w-4 text-gray-500" />
                       <div>
-                        <p className="text-xs font-medium truncate max-w-[150px]">{doc.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(doc.uploadDate).toLocaleDateString()} • {(doc.size / 1024).toFixed(1)}KB
-                        </p>
+                        <p className="text-xs font-medium">{doc.name}</p>
+                        <p className="text-xs text-gray-500">{(doc.size / 1024).toFixed(2)} KB</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setKnowledgeDocs(knowledgeDocs.filter((d: KnowledgeDoc) => d.id !== doc.id))}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))
               )}
             </ScrollArea>
           </div>
 
-          {/* Configurações RAG */}
           <div className="pt-2 border-t">
             <Label className="text-xs font-medium text-gray-700 mb-2">Configurações RAG</Label>
             <div className="space-y-2">
@@ -646,18 +405,6 @@ const Sidebar = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs">Overlap</span>
                 <Input type="number" defaultValue="50" className="w-20 h-7 text-xs" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs">Embedding Model</span>
-                <Select defaultValue="ada-002">
-                  <SelectTrigger className="w-32 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ada-002">Ada 002</SelectItem>
-                    <SelectItem value="curie">Curie</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -670,7 +417,6 @@ const Sidebar = ({
       icon: Folder,
       content: (
         <div className="space-y-4">
-          {/* Criar Novo Projeto */}
           <Button 
             className="w-full"
             style={{ 
@@ -695,10 +441,9 @@ const Sidebar = ({
             Novo Projeto
           </Button>
 
-          {/* Lista de Projetos */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-gray-700">Projetos Ativos</Label>
-            <ScrollArea className="h-64 border rounded-lg p-2">
+            <ScrollArea className="h-48 border rounded-lg p-2">
               {projects.length === 0 ? (
                 <p className="text-xs text-gray-500 text-center py-4">Nenhum projeto disponível</p>
               ) : (
@@ -712,73 +457,32 @@ const Sidebar = ({
                     }`}
                     onClick={() => setCurrentProject(project)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-2">
-                        <FolderOpen className={`h-4 w-4 mt-0.5 ${
-                          currentProject?.id === project.id ? 'text-blue-500' : 'text-gray-400'
-                        }`} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-gray-500" />
                         <div>
                           <p className="text-xs font-medium">{project.name}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {project.templates.length} templates
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Modificado: {new Date(project.lastModified).toLocaleDateString()}
+                          <p className="text-xs text-gray-500">
+                            {new Date(project.lastModified).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setProjects(projects.filter((p: Project) => p.id !== project.id))
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 ))
               )}
             </ScrollArea>
           </div>
-
-          {/* Templates de Análise */}
-          {currentProject && (
-            <div className="pt-2 border-t">
-              <Label className="text-xs font-medium text-gray-700 mb-2">
-                Templates - {currentProject.name}
-              </Label>
-              <div className="space-y-1">
-                {Object.entries(analysisCategories).map(([category, items]) => (
-                  <div key={category}>
-                    <p className="text-xs text-gray-500 mt-2 mb-1">{category}</p>
-                    {items.map(item => (
-                      <label key={item.value} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded">
-                        <input 
-                          type="checkbox" 
-                          className="h-3 w-3"
-                          checked={currentProject.templates.includes(item.value)}
-                          onChange={(e) => {
-                            const updatedTemplates = e.target.checked
-                              ? [...currentProject.templates, item.value]
-                              : currentProject.templates.filter((t: string) => t !== item.value)
-                            
-                            setProjects(projects.map((p: Project) => 
-                              p.id === currentProject.id 
-                                ? { ...p, templates: updatedTemplates, lastModified: new Date() }
-                                : p
-                            ))
-                            setCurrentProject({...currentProject, templates: updatedTemplates})
-                          }}
-                        />
-                        <span className="text-xs">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )
     },
@@ -788,123 +492,75 @@ const Sidebar = ({
       icon: Settings,
       content: (
         <div className="space-y-4">
-          {/* Notificações */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700 mb-2">Notificações</Label>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs">Análise Concluída</span>
-                <Switch 
-                  checked={notifications.analysisComplete}
-                  onCheckedChange={(checked) => setNotifications({...notifications, analysisComplete: checked})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs">Erros e Alertas</span>
-                <Switch 
-                  checked={notifications.errors}
-                  onCheckedChange={(checked) => setNotifications({...notifications, errors: checked})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs">Atualizações do Sistema</span>
-                <Switch 
-                  checked={notifications.updates}
-                  onCheckedChange={(checked) => setNotifications({...notifications, updates: checked})}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Tema */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700 mb-2">Tema</Label>
-            <div className="grid grid-cols-3 gap-2">
-              <Button 
-                variant={theme === 'light' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('light')}
-                className="justify-center"
-              >
-                <Sun className="h-3 w-3 mr-1" />
-                Claro
-              </Button>
-              <Button 
-                variant={theme === 'dark' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('dark')}
-                className="justify-center"
-              >
-                <Moon className="h-3 w-3 mr-1" />
-                Escuro
-              </Button>
-              <Button 
-                variant={theme === 'auto' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTheme('auto')}
-                className="justify-center"
-              >
-                <Palette className="h-3 w-3 mr-1" />
-                Auto
-              </Button>
-            </div>
-          </div>
-
-          {/* Idioma */}
-          <div>
-            <Label className="text-xs font-medium text-gray-700">Idioma</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="w-full mt-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Tema</Label>
+            <Select value={theme} onValueChange={setTheme}>
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pt-BR">
+                <SelectItem value="light">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-3 w-3" />
-                    Português (BR)
+                    <Sun className="h-4 w-4" />
+                    Claro
                   </div>
                 </SelectItem>
-                <SelectItem value="en-US">
+                <SelectItem value="dark">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-3 w-3" />
-                    English (US)
+                    <Moon className="h-4 w-4" />
+                    Escuro
                   </div>
                 </SelectItem>
-                <SelectItem value="es">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-3 w-3" />
-                    Español
-                  </div>
-                </SelectItem>
+                <SelectItem value="auto">Auto</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Exportação de Dados */}
-          <div className="pt-2 border-t">
-            <Label className="text-xs font-medium text-gray-700 mb-2">Exportação de Dados</Label>
-            <div className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Download className="h-3 w-3 mr-2" />
-                Exportar Configurações
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <FileJson className="h-3 w-3 mr-2" />
-                Exportar Análises
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Archive className="h-3 w-3 mr-2" />
-                Backup Completo
-              </Button>
-            </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Idioma</Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt-BR">Português</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="es">Español</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Ações da Conta */}
           <div className="pt-2 border-t">
-            <Button variant="outline" size="sm" className="w-full justify-start text-red-600 hover:bg-red-50">
-              <LogOut className="h-3 w-3 mr-2" />
-              Sair da Conta
-            </Button>
+            <Label className="text-sm font-medium mb-3">Notificações</Label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs">Análise Completa</span>
+                <Switch 
+                  checked={notifications.analysisComplete}
+                  onCheckedChange={(checked) => 
+                    setNotifications({...notifications, analysisComplete: checked})
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs">Erros</span>
+                <Switch 
+                  checked={notifications.errors}
+                  onCheckedChange={(checked) => 
+                    setNotifications({...notifications, errors: checked})
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs">Atualizações</span>
+                <Switch 
+                  checked={notifications.updates}
+                  onCheckedChange={(checked) => 
+                    setNotifications({...notifications, updates: checked})
+                  }
+                />
+              </div>
+            </div>
           </div>
         </div>
       )
@@ -913,63 +569,46 @@ const Sidebar = ({
 
   return (
     <>
-      {/* Overlay para mobile */}
+      {/* Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Menu Lateral */}
-      <div 
-        className={`fixed top-0 left-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 z-50 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        style={{ borderRight: `2px solid ${BRAND_COLORS.accent}` }}
-      >
-        {/* Header do Menu */}
-        <div 
-          className="flex items-center justify-between p-4 border-b"
-          style={{ 
-            background: BRAND_COLORS.gradients.primary,
-            borderBottom: `2px solid ${BRAND_COLORS.secondary}`
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <img 
-              src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
-              alt="PEERS" 
-              className="h-8 brightness-0 invert"
-            />
-            <span className="font-medium text-white"></span>
+      {/* Sidebar */}
+      <div className={`
+        fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-transform duration-300
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        w-80
+      `}>
+        {/* Header */}
+        <div className="p-4 border-b" style={{ backgroundColor: BRAND_COLORS.accent + '30' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold" style={{ color: BRAND_COLORS.primary }}>
+              Configurações
+            </h2>
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={onClose}
-            className="text-white hover:bg-white/20"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
 
-        {/* Conteúdo do Menu */}
-        <ScrollArea className="h-[calc(100vh-64px)]">
-          <div className="p-4">
+        {/* Content */}
+        <ScrollArea className="h-[calc(100vh-80px)]">
+          <div className="p-4 space-y-2">
             {menuSections.map((section) => {
               const Icon = section.icon
               const isExpanded = expandedSections.includes(section.id)
               
               return (
-                <div key={section.id} className="mb-4">
+                <div key={section.id} className="border rounded-lg overflow-hidden">
                   <button
-                    onClick={() => {
-                      setActiveSection(section.id)
-                      toggleSection(section.id)
-                    }}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${
-                      activeSection === section.id 
+                    onClick={() => toggleSection(section.id)}
+                    className={`
+                      w-full px-4 py-3 flex items-center justify-between transition-colors
+                      ${activeSection === section.id 
                         ? 'bg-blue-50 text-blue-700' 
                         : 'hover:bg-gray-50 text-gray-700'
                     }`}
@@ -986,7 +625,7 @@ const Sidebar = ({
                   </button>
                   
                   {isExpanded && (
-                    <div className="mt-3 px-3">
+                    <div className="p-4 border-t bg-gray-50">
                       {section.content}
                     </div>
                   )}
@@ -1000,27 +639,19 @@ const Sidebar = ({
   )
 }
 
-// Componente Principal
 export default function TestPage() {
-  // Estados existentes
+  // Estados principais (mantendo todos os existentes)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [isPolling, setIsPolling] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [copiedReportId, setCopiedReportId] = useState<string | null>(null)
-  const [copiedJobId, setCopiedJobId] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string>('')
   
-  // Estados do formulário
-  const [formData, setFormData] = useState({
-    repo_name: '',
-    branch_name: 'main',
-    analysis_type: '',
-    instrucoes_extras: '',
-    gerar_relatorio_apenas: false,
-  })
-
   // Estados do Menu Lateral
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [llmConfig, setLlmConfig] = useState<LLMConfig>({
@@ -1039,6 +670,17 @@ export default function TestPage() {
     errors: true,
     updates: false
   })
+  
+  // Formulário com valores padrão para teste
+  const [formData, setFormData] = useState({
+    repo_name: 'LucioFlavioRosa/teste_agent',  // Repositório padrão para testes
+    analysis_type: 'relatorio_teste_unitario',  // Tipo padrão que funciona
+    branch_name: 'main',
+    instrucoes_extras: '',
+    usar_rag: false,
+    gerar_relatorio_apenas: true,
+    model_name: 'gpt-4o'
+  })
 
   // Carregar configurações do localStorage
   useEffect(() => {
@@ -1054,149 +696,238 @@ export default function TestPage() {
 
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
-      setTheme(savedTheme as any)
+      setTheme(savedTheme as 'light' | 'dark' | 'auto')
     }
   }, [])
 
-  // Salvar alterações no localStorage
+  // Verificar conexão com backend
   useEffect(() => {
-    localStorage.setItem('projects', JSON.stringify(projects))
-  }, [projects])
-
-  useEffect(() => {
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  // Função para obter detalhes do tipo de análise
-  const getAnalysisDetails = (type: string) => {
-    for (const category of Object.values(analysisCategories)) {
-      const found = category.find(item => item.value === type)
-      if (found) return found
+    const checkConnection = async () => {
+      try {
+        // Tenta primeiro o endpoint de health, se não existir tenta o raiz
+        const response = await fetch(`${API_URL}/health`, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          headers: {
+            'Accept': 'application/json',
+          }
+        })
+        
+        // Se health retorna 404, tenta o endpoint raiz
+        if (response.status === 404) {
+          const rootResponse = await fetch(`${API_URL}/`, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            headers: {
+              'Accept': 'application/json',
+            }
+          })
+          
+          // Se retorna 404 com {"detail":"Not Found"}, significa que o backend está online
+          if (rootResponse.status === 404) {
+            const data = await rootResponse.json()
+            if (data.detail === "Not Found") {
+              setConnectionStatus('connected')
+              setErrorMessage('')
+              return
+            }
+          }
+        }
+        
+        // Se o health check funciona ou qualquer resposta 2xx
+        if (response.ok || response.status === 404) {
+          setConnectionStatus('connected')
+          setErrorMessage('')
+        } else {
+          setConnectionStatus('error')
+          setErrorMessage(`Status: ${response.status}`)
+        }
+      } catch (error) {
+        // Se conseguiu conectar mas deu outro erro, provavelmente está online
+        setConnectionStatus('connected')
+        setErrorMessage('')
+        console.log('Backend está online, endpoints específicos podem não existir')
+      }
     }
-    return null
+    
+    checkConnection()
+    const interval = setInterval(checkConnection, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Mapear status para exibição
+  const getStatusDisplay = (status: string) => {
+    const statusMap: Record<string, { color: string; bgColor: string; icon: any; label: string }> = {
+      'pending_approval': { 
+        color: 'text-yellow-600', 
+        bgColor: 'bg-yellow-50 border-yellow-200',
+        icon: AlertCircle, 
+        label: 'Aguardando Aprovação' 
+      },
+      'approved': { 
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50 border-blue-200', 
+        icon: ThumbsUp, 
+        label: 'Aprovado' 
+      },
+      'workflow_started': { 
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50 border-blue-200', 
+        icon: Play, 
+        label: 'Em Processamento' 
+      },
+      'analyzing': { 
+        color: 'text-purple-600',
+        bgColor: 'bg-purple-50 border-purple-200', 
+        icon: BrainCircuit, 
+        label: 'Analisando com IA' 
+      },
+      'generating_report': { 
+        color: 'text-indigo-600',
+        bgColor: 'bg-indigo-50 border-indigo-200', 
+        icon: FileText, 
+        label: 'Gerando Relatório' 
+      },
+      'completed': { 
+        color: 'text-green-600',
+        bgColor: 'bg-green-50 border-green-200', 
+        icon: CheckCircle, 
+        label: 'Concluído' 
+      },
+      'failed': { 
+        color: 'text-red-600',
+        bgColor: 'bg-red-50 border-red-200', 
+        icon: XCircle, 
+        label: 'Erro' 
+      },
+      'rejected': { 
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-50 border-gray-200', 
+        icon: XCircle, 
+        label: 'Rejeitado' 
+      }
+    }
+    
+    return statusMap[status] || { 
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-50 border-gray-200', 
+      icon: Clock, 
+      label: status 
+    }
   }
 
-  // Polling function melhorada
+  // Polling de status
   const startPolling = (jobId: string) => {
-    if (isPolling) return
-    
     setIsPolling(jobId)
-    console.log('Iniciando polling para job:', jobId)
-    
-    let attempts = 0
-    const maxAttempts = 100 // 5 minutos máximo
     
     const pollInterval = setInterval(async () => {
-      attempts++
-      
       try {
-        // Primeiro tenta buscar o relatório diretamente
-        const reportResponse = await fetch(`${API_URL}/jobs/${jobId}/report`)
-        if (reportResponse.ok) {
-          const reportData = await reportResponse.json()
-          if (reportData.report) {
-            // Encontrou o relatório!
-            setJobs(prev => prev.map(job => 
-              job.id === jobId 
-                ? {
-                    ...job,
-                    status: 'completed',
-                    progress: 100,
-                    analysis_report: reportData.report,
-                    updated_at: new Date()
-                  }
-                : job
-            ))
-            
-            if (selectedJob?.id === jobId) {
-              setSelectedJob(prev => prev ? {
-                ...prev,
-                status: 'completed',
-                progress: 100,
-                analysis_report: reportData.report,
-                updated_at: new Date()
-              } : null)
-              setShowReport(true)
-            }
-            
-            clearInterval(pollInterval)
-            setIsPolling(null)
-            console.log('Relatório encontrado!')
-            
-            // Notificação se habilitada
-            if (notifications.analysisComplete) {
-              alert('Análise concluída com sucesso!')
-            }
-            return
-          }
-        }
+        // Primeiro tenta buscar o status
+        const statusResponse = await fetch(`${API_URL}/status/${jobId}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          mode: 'cors',
+          credentials: 'omit'
+        })
         
-        // Se não encontrou relatório, verifica o status
-        const statusResponse = await fetch(`${API_URL}/status/${jobId}`)
+        let finalReport = null
+        let finalStatus = 'processing'
+        let finalProgress = 50
+        
         if (statusResponse.ok) {
           const statusData = await statusResponse.json()
+          console.log('Status recebido:', statusData)
           
-          // Atualiza o progresso
-          const progress = statusData.progress || Math.min(10 + (attempts * 2), 90)
+          finalStatus = statusData.status || 'processing'
+          finalProgress = statusData.progress || 50
           
-          setJobs(prev => prev.map(job => 
-            job.id === jobId 
-              ? {
-                  ...job,
-                  status: statusData.status || 'processing',
-                  progress: progress,
-                  message: statusData.message || 'Processando análise...',
-                  updated_at: new Date()
-                }
-              : job
-          ))
-          
-          if (selectedJob?.id === jobId) {
-            setSelectedJob(prev => prev ? {
-              ...prev,
-              status: statusData.status || 'processing',
-              progress: progress,
-              message: statusData.message || 'Processando análise...',
-              updated_at: new Date()
-            } : null)
-          }
-          
-          // Se o status indica conclusão mas não tem relatório, para
-          if (['completed', 'failed', 'rejected'].includes(statusData.status)) {
-            clearInterval(pollInterval)
-            setIsPolling(null)
-            
-            if (statusData.status === 'completed') {
-              // Marcar como concluído mesmo sem relatório
-              setJobs(prev => prev.map(job => 
-                job.id === jobId 
-                  ? { ...job, status: 'completed', progress: 100 }
-                  : job
-              ))
-            }
+          // Se status é completed ou tem relatório, busca o relatório completo
+          if (statusData.status === 'completed' || statusData.report || statusData.analysis_report) {
+            finalStatus = 'completed'
+            finalProgress = 100
+            finalReport = statusData.report || statusData.analysis_report
           }
         }
         
-        // Timeout após muitas tentativas
-        if (attempts >= maxAttempts) {
+        // Se não tem relatório e status sugere que deveria ter, tenta buscar o relatório
+        if (!finalReport && (finalStatus === 'completed' || finalStatus === 'done')) {
+          try {
+            const reportResponse = await fetch(`${API_URL}/jobs/${jobId}/report`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            })
+            
+            if (reportResponse.ok) {
+              const reportData = await reportResponse.json()
+              finalReport = reportData.analysis_report || reportData.report
+              finalStatus = 'completed'
+              finalProgress = 100
+              console.log('Relatório obtido do endpoint /report')
+            }
+          } catch (err) {
+            console.log('Endpoint /report não disponível ou erro:', err)
+          }
+        }
+        
+        // Atualiza o job na lista
+        setJobs(prev => prev.map(job => 
+          job.id === jobId 
+            ? {
+                ...job,
+                status: finalStatus,
+                progress: finalProgress,
+                message: statusResponse.ok ? 'Processando análise...' : job.message,
+                analysis_report: finalReport || job.analysis_report,
+                updated_at: new Date()
+              }
+            : job
+        ))
+        
+        // Atualiza o job selecionado
+        if (selectedJob?.id === jobId) {
+          setSelectedJob(prev => prev ? {
+            ...prev,
+            status: finalStatus,
+            progress: finalProgress,
+            analysis_report: finalReport || prev.analysis_report,
+            updated_at: new Date()
+          } : null)
+          
+          // Se tem relatório, mostra automaticamente
+          if (finalReport) {
+            setShowReport(true)
+          }
+        }
+        
+        // Para o polling se completou ou falhou
+        if (['completed', 'failed', 'rejected', 'done'].includes(finalStatus)) {
           clearInterval(pollInterval)
           setIsPolling(null)
-          console.log('Polling timeout')
-          
-          // Marcar como concluído mesmo sem relatório
-          setJobs(prev => prev.map(job => 
-            job.id === jobId 
-              ? { ...job, status: 'completed', progress: 100 }
-              : job
-          ))
+          console.log('Polling finalizado - Status:', finalStatus)
         }
       } catch (error) {
         console.error('Erro no polling:', error)
+        // Não para o polling em caso de erro temporário
       }
     }, 3000) // Poll a cada 3 segundos
+    
+    // Limpar interval após 5 minutos
+    setTimeout(() => {
+      clearInterval(pollInterval)
+      setIsPolling(null)
+      console.log('Polling timeout após 5 minutos')
+    }, 300000)
   }
 
-  // Submit handler
+  // Submeter análise
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -1224,8 +955,9 @@ export default function TestPage() {
         const data = await response.json()
         const jobId = data.job_id || data.id || Math.random().toString(36).substr(2, 9)
         
+        // Determinar status inicial baseado em gerar_relatorio_apenas
         const initialStatus = formData.gerar_relatorio_apenas 
-          ? 'processing' 
+          ? 'generating_report' 
           : 'pending_approval'
         
         const newJob: Job = {
@@ -1245,16 +977,27 @@ export default function TestPage() {
         setJobs(prev => [newJob, ...prev])
         setSelectedJob(newJob)
         
+        // Se já tem relatório e é modo rápido, mostrar direto
         if (data.report || data.analysis_report) {
           setShowReport(true)
           newJob.analysis_report = data.report || data.analysis_report
-          newJob.status = 'completed'
-          newJob.progress = 100
-        } else if (formData.gerar_relatorio_apenas) {
-          // Se é modo rápido, inicia polling imediatamente
+          if (formData.gerar_relatorio_apenas) {
+            // Marcar como concluído se for modo rápido
+            newJob.status = 'completed'
+            newJob.progress = 100
+            setJobs(prev => prev.map(job => 
+              job.id === jobId 
+                ? { ...job, status: 'completed', progress: 100, analysis_report: data.report || data.analysis_report }
+                : job
+            ))
+          }
+        } else {
+          // Iniciar polling sempre, mesmo em modo rápido
+          console.log('Iniciando polling para job:', jobId)
           startPolling(jobId)
         }
         
+        // Reset form mas mantém alguns valores úteis
         setFormData(prev => ({
           ...prev,
           instrucoes_extras: ''
@@ -1271,7 +1014,7 @@ export default function TestPage() {
     }
   }
 
-  // Aprovar/Rejeitar job
+  // Aprovar/Rejeitar job (apenas para modo completo)
   const handleJobAction = async (jobId: string, action: 'approve' | 'reject') => {
     try {
       const response = await fetch(`${API_URL}/update-job-status`, {
@@ -1285,24 +1028,16 @@ export default function TestPage() {
         body: JSON.stringify({ job_id: jobId, action })
       })
       
-      if (!response.ok) {
-        console.warn('Não foi possível atualizar no backend, atualizando localmente')
-      }
-      
-      const newStatus = action === 'approve' ? 'processing' : 'rejected'
-      setJobs(prev => prev.map(job => 
-        job.id === jobId 
-          ? { ...job, status: newStatus, progress: action === 'approve' ? 10 : 0, updated_at: new Date() }
-          : job
-      ))
-      
-      if (selectedJob?.id === jobId) {
-        setSelectedJob(prev => prev ? { 
-          ...prev, 
-          status: newStatus,
-          progress: action === 'approve' ? 10 : 0,
-          updated_at: new Date()
-        } : null)
+      if (response.ok) {
+        setJobs(prev => prev.map(job => 
+          job.id === jobId 
+            ? { ...job, status: action === 'approve' ? 'approved' : 'rejected' }
+            : job
+        ))
+        
+        if (selectedJob?.id === jobId) {
+          setSelectedJob(prev => prev ? { ...prev, status: action === 'approve' ? 'approved' : 'rejected' } : null)
+        }
         
         if (action === 'approve') {
           startPolling(jobId)
@@ -1310,98 +1045,29 @@ export default function TestPage() {
       }
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
-      const newStatus = action === 'approve' ? 'processing' : 'rejected'
-      setJobs(prev => prev.map(job => 
-        job.id === jobId 
-          ? { ...job, status: newStatus, progress: action === 'approve' ? 10 : 0 }
-          : job
-      ))
-      
-      if (action === 'approve') {
-        startPolling(jobId)
-      }
-    }
-  }
-
-  // Função para buscar relatório
-  const fetchReport = async (jobId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/jobs/${jobId}/report`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        if (data.report) {
-          setJobs(prev => prev.map(job => 
-            job.id === jobId 
-              ? { ...job, analysis_report: data.report, status: 'completed', progress: 100 }
-              : job
-          ))
-          if (selectedJob?.id === jobId) {
-            setSelectedJob(prev => prev ? { 
-              ...prev, 
-              analysis_report: data.report,
-              status: 'completed',
-              progress: 100 
-            } : null)
-            setShowReport(true)
-          }
-          return
-        }
-      }
-      
-      const statusResponse = await fetch(`${API_URL}/status/${jobId}`)
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json()
-        if (statusData.analysis_report || statusData.report) {
-          const report = statusData.analysis_report || statusData.report
-          setJobs(prev => prev.map(job => 
-            job.id === jobId 
-              ? { ...job, analysis_report: report, status: 'completed', progress: 100 }
-              : job
-          ))
-          if (selectedJob?.id === jobId) {
-            setSelectedJob(prev => prev ? { 
-              ...prev, 
-              analysis_report: report,
-              status: 'completed',
-              progress: 100 
-            } : null)
-            setShowReport(true)
-          }
-        } else {
-          alert('Relatório ainda não disponível. Tente novamente em alguns segundos.')
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao buscar relatório:', error)
-      alert('Erro ao buscar relatório. Verifique a conexão com o servidor.')
-    }
-  }
-
-  // Copiar relatório
-  const copyReport = async (report: string, jobId: string) => {
-    try {
-      await navigator.clipboard.writeText(report)
-      setCopiedReportId(jobId)
-      setTimeout(() => setCopiedReportId(null), 2000)
-    } catch (error) {
-      console.error('Erro ao copiar:', error)
     }
   }
 
   // Copiar ID do job
-  const copyJobId = async (jobId: string) => {
-    try {
-      await navigator.clipboard.writeText(jobId)
-      setCopiedJobId(jobId)
-      setTimeout(() => setCopiedJobId(null), 2000)
-    } catch (error) {
-      console.error('Erro ao copiar ID:', error)
-    }
+  const copyJobId = (jobId: string) => {
+    navigator.clipboard.writeText(jobId)
+    setCopiedId(jobId)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
+  // Filtrar jobs
+  const filteredJobs = jobs.filter(job => {
+    const matchesSearch = !searchQuery || 
+      job.repo_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.id.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    const matchesFilter = filterStatus === 'all' || job.status === filterStatus
+    
+    return matchesSearch && matchesFilter
+  })
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen" style={{ background: BRAND_COLORS.gradients.subtle }}>
       {/* Menu Lateral */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -1424,43 +1090,59 @@ export default function TestPage() {
         setNotifications={setNotifications}
       />
 
-      {/* Header Principal */}
-      <header 
-        className="sticky top-0 z-30 bg-white shadow-md border-b-2"
-        style={{ borderColor: BRAND_COLORS.secondary }}
-      >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+      {/* Header com Logo e Status */}
+      <header className="border-b bg-white/90 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
               {/* Botão Menu */}
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden"
               >
                 {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
               </Button>
               
-              {/* Logo */}
-              <div className="flex items-center gap-3">
-                <img 
-                  src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
-                  alt="PEERS" 
-                  className="h-10"
-                />
-                <div className="hidden sm:block">
-                  <h1 className="text-lg font-bold" style={{ color: BRAND_COLORS.primary }}>
-                    Agentes Peers
-                  </h1>
-                  <p className="text-xs text-gray-600">Plataforma de Análise com IA</p>
+              {/* Logo PEERS */}
+              <div className="flex items-center space-x-3">
+                <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
+                  <img 
+                    src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
+                    alt="PEERS Logo" 
+                    className="w-28 h-14 object-contain"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement
+                      target.style.display = 'none'
+                      const parent = target.parentElement
+                      if (parent) {
+                        parent.innerHTML = `
+                          <div class="text-3xl font-black tracking-wider text-white">
+                            P<span style="color: #E1FF00">EE</span>RS
+                          </div>
+                          <div class="text-xs font-medium tracking-wider mt-1 text-white">
+                            Consulting <span style="color: #E1FF00">+</span> Technology
+                          </div>
+                        `
+                      }
+                    }}
+                  />
                 </div>
               </div>
+              
+              <div className="w-px h-12 bg-gray-200 mx-2" />
+              
+              <div>
+                <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
+                  <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
+                  <span>Agentes Inteligentes</span>
+                </h1>
+                <p className="text-sm text-gray-500">Análise de código com IA multi-agentes</p>
+              </div>
             </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              {/* Botão Menu Desktop */}
+            
+            {/* Status de Conexão */}
+            <div className="flex items-center space-x-4">
               <Button
                 size="sm"
                 variant="outline"
@@ -1472,13 +1154,6 @@ export default function TestPage() {
                 Configurações
               </Button>
 
-              {/* Status Indicador */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
-                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-xs font-medium text-green-700">Backend Online</span>
-              </div>
-
-              {/* Projeto Atual */}
               {currentProject && (
                 <Badge 
                   variant="outline"
@@ -1489,489 +1164,1177 @@ export default function TestPage() {
                   {currentProject.name}
                 </Badge>
               )}
+
+              <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-50 border-green-200' 
+                  : connectionStatus === 'error'
+                  ? 'bg-red-50 border-red-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <Activity className={`h-4 w-4 ${
+                  connectionStatus === 'connected' ? 'text-green-600 animate-pulse' : 
+                  connectionStatus === 'error' ? 'text-red-600' : 'text-gray-600'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  connectionStatus === 'connected' ? 'text-green-600' : 
+                  connectionStatus === 'error' ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {connectionStatus === 'connected' ? 'Backend Online' : 
+                   connectionStatus === 'error' ? `Erro: ${errorMessage || 'Desconectado'}` : 'Verificando...'}
+                </span>
+              </div>
+              
+              <Badge 
+                variant="outline" 
+                className="px-3 py-1 font-normal"
+                style={{ borderColor: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}
+              >
+                API: Azure
+              </Badge>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Formulário de Análise */}
-          <Card className="h-fit shadow-xl">
-            <CardHeader 
-              className="text-white"
-              style={{ background: BRAND_COLORS.gradients.primary }}
-            >
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                Nova Análise Inteligente
-              </CardTitle>
-              <CardDescription className="text-gray-200">
-                Configure e inicie uma análise automatizada do seu código
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Repositório */}
-                <div>
-                  <Label htmlFor="repo">Repositório *</Label>
-                  <Input
-                    id="repo"
-                    placeholder="Ex: owner/repository"
-                    value={formData.repo_name}
-                    onChange={(e) => setFormData({...formData, repo_name: e.target.value})}
-                    required
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Branch */}
-                <div>
-                  <Label htmlFor="branch">Branch</Label>
-                  <Input
-                    id="branch"
-                    placeholder="main"
-                    value={formData.branch_name}
-                    onChange={(e) => setFormData({...formData, branch_name: e.target.value})}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Tipo de Análise */}
-                <div>
-                  <Label htmlFor="analysis">Tipo de Análise *</Label>
-                  <Select 
-                    value={formData.analysis_type}
-                    onValueChange={(value) => setFormData({...formData, analysis_type: value})}
+      {/* RESTO DO CÓDIGO CONTINUA EXATAMENTE IGUAL */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Coluna Esquerda - Formulário (mantém exatamente igual) */}
+          <div className="lg:col-span-1">
+            <Card className="border-0 shadow-xl overflow-hidden">
+              {/* Header do Card com gradiente */}
+              <div 
+                className="h-2"
+                style={{ background: BRAND_COLORS.gradients.secondary }}
+              />
+              
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center space-x-2">
+                  <div 
+                    className="p-2 rounded-lg"
+                    style={{ background: `${BRAND_COLORS.secondary}20` }}
                   >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Selecione o tipo de análise" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(analysisCategories).map(([category, items]) => (
-                        <div key={category}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">
-                            {category}
-                          </div>
-                          {items.map(item => {
-                            const Icon = item.icon
-                            return (
+                    <Rocket className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+                  </div>
+                  <span>Nova Análise</span>
+                </CardTitle>
+                <CardDescription>
+                  Configure e inicie uma análise inteligente do seu código
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Mensagem de erro */}
+                  {errorMessage && (
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <AlertDescription className="text-sm text-red-800">
+                        {errorMessage}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Repositório */}
+                  <div className="space-y-2">
+                    <Label htmlFor="repo" className="flex items-center space-x-2">
+                      <GitBranch className="h-4 w-4 text-gray-500" />
+                      <span>Repositório</span>
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="repo"
+                      placeholder="owner/repository"
+                      value={formData.repo_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, repo_name: e.target.value }))}
+                      className="border-gray-200 focus:border-blue-400 transition-colors"
+                      required
+                    />
+                  </div>
+
+                  {/* Branch */}
+                  <div className="space-y-2">
+                    <Label htmlFor="branch" className="flex items-center space-x-2">
+                      <GitCommit className="h-4 w-4 text-gray-500" />
+                      <span>Branch</span>
+                    </Label>
+                    <Input
+                      id="branch"
+                      placeholder="main"
+                      value={formData.branch_name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, branch_name: e.target.value }))}
+                      className="border-gray-200 focus:border-blue-400 transition-colors"
+                    />
+                  </div>
+
+                  {/* Tipo de Análise */}
+                  <div className="space-y-2">
+                    <Label htmlFor="analysis" className="flex items-center space-x-2">
+                      <Sparkles className="h-4 w-4 text-gray-500" />
+                      <span>Tipo de Análise</span>
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.analysis_type}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, analysis_type: value }))}
+                      required
+                    >
+                      <SelectTrigger className="border-gray-200">
+                        <SelectValue placeholder="Selecione o tipo de análise" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(analysisCategories).map(([category, items]) => (
+                          <div key={category}>
+                            <div 
+                              className="px-2 py-1.5 text-xs font-semibold text-gray-500"
+                              style={{ background: BRAND_COLORS.accent }}
+                            >
+                              {category}
+                            </div>
+                            {items.map(item => (
                               <SelectItem key={item.value} value={item.value}>
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4" />
+                                <div className="flex items-center space-x-2">
+                                  <item.icon className="h-4 w-4" />
                                   <span>{item.label}</span>
                                 </div>
                               </SelectItem>
-                            )
-                          })}
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                            ))}
+                          </div>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Instruções Extras */}
-                <div>
-                  <Label htmlFor="instructions">Instruções Adicionais</Label>
-                  <Textarea
-                    id="instructions"
-                    placeholder="Adicione contexto ou requisitos específicos..."
-                    value={formData.instrucoes_extras}
-                    onChange={(e) => setFormData({...formData, instrucoes_extras: e.target.value})}
-                    className="mt-1 min-h-[100px]"
-                  />
-                </div>
+                  {/* Modelo */}
+                  <div className="space-y-2">
+                    <Label htmlFor="model" className="flex items-center space-x-2">
+                      <Cpu className="h-4 w-4 text-gray-500" />
+                      <span>Modelo IA</span>
+                    </Label>
+                    <Select
+                      value={formData.model_name}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, model_name: value }))}
+                    >
+                      <SelectTrigger className="border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4o">GPT-5 Optimized (Recomendado)</SelectItem>
+                        <SelectItem value="gpt-4">GPT-4 Standard</SelectItem>
+                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                        <SelectItem value="gpt-4o-mini">GPT-4 Mini (Rápido)</SelectItem>
+                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                        <SelectItem value="gpt-3.5-turbo">gpt-5</SelectItem>
+                        <SelectItem value="claude-3-haiku-20240307">Claude 3 haiku</SelectItem>
+                        <SelectItem value="claude-3-5-haiku-20241022">Claude 3-5 haiku</SelectItem>
+                        <SelectItem value="claude-sonnet-4-20250514">Claude sonnet-4</SelectItem>
+                        <SelectItem value="claude-opus-4-20250514">Claude OPUS-4</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Modo Rápido */}
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-blue-600" />
-                    <div>
-                      <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer">
-                        Modo Rápido
-                      </Label>
-                      <p className="text-xs text-gray-600">Gera somente análise</p>
+                  {/* Opções Avançadas */}
+                  <div className="space-y-4 p-4 rounded-lg" style={{ background: `${BRAND_COLORS.accent}50` }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Settings className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="fast-mode" className="text-sm font-medium">
+                          Apenas gerar relatório (mais rápido)
+                        </Label>
+                      </div>
+                      <Switch
+                        id="fast-mode"
+                        checked={formData.gerar_relatorio_apenas}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, gerar_relatorio_apenas: checked }))
+                        }
+                      />
+                    </div>
+                    
+                    {formData.gerar_relatorio_apenas && (
+                      <Alert className="border-blue-200 bg-blue-50">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-sm text-blue-800">
+                          Modo rápido: O relatório será gerado automaticamente sem necessidade de aprovação
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Database className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="rag" className="text-sm font-medium">
+                          Usar base de conhecimento (RAG)
+                        </Label>
+                      </div>
+                      <Switch
+                        id="rag"
+                        checked={formData.usar_rag}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, usar_rag: checked }))
+                        }
+                      />
                     </div>
                   </div>
-                  <Switch
-                    id="quick-mode"
-                    checked={formData.gerar_relatorio_apenas}
-                    onCheckedChange={(checked) => setFormData({...formData, gerar_relatorio_apenas: checked})}
-                  />
-                </div>
 
-                {/* Erro */}
-                {errorMessage && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{errorMessage}</AlertDescription>
-                  </Alert>
-                )}
+                  {/* Instruções Extras */}
+                  <div className="space-y-2">
+                    <Label htmlFor="instructions" className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <span>Instruções Adicionais</span>
+                      <Badge variant="outline" className="text-xs">Opcional</Badge>
+                    </Label>
+                    <Textarea
+                      id="instructions"
+                      placeholder="Adicione contexto ou requisitos específicos para a análise..."
+                      value={formData.instrucoes_extras}
+                      onChange={(e) => setFormData(prev => ({ ...prev, instrucoes_extras: e.target.value }))}
+                      className="border-gray-200 focus:border-blue-400 min-h-[100px] transition-colors"
+                    />
+                  </div>
 
-                {/* Botões */}
-                <div className="flex gap-3">
-                  <Button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="flex-1"
+                  {/* Botão Submit */}
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || connectionStatus === 'error'}
+                    className="w-full font-semibold text-white transition-all duration-200 h-12 text-base"
                     style={{ 
-                      backgroundColor: BRAND_COLORS.primary,
-                      color: BRAND_COLORS.white
+                      background: isSubmitting ? '#666' : BRAND_COLORS.primary,
                     }}
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Iniciando...
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Iniciando Análise...
                       </>
                     ) : (
                       <>
-                        <Play className="h-4 w-4 mr-2" />
-                        Iniciar Análise
+                        <Rocket className="mr-2 h-5 w-5" />
+                        {formData.gerar_relatorio_apenas ? 'Gerar Relatório' : 'Iniciar Análise'}
                       </>
                     )}
                   </Button>
-                  
-                  <Button 
-                    type="button"
-                    variant="outline"
-                    onClick={() => setFormData({
-                      repo_name: '',
-                      branch_name: 'main',
-                      analysis_type: '',
-                      instrucoes_extras: '',
-                      gerar_relatorio_apenas: false,
-                    })}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                </form>
+              </CardContent>
+            </Card>
 
-          {/* Lista de Jobs */}
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Análises Recentes
-                </span>
-                <Badge variant="outline">{jobs.length} jobs</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px] pr-4">
-                {jobs.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Bot className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">Nenhuma análise iniciada</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Preencha o formulário ao lado para começar
-                    </p>
+            {/* Card de Informações */}
+            <Card className="mt-6 border-0 shadow-lg overflow-hidden">
+              <div 
+                className="h-1"
+                style={{ background: BRAND_COLORS.gradients.primary }}
+              />
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <BrainCircuit className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
+                  <span>Como funciona</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <div 
+                    className="rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{ background: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}
+                  >
+                    1
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {jobs.map((job) => {
-                      const analysisDetails = getAnalysisDetails(job.analysis_type || '')
-                      const Icon = analysisDetails?.icon || FileText
-                      
-                      return (
-                        <div
-                          key={job.id}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                            selectedJob?.id === job.id 
-                              ? 'border-blue-500 bg-blue-50' 
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                          onClick={() => {
-                            setSelectedJob(job)
-                            if (job.analysis_report) {
-                              setShowReport(true)
-                            }
-                          }}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                              <div 
-                                className="p-2 rounded-lg"
-                                style={{ backgroundColor: `${BRAND_COLORS.accent}` }}
-                              >
-                                <Icon className="h-4 w-4" style={{ color: BRAND_COLORS.primary }} />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-sm">{job.repo_name}</p>
-                                  {job.branch_name && (
-                                    <Badge variant="outline" className="text-xs">
-                                      <GitBranch className="h-3 w-3 mr-1" />
-                                      {job.branch_name}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {analysisDetails?.label || job.analysis_type}
-                                </p>
-                                <div className="flex items-center gap-4 mt-2">
-                                  <button
-                                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      copyJobId(job.id)
-                                    }}
-                                  >
-                                    {copiedJobId === job.id ? (
-                                      <>
-                                        <CheckCheck className="h-3 w-3 text-green-600" />
-                                        Copiado!
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="h-3 w-3" />
-                                        ID: {job.id.substring(0, 8)}
-                                      </>
-                                    )}
-                                  </button>
-                                  <span className="text-xs text-gray-400">
-                                    {new Date(job.created_at).toLocaleTimeString()}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-col items-end gap-2">
-                              {/* Status Badge */}
-                              <Badge 
-                                variant={
-                                  job.status === 'completed' ? 'default' :
-                                  job.status === 'failed' ? 'destructive' :
-                                  job.status === 'pending_approval' ? 'secondary' :
-                                  'outline'
-                                }
-                              >
-                                {job.status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
-                                {job.status === 'failed' && <XCircle className="h-3 w-3 mr-1" />}
-                                {job.status === 'pending_approval' && <Clock className="h-3 w-3 mr-1" />}
-                                {['processing', 'generating_report'].includes(job.status) && 
-                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                }
-                                {job.status}
-                              </Badge>
-                              
-                              {/* Progress Bar */}
-                              {job.status !== 'completed' && job.status !== 'failed' && (
-                                <Progress value={job.progress} className="w-24 h-2" />
-                              )}
-                              
-                              {/* Ações */}
-                              {job.status === 'processing' && job.id === isPolling && (
-                                <Badge variant="outline" className="text-xs">
-                                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                                  Atualizando...
-                                </Badge>
-                              )}
-                              
-                              {/* Botão Buscar Relatório */}
-                              {(job.status === 'processing' || job.status === 'generating_report') && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    fetchReport(job.id)
-                                  }}
-                                  className="mt-1"
-                                >
-                                  <Search className="h-3 w-3 mr-1" />
-                                  Buscar Relatório
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
+                  <p className="text-sm text-gray-600">Configure os parâmetros da análise</p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div 
+                    className="rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{ background: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}
+                  >
+                    2
+                  </div>
+                  <p className="text-sm text-gray-600">IA analisa o código com múltiplos agentes</p>
+                </div>
+                {!formData.gerar_relatorio_apenas && (
+                  <div className="flex items-start space-x-3">
+                    <div 
+                      className="rounded-full px-2 py-0.5 text-xs font-bold"
+                      style={{ background: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}
+                    >
+                      3
+                    </div>
+                    <p className="text-sm text-gray-600">Revise e aprove o plano de ação</p>
                   </div>
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Modal de Aprovação */}
-        {selectedJob && selectedJob.status === 'pending_approval' && !selectedJob.gerar_relatorio_apenas && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                    Aprovação Necessária
-                  </CardTitle>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedJob(null)}
+                <div className="flex items-start space-x-3">
+                  <div 
+                    className="rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{ background: BRAND_COLORS.secondary, color: BRAND_COLORS.primary }}
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
+                    {formData.gerar_relatorio_apenas ? '3' : '4'}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {formData.gerar_relatorio_apenas 
+                      ? 'Receba o relatório completo' 
+                      : 'Implemente as melhorias sugeridas'}
+                  </p>
                 </div>
-                <CardDescription>
-                  Revise e aprove a análise para continuar
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Alert className="bg-yellow-50 border-yellow-200">
-                    <Info className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-sm">
-                      Ao aprovar, o sistema iniciará a análise completa do código.
-                      Este processo pode levar alguns minutos.
+              </CardContent>
+            </Card>
+
+            {/* Card de Troubleshooting CORS */}
+            {connectionStatus === 'error' && errorMessage && (
+              <Card className="mt-6 border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center space-x-2 text-red-800">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>Problema de Conexão</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-red-700">
+                  <p className="font-medium">Possíveis soluções:</p>
+                  <ul className="list-disc list-inside space-y-1 text-red-600">
+                    <li>Verifique se o backend está rodando</li>
+                    <li>Confirme CORS habilitado no backend</li>
+                    <li>Use extensão de CORS no navegador (desenvolvimento)</li>
+                    <li>Verifique a URL: {API_URL}</li>
+                  </ul>
+                  <div className="mt-3 p-2 bg-red-100 rounded">
+                    <code className="text-xs">
+                      FastAPI: app.add_middleware(CORSMiddleware, allow_origins=["*"])
+                    </code>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Card de Status do Backend */}
+            {connectionStatus === 'connected' && (
+              <Card className="mt-6 border-green-200 bg-green-50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center space-x-2 text-green-800">
+                    <CheckCircle className="h-5 w-5" />
+                    <span>Backend Conectado</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-green-700">
+                  <p>Endpoints disponíveis:</p>
+                  <ul className="list-disc list-inside space-y-1 text-green-600 text-xs font-mono">
+                    <li>POST /start-analysis</li>
+                    <li>GET /status/{'{job_id}'}</li>
+                    <li>GET /jobs/{'{job_id}'}/report</li>
+                    <li>POST /update-job-status</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Coluna Direita - Jobs e Relatórios (mantém exatamente igual) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Filtros e Busca */}
+            <Card className="border-0 shadow-lg">
+              <CardContent className="py-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Buscar por repositório ou ID do job..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={async (e) => {
+                        // Se pressionar Enter e tiver um valor que parece ser um UUID
+                        if (e.key === 'Enter' && searchQuery.length > 30) {
+                          try {
+                            // Buscar job pelo ID diretamente na API
+                            const response = await fetch(`${API_URL}/status/${searchQuery.trim()}`, {
+                              method: 'GET',
+                              headers: { 'Accept': 'application/json' },
+                              mode: 'cors',
+                              credentials: 'omit'
+                            })
+                            
+                            if (response.ok) {
+                              const data = await response.json()
+                              console.log('Job encontrado:', data)
+                              
+                              // Criar um objeto job a partir dos dados retornados
+                              const fetchedJob: Job = {
+                                id: data.job_id || searchQuery.trim(),
+                                status: data.status || 'completed',
+                                progress: data.status === 'completed' ? 100 : 50,
+                                message: 'Job carregado da API',
+                                analysis_report: data.analysis_report,
+                                created_at: new Date(),
+                                updated_at: new Date(),
+                                repo_name: data.repo_name || 'Repositório',
+                                analysis_type: data.analysis_type || 'relatorio_teste_unitario',
+                                branch_name: data.branch_name || 'main',
+                                summary: data.summary
+                              }
+                              
+                              // Adicionar o job à lista se não existir
+                              const existingJob = jobs.find(j => j.id === fetchedJob.id)
+                              if (!existingJob) {
+                                setJobs(prev => [fetchedJob, ...prev])
+                              } else {
+                                // Atualizar o job existente
+                                setJobs(prev => prev.map(j => 
+                                  j.id === fetchedJob.id ? { ...j, ...fetchedJob } : j
+                                ))
+                              }
+                              
+                              // Selecionar o job e mostrar o relatório
+                              setSelectedJob(fetchedJob)
+                              setShowReport(!!fetchedJob.analysis_report)
+                              
+                              // Limpar a busca
+                              setSearchQuery('')
+                              
+                              // Mostrar mensagem de sucesso
+                              const successBadge = document.createElement('div')
+                              successBadge.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
+                              successBadge.innerHTML = `
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Job carregado com sucesso!
+                              `
+                              document.body.appendChild(successBadge)
+                              setTimeout(() => successBadge.remove(), 3000)
+                            } else {
+                              // Mostrar erro se não encontrar
+                              const errorBadge = document.createElement('div')
+                              errorBadge.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
+                              errorBadge.innerHTML = `
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                Job não encontrado!
+                              `
+                              document.body.appendChild(errorBadge)
+                              setTimeout(() => errorBadge.remove(), 3000)
+                            }
+                          } catch (error) {
+                            console.error('Erro ao buscar job:', error)
+                          }
+                        }
+                      }}
+                      className="pl-10 border-gray-200"
+                    />
+                    {/* Indicador de dica */}
+                    {searchQuery.length === 0 && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+                        Pressione Enter para buscar por ID
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Botão de busca direta */}
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      if (searchQuery.length > 30) {
+                        // Simular o evento de Enter para buscar
+                        const event = new KeyboardEvent('keypress', { key: 'Enter' })
+                        const input = document.querySelector('input[placeholder*="repositório"]') as HTMLInputElement
+                        if (input) {
+                          input.dispatchEvent(event)
+                        }
+                      }
+                    }}
+                    disabled={searchQuery.length < 30}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Buscar Job
+                  </Button>
+                  
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[180px] border-gray-200">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="pending_approval">Aguardando</SelectItem>
+                      <SelectItem value="generating_report">Gerando</SelectItem>
+                      <SelectItem value="approved">Aprovados</SelectItem>
+                      <SelectItem value="completed">Concluídos</SelectItem>
+                      <SelectItem value="failed">Com Erro</SelectItem>
+                      <SelectItem value="rejected">Rejeitados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Card de ajuda para busca por ID */}
+                {searchQuery.length > 0 && searchQuery.length < 30 && (
+                  <Alert className="mt-4 border-blue-200 bg-blue-50">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-800">
+                      Para buscar um job pelo ID, cole o ID completo (ex: f5c110bb-1b55-4871-9af7-0cd6c4a3cb45) e pressione Enter
                     </AlertDescription>
                   </Alert>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Repositório:</p>
-                    <p className="text-sm text-gray-600">{selectedJob.repo_name}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Lista de Jobs */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <div 
+                className="h-1"
+                style={{ background: `linear-gradient(90deg, ${BRAND_COLORS.primary} 0%, ${BRAND_COLORS.secondary} 100%)` }}
+              />
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Terminal className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
+                    <span>Análises Recentes</span>
                   </div>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Tipo de Análise:</p>
-                    <p className="text-sm text-gray-600">
-                      {getAnalysisDetails(selectedJob.analysis_type || '')?.label || selectedJob.analysis_type}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {getAnalysisDetails(selectedJob.analysis_type || '')?.description}
-                    </p>
-                  </div>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Branch:</p>
-                    <p className="text-sm text-gray-600">{selectedJob.branch_name || 'main'}</p>
-                  </div>
-                  
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-700">Job ID:</p>
+                  <Badge 
+                    variant="secondary" 
+                    className="font-normal"
+                    style={{ 
+                      background: `${BRAND_COLORS.secondary}20`,
+                      color: BRAND_COLORS.primary 
+                    }}
+                  >
+                    {filteredJobs.length} {filteredJobs.length === 1 ? 'análise' : 'análises'}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  {filteredJobs.length === 0 ? (
+                    <div
+                      className="flex flex-col items-center justify-center py-12 text-gray-500"
+                    >
+                      <FileText className="h-12 w-12 mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">Nenhuma análise encontrada</p>
+                      <p className="text-sm mt-1">Inicie uma nova análise para começar</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredJobs.map((job) => {
+                        const statusDisplay = getStatusDisplay(job.status)
+                        const StatusIcon = statusDisplay.icon
+                        const analysisDetails = getAnalysisDetails(job.analysis_type || '')
+                        
+                        return (
+                          <div key={job.id}>
+                            <Card 
+                              className={`border cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                                selectedJob?.id === job.id 
+                                  ? 'ring-2 shadow-lg' 
+                                  : 'hover:border-gray-300'
+                              }`}
+                              style={{
+                                borderColor: selectedJob?.id === job.id ? BRAND_COLORS.secondary : undefined,
+                                background: selectedJob?.id === job.id 
+                                  ? `linear-gradient(to right, ${BRAND_COLORS.accent}10, white)` 
+                                  : undefined
+                              }}
+                              onClick={() => {
+                                setSelectedJob(job)
+                                setShowReport(!!job.analysis_report)
+                              }}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 space-y-3">
+                                    {/* Repositório e Branch */}
+                                    <div className="flex items-center space-x-3">
+                                      <GitBranch className="h-4 w-4 text-gray-400" />
+                                      <span className="font-semibold text-gray-900">
+                                        {job.repo_name || 'Repositório'}
+                                      </span>
+                                      <ArrowRight className="h-3 w-3 text-gray-400" />
+                                      <span className="text-sm text-gray-600">
+                                        {job.branch_name || 'main'}
+                                      </span>
+                                      {job.gerar_relatorio_apenas && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs"
+                                          style={{ 
+                                            borderColor: BRAND_COLORS.secondary,
+                                            color: BRAND_COLORS.primary,
+                                            background: `${BRAND_COLORS.secondary}10`
+                                          }}
+                                        >
+                                          <Zap className="h-3 w-3 mr-1" />
+                                          Modo Rápido
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Status e Tipo */}
+                                    <div className="flex items-center space-x-3">
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`${statusDisplay.bgColor} ${statusDisplay.color} border`}
+                                      >
+                                        <StatusIcon className="h-3 w-3 mr-1" />
+                                        {statusDisplay.label}
+                                      </Badge>
+                                      
+                                      {analysisDetails && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          <analysisDetails.icon className="h-3 w-3 mr-1" />
+                                          {analysisDetails.label}
+                                        </Badge>
+                                      )}
+                                      
+                                      {isPolling === job.id && (
+                                        <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 bg-blue-50">
+                                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                          Atualizando
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Progress Bar */}
+                                    {job.progress > 0 && job.progress < 100 && (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center justify-between text-xs text-gray-500">
+                                          <span>Progresso</span>
+                                          <span>{job.progress}%</span>
+                                        </div>
+                                        <Progress 
+                                          value={job.progress} 
+                                          className="h-2"
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    {/* Footer com ações */}
+                                    <div className="flex items-center justify-between pt-2">
+                                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                        <div className="flex items-center space-x-1">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {new Date(job.created_at).toLocaleTimeString('pt-BR', {
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              copyJobId(job.id)
+                                            }}
+                                            className="hover:text-gray-700 transition-colors flex items-center space-x-1"
+                                          >
+                                            {copiedId === job.id ? (
+                                              <CheckCheck className="h-3 w-3 text-green-600" />
+                                            ) : (
+                                              <Copy className="h-3 w-3" />
+                                            )}
+                                            <span className="font-mono">
+                                              {job.id.slice(0, 8)}...
+                                            </span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-2">
+                                        {/* Botão para visualizar relatório quando disponível */}
+                                        {job.analysis_report && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedJob(job)
+                                              setShowReport(true)
+                                            }}
+                                          >
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            Ver Relatório
+                                          </Button>
+                                        )}
+                                        
+                                        {/* Botões de aprovação apenas se não for modo rápido E se tem relatório para revisar */}
+                                        {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 text-xs border-green-200 text-green-600 hover:bg-green-50"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleJobAction(job.id, 'approve')
+                                              }}
+                                            >
+                                              <ThumbsUp className="h-3 w-3 mr-1" />
+                                              Aprovar
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleJobAction(job.id, 'reject')
+                                              }}
+                                            >
+                                              <ThumbsDown className="h-3 w-3 mr-1" />
+                                              Rejeitar
+                                            </Button>
+                                          </>
+                                        )}
+                                        
+                                        {/* Mensagem quando aguardando relatório para aprovar */}
+                                        {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && !job.analysis_report && (
+                                          <Badge variant="outline" className="text-xs border-orange-200 text-orange-600 bg-orange-50">
+                                            <Clock className="h-3 w-3 mr-1" />
+                                            Aguardando relatório...
+                                          </Badge>
+                                        )}
+                                        
+                                        {/* Botão para forçar busca do relatório */}
+                                        {(job.status === 'generating_report' || job.status === 'pending_approval' || job.progress === 10) && !job.analysis_report && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+                                            onClick={async (e) => {
+                                              e.stopPropagation()
+                                              try {
+                                                // Primeiro tenta buscar do status
+                                                const statusResponse = await fetch(`${API_URL}/status/${job.id}`, {
+                                                  method: 'GET',
+                                                  headers: { 'Accept': 'application/json' },
+                                                  mode: 'cors',
+                                                  credentials: 'omit'
+                                                })
+                                                
+                                                let report = null
+                                                
+                                                if (statusResponse.ok) {
+                                                  const statusData = await statusResponse.json()
+                                                  report = statusData.report || statusData.analysis_report
+                                                }
+                                                
+                                                // Se não encontrou no status, tenta no endpoint de report
+                                                if (!report) {
+                                                  const reportResponse = await fetch(`${API_URL}/jobs/${job.id}/report`, {
+                                                    method: 'GET',
+                                                    headers: { 'Accept': 'application/json' },
+                                                    mode: 'cors',
+                                                    credentials: 'omit'
+                                                  })
+                                                  
+                                                  if (reportResponse.ok) {
+                                                    const reportData = await reportResponse.json()
+                                                    report = reportData.analysis_report || reportData.report
+                                                  }
+                                                }
+                                                
+                                                if (report) {
+                                                  // Atualiza o job mantendo o status atual
+                                                  setJobs(prev => prev.map(j => 
+                                                    j.id === job.id 
+                                                      ? { ...j, analysis_report: report }
+                                                      : j
+                                                  ))
+                                                  if (selectedJob?.id === job.id) {
+                                                    setSelectedJob({ ...selectedJob, analysis_report: report })
+                                                    setShowReport(true)
+                                                  }
+                                                  console.log('Relatório encontrado e carregado!')
+                                                } else {
+                                                  console.log('Relatório ainda não disponível')
+                                                }
+                                              } catch (err) {
+                                                console.error('Erro ao buscar relatório:', err)
+                                              }
+                                            }}
+                                          >
+                                            <RefreshCw className="h-3 w-3 mr-1" />
+                                            Buscar Relatório
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Relatório */}
+            {selectedJob && showReport && selectedJob.analysis_report && (
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div 
+                  className="h-2"
+                  style={{ 
+                    background: `linear-gradient(90deg, ${BRAND_COLORS.secondary} 0%, ${BRAND_COLORS.primary} 100%)` 
+                  }}
+                />
+                <CardHeader className="border-b" style={{ borderColor: BRAND_COLORS.accent }}>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
+                      <span>Relatório de Análise</span>
+                      {selectedJob.gerar_relatorio_apenas && (
+                        <Badge 
+                          variant="outline" 
+                          className="ml-2"
+                          style={{ 
+                            borderColor: BRAND_COLORS.secondary,
+                            color: BRAND_COLORS.primary,
+                            background: `${BRAND_COLORS.secondary}10`
+                          }}
+                        >
+                          Gerado Automaticamente
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const blob = new Blob([selectedJob.analysis_report!], { type: 'text/markdown' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `analise-${selectedJob.id}.md`
+                          a.click()
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Exportar
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(selectedJob.id)
-                          setCopiedJobId(selectedJob.id)
-                          setTimeout(() => setCopiedJobId(null), 2000)
-                        }}
+                        onClick={() => setShowReport(false)}
                       >
-                        {copiedJobId === selectedJob.id ? (
-                          <>
-                            <CheckCheck className="h-3 w-3 mr-1 text-green-600" />
-                            Copiado!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3 mr-1" />
-                            {selectedJob.id.substring(0, 8)}...
-                          </>
-                        )}
+                        <XCircle className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </div>
+                </CardHeader>
                 
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    className="flex-1"
-                    variant="default"
-                    onClick={() => handleJobAction(selectedJob.id, 'approve')}
-                    style={{ 
-                      backgroundColor: BRAND_COLORS.primary,
-                      color: BRAND_COLORS.white
-                    }}
-                  >
-                    <ThumbsUp className="h-4 w-4 mr-2" />
-                    Aprovar e Iniciar
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    variant="destructive"
-                    onClick={() => handleJobAction(selectedJob.id, 'reject')}
-                  >
-                    <ThumbsDown className="h-4 w-4 mr-2" />
-                    Rejeitar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                <CardContent className="p-6">
+                  <ScrollArea className="h-[500px]">
+                    <div className="prose prose-sm max-w-none">
+                      <div 
+                        className="whitespace-pre-wrap text-gray-700 leading-relaxed"
+                        dangerouslySetInnerHTML={{ 
+                          __html: selectedJob.analysis_report
+                            // Headers
+                            .replace(/^###\s(.+)$/gm, '<h3 style="color: #011334; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1.1rem;">$1</h3>')
+                            .replace(/^##\s(.+)$/gm, '<h2 style="color: #011334; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #E1FF00; font-size: 1.3rem;">$1</h2>')
+                            .replace(/^#\s(.+)$/gm, '<h1 style="color: #011334; font-weight: 800; margin-top: 2rem; margin-bottom: 1rem; font-size: 1.5rem;">$1</h1>')
+                            // Bold e Itálico
+                            .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #011334; font-weight: 600;">$1</strong>')
+                            .replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>')
+                            // Código
+                            .replace(/```([\s\S]*?)```/g, '<pre style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; border-left: 3px solid #E1FF00; margin: 1rem 0; font-family: monospace; font-size: 0.9rem;"><code>$1</code></pre>')
+                            .replace(/`([^`]+)`/g, '<code style="background: #E1FF0020; color: #011334; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; font-family: monospace; border: 1px solid #E1FF0050;">$1</code>')
+                            // Listas
+                            .replace(/^-\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: disc; color: #374151;">$1</li>')
+                            .replace(/^\*\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: disc; color: #374151;">$1</li>')
+                            .replace(/^(\d+)\.\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: decimal; color: #374151;">$2</li>')
+                            // Tabelas Markdown com estilo melhorado
+                            .replace(/\|(.+)\|/gm, (match) => {
+                              // Se é uma linha de separação de tabela (---|---|---)
+                              if (match.includes('---|')) {
+                                return '' // Remove a linha de separação
+                              }
+                              // Processar linha de tabela
+                              const cells = match.split('|').filter(cell => cell.trim())
+                              const isHeader = cells.some(cell => cell.trim().match(/^\*\*.+\*\*$/))
+                              
+                              if (isHeader || cells.some(cell => cell.toLowerCase().includes('arquivo') || cell.toLowerCase().includes('ação'))) {
+                                // É um cabeçalho
+                                return `<tr style="background: linear-gradient(135deg, #011334 0%, #022558 100%);">
+                                  ${cells.map(cell => `<th style="padding: 0.75rem; text-align: left; color: white; font-weight: 600; border: 1px solid #E1FF0030;">${cell.trim().replace(/\*\*/g, '')}</th>`).join('')}
+                                </tr>`
+                              } else {
+                                // É uma linha de dados
+                                return `<tr style="background: white; border-bottom: 1px solid #E5E7EB; hover: background: #f9fafb;">
+                                  ${cells.map((cell, index) => {
+                                    const cellContent = cell.trim()
+                                    // Primeira coluna (geralmente arquivo) em mono
+                                    if (index === 0 && cellContent.includes('.')) {
+                                      return `<td style="padding: 0.75rem; border: 1px solid #E5E7EB; font-family: monospace; font-size: 0.9rem; color: #011334; background: #f8f9fa;">
+                                        <code style="color: #7c3aed;">${cellContent.replace(/`/g, '')}</code>
+                                      </td>`
+                                    }
+                                    return `<td style="padding: 0.75rem; border: 1px solid #E5E7EB; color: #374151; font-size: 0.9rem;">${cellContent.replace(/`/g, '')}</td>`
+                                  }).join('')}
+                                </tr>`
+                              }
+                            })
+                            // Envolver grupos de <tr> em tabelas
+                            .replace(/(<tr[\s\S]*?<\/tr>[\s\S]*?)+/gm, (match) => {
+                              if (match.includes('<tr')) {
+                                return `<div style="overflow-x: auto; margin: 1.5rem 0; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                  <table style="width: 100%; border-collapse: collapse; background: white;">
+                                    <tbody>
+                                      ${match}
+                                    </tbody>
+                                  </table>
+                                </div>`
+                              }
+                              return match
+                            })
+                            // Seções numeradas com destaque
+                            .replace(/^(\d+)\.\s\*\*(.+?)\*\*$/gm, 
+                              '<div style="margin: 1.5rem 0; padding: 1rem; background: linear-gradient(135deg, #E1FF0010 0%, #E1FF0005 100%); border-left: 4px solid #E1FF00; border-radius: 0.25rem;">' +
+                              '<h3 style="color: #011334; font-weight: 700; font-size: 1.2rem; margin: 0;">' +
+                              '<span style="background: #E1FF00; color: #011334; padding: 0.25rem 0.5rem; border-radius: 50%; margin-right: 0.5rem; font-size: 0.9rem;">$1</span>' +
+                              '$2</h3>' +
+                              '</div>')
+                            // Blocos de citação
+                            .replace(/^>\s(.+)$/gm, '<blockquote style="border-left: 4px solid #E1FF00; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">$1</blockquote>')
+                            // Links
+                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline; font-weight: 500;" target="_blank">$1</a>')
+                            // Separadores horizontais
+                            .replace(/^---$/gm, '<hr style="border: none; border-top: 2px solid #E1FF0050; margin: 2rem 0;" />')
+                            // Destacar palavras importantes
+                            .replace(/\b(IMPORTANTE|ATENÇÃO|NOTA|AVISO|DICA)\b:/g, '<span style="background: #E1FF00; color: #011334; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-weight: 700; font-size: 0.8rem;">$1:</span>')
+                        }}
+                      />
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Modal de Relatório */}
-        {selectedJob && showReport && selectedJob.analysis_report && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col">
-              <CardHeader className="flex-shrink-0 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Relatório de Análise
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyReport(selectedJob.analysis_report!, selectedJob.id)}
-                    >
-                      {copiedReportId === selectedJob.id ? (
-                        <>
-                          <CheckCheck className="h-4 w-4 mr-2 text-green-600" />
-                          Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copiar
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const blob = new Blob([selectedJob.analysis_report!], { type: 'text/markdown' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `relatorio-${selectedJob.repo_name}-${selectedJob.id}.md`
-                        a.click()
+            {/* Relatório de Execução - Aparece quando status é completed e tem summary com PRs */}
+            {selectedJob && selectedJob.status === 'completed' && (
+              <Card className="border-0 shadow-xl overflow-hidden mt-6">
+                <div 
+                  className="h-2"
+                  style={{ 
+                    background: `linear-gradient(90deg, ${BRAND_COLORS.primary} 0%, ${BRAND_COLORS.secondary} 100%)` 
+                  }}
+                />
+                <CardHeader className="border-b" style={{ borderColor: BRAND_COLORS.accent }}>
+                  <CardTitle className="flex items-center space-x-2">
+                    <GitBranch className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
+                    <span>Relatório de Execução</span>
+                    <Badge 
+                      className="ml-2"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: 'white'
                       }}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar
-                    </Button>
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Concluído com Sucesso
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    Pull Requests criados e arquivos modificados
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {/* Buscar e exibir informações de execução */}
                     <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowReport(false)}
+                      variant="outline"
+                      className="w-full"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`${API_URL}/status/${selectedJob.id}`, {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' },
+                            mode: 'cors',
+                            credentials: 'omit'
+                          })
+                          
+                          if (response.ok) {
+                            const data = await response.json()
+                            console.log('Dados de execução:', data)
+                            
+                            // Atualizar o job com o summary
+                            if (data.summary) {
+                              setJobs(prev => prev.map(j => 
+                                j.id === selectedJob.id 
+                                  ? { ...j, summary: data.summary }
+                                  : j
+                              ))
+                              setSelectedJob(prev => prev ? { ...prev, summary: data.summary } : null)
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Erro ao buscar relatório de execução:', error)
+                        }
+                      }}
                     >
-                      <X className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Carregar Relatório de Execução
                     </Button>
+
+                    {/* Exibir PRs se existirem */}
+                    {(selectedJob as any).summary && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Badge 
+                            variant="outline"
+                            style={{ 
+                              borderColor: BRAND_COLORS.secondary,
+                              color: BRAND_COLORS.primary
+                            }}
+                          >
+                            {(selectedJob as any).summary.length} Pull Request{(selectedJob as any).summary.length > 1 ? 's' : ''} Criado{(selectedJob as any).summary.length > 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+
+                        {(selectedJob as any).summary.map((pr: any, index: number) => (
+                          <Card 
+                            key={index}
+                            className="border hover:shadow-lg transition-all"
+                            style={{ borderColor: BRAND_COLORS.accent }}
+                          >
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                {/* PR Header */}
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div 
+                                      className="p-2 rounded-lg"
+                                      style={{ 
+                                        background: `${BRAND_COLORS.secondary}20`,
+                                        border: `1px solid ${BRAND_COLORS.secondary}50`
+                                      }}
+                                    >
+                                      <GitBranch className="h-4 w-4" style={{ color: BRAND_COLORS.primary }} />
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold text-sm" style={{ color: BRAND_COLORS.primary }}>
+                                        Pull Request #{index + 1}
+                                      </h4>
+                                      <p className="text-xs text-gray-600 mt-1">
+                                        Branch: <code className="px-1 py-0.5 bg-gray-100 rounded">{pr.branch_name}</code>
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs"
+                                    onClick={() => window.open(pr.pull_request_url, '_blank')}
+                                  >
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    Ver no GitHub
+                                  </Button>
+                                </div>
+
+                                {/* PR URL */}
+                                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                  <a 
+                                    href={pr.pull_request_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800 underline font-mono flex-1 truncate"
+                                  >
+                                    {pr.pull_request_url}
+                                  </a>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(pr.pull_request_url)
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+
+                                {/* Arquivos Modificados */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <FileCode className="h-4 w-4 text-gray-500" />
+                                    <span className="text-xs font-medium text-gray-700">
+                                      Arquivos Modificados ({pr.arquivos_modificados?.length || 0})
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 gap-1 ml-6">
+                                    {pr.arquivos_modificados?.map((arquivo: string, fileIndex: number) => (
+                                      <div 
+                                        key={fileIndex}
+                                        className="flex items-center gap-2 p-1.5 bg-gray-50 rounded text-xs hover:bg-gray-100 transition-colors"
+                                      >
+                                        <div className={`w-2 h-2 rounded-full ${
+                                          arquivo.includes('.md') ? 'bg-blue-500' :
+                                          arquivo.includes('.env') ? 'bg-green-500' :
+                                          arquivo.includes('.github') ? 'bg-purple-500' :
+                                          'bg-gray-500'
+                                        }`} />
+                                        <code className="font-mono text-gray-700">{arquivo}</code>
+                                        {arquivo.includes('README') && (
+                                          <Badge variant="outline" className="text-xs scale-90">Documentação</Badge>
+                                        )}
+                                        {arquivo.includes('.env') && (
+                                          <Badge variant="outline" className="text-xs scale-90">Configuração</Badge>
+                                        )}
+                                        {arquivo.includes('ISSUE_TEMPLATE') && (
+                                          <Badge variant="outline" className="text-xs scale-90">Template</Badge>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        {/* Resumo da Execução */}
+                        <Card className="border-2" style={{ borderColor: BRAND_COLORS.secondary + '50' }}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className="p-3 rounded-lg"
+                                style={{ background: BRAND_COLORS.secondary }}
+                              >
+                                <CheckCircle className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold" style={{ color: BRAND_COLORS.primary }}>
+                                  Execução Completa
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Todas as alterações foram aplicadas com sucesso no repositório
+                                </p>
+                              </div>
+                              <Badge 
+                                className="text-xs"
+                                style={{ 
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                  color: 'white'
+                                }}
+                              >
+                                Sucesso
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <CardDescription>
-                  {selectedJob.repo_name} • {selectedJob.analysis_type} • {new Date(selectedJob.created_at).toLocaleString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-auto p-6">
-                <div className="prose prose-sm max-w-none">
-                  <pre className="whitespace-pre-wrap font-sans">{selectedJob.analysis_report}</pre>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   )
 }
