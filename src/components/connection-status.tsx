@@ -15,7 +15,7 @@ export function useConnectionStatus() {
     try {
       const response = await fetch('http://127.0.0.1:8000/health', {
         method: 'GET',
-        timeout: 5000
+        //timeout: 5000
       })
       
       if (response.ok) {

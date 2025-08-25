@@ -1565,7 +1565,7 @@ export default function TestPage() {
                                 repo_name: data.repo_name || 'Repositório',
                                 analysis_type: data.analysis_type || 'relatorio_teste_unitario',
                                 branch_name: data.branch_name || 'main',
-                                summary: data.summary
+                               // summary: data.summary
                               }
                               
                               // Adicionar o job à lista se não existir
