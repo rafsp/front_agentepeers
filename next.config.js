@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/backend/:path*',
+        destination: 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net/:path*',
+      },
+    ]
+  },
   // Remove 'appDir' - não é mais necessário no Next.js 13.4+
   experimental: {
     // Outras configurações experimentais podem ir aqui se necessário

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import CodeGenerationWidget from '@/components/CodeGenerationWidget'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -2332,6 +2333,8 @@ export default function TestPage() {
                 </CardContent>
               </Card>
             )}
+
+            
           </div>
         </div>
       </div>
