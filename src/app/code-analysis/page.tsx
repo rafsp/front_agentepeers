@@ -12,6 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Switch } from '@/components/ui/switch'
 import { 
   Loader2, 
@@ -101,6 +103,51 @@ const BRAND_COLORS = {
     subtle: 'linear-gradient(135deg, #f8fafb 0%, #e8f4f8 100%)'
   }
 }
+
+// ADICIONAR estas constantes depois de BRAND_COLORS:
+
+// Lista pré-definida de repositórios
+const REPOSITORY_LIST = [
+  {
+    value: 'rafsp/front_agentes_peers',
+    label: 'Front Agentes PEERS',
+    branch: 'main',
+    description: 'Frontend do sistema de agentes'
+  },
+  {
+    value: 'rafsp/backend_agent_revisor',
+    label: 'Backend Agent Revisor',
+    branch: 'main',
+    description: 'API backend dos agentes'
+  },
+  {
+    value: 'rafsp/LegadoAnalise/tree/main/SistemaAvaliacao',
+    label: 'Sistema Peers - Avaliação de Desempenho',
+    branch: 'main',
+    description: 'Sistema de avaliação de desempenho'
+  },
+  {
+    value: 'LucioFlavioRosa/teste_agent',
+    label: 'Sistema POC Porto',
+    branch: 'main',
+    description: 'Sistema de análise de código POC Porto'
+  },
+  {
+    value: 'custom',
+    label: 'Outro repositório...',
+    branch: '',
+    description: 'Inserir repositório personalizado'
+  }
+]
+
+// Branches disponíveis
+const BRANCH_LIST = [
+  { value: 'main', label: 'main' },
+  { value: 'master', label: 'master' },
+  { value: 'develop', label: 'develop' },
+  { value: 'staging', label: 'staging' },
+  { value: 'custom', label: 'Outra branch...' }
+]
 
 interface Job {
   id: string
@@ -652,6 +699,13 @@ export default function TestPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
+
+
+  // ADICIONAR estes estados junto com os outros useState:
+const [selectedRepository, setSelectedRepository] = useState('')
+const [customRepository, setCustomRepository] = useState('')
+const [selectedBranch, setSelectedBranch] = useState('main')
+const [customBranch, setCustomBranch] = useState('')
   
   // Estados do Menu Lateral
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -757,6 +811,16 @@ export default function TestPage() {
     const interval = setInterval(checkConnection, 30000)
     return () => clearInterval(interval)
   }, [])
+
+   //  ADICIONAR o novo useEffect AQUI (dentro do componente!)
+  useEffect(() => {
+    if (selectedRepository && selectedRepository !== 'custom') {
+      const repo = REPOSITORY_LIST.find(r => r.value === selectedRepository)
+      if (repo && repo.branch) {
+        setSelectedBranch(repo.branch)
+      }
+    }
+  }, [selectedRepository])
 
   // Mapear status para exibição
   const getStatusDisplay = (status: string) => {
@@ -937,6 +1001,11 @@ export default function TestPage() {
       return
     }
 
+      // Determinar o repositório e branch finais
+      const finalRepo = selectedRepository === 'custom' ? customRepository : selectedRepository
+      const finalBranch = selectedBranch === 'custom' ? customBranch : selectedBranch
+
+
     setIsSubmitting(true)
     setErrorMessage('')
     
@@ -969,9 +1038,9 @@ export default function TestPage() {
           analysis_report: data.report || data.analysis_report,
           created_at: new Date(),
           updated_at: new Date(),
-          repo_name: formData.repo_name,
+          repo_name: finalRepo,
           analysis_type: formData.analysis_type,
-          branch_name: formData.branch_name,
+          branch_name: finalBranch,
           gerar_relatorio_apenas: formData.gerar_relatorio_apenas
         }
         
@@ -1237,37 +1306,72 @@ export default function TestPage() {
                     </Alert>
                   )}
 
-                  {/* Repositório */}
-                  <div className="space-y-2">
-                    <Label htmlFor="repo" className="flex items-center space-x-2">
-                      <GitBranch className="h-4 w-4 text-gray-500" />
-                      <span>Repositório</span>
-                      <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="repo"
-                      placeholder="owner/repository"
-                      value={formData.repo_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, repo_name: e.target.value }))}
-                      className="border-gray-200 focus:border-blue-400 transition-colors"
-                      required
-                    />
-                  </div>
+                                    {/* Dropdown de Repositório */}
+<div className="space-y-2">
+  <Label htmlFor="repository" className="flex items-center space-x-2">
+    <Folder className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
+    <span>Repositório</span>
+  </Label>
+  <Select value={selectedRepository} onValueChange={setSelectedRepository}>
+    <SelectTrigger>
+      <SelectValue placeholder="Selecione um repositório" />
+    </SelectTrigger>
+    <SelectContent>
+      {REPOSITORY_LIST.map((repo) => (
+        <SelectItem key={repo.value} value={repo.value}>
+          <div className="flex flex-col">
+            <span className="font-medium">{repo.label}</span>
+            {repo.description && (
+              <span className="text-xs text-gray-500">{repo.description}</span>
+            )}
+          </div>
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+  
+  {/* Input customizado se selecionou "Outro" */}
+  {selectedRepository === 'custom' && (
+    <Input
+      placeholder="ex: owner/repository"
+      value={customRepository}
+      onChange={(e) => setCustomRepository(e.target.value)}
+      className="mt-2"
+      style={{ borderColor: BRAND_COLORS.accent }}
+    />
+  )}
+</div>
 
-                  {/* Branch */}
-                  <div className="space-y-2">
-                    <Label htmlFor="branch" className="flex items-center space-x-2">
-                      <GitCommit className="h-4 w-4 text-gray-500" />
-                      <span>Branch</span>
-                    </Label>
-                    <Input
-                      id="branch"
-                      placeholder="main"
-                      value={formData.branch_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, branch_name: e.target.value }))}
-                      className="border-gray-200 focus:border-blue-400 transition-colors"
-                    />
-                  </div>
+                    {/* Dropdown de Branch */}
+                    <div className="space-y-2">
+                      <Label htmlFor="branch" className="flex items-center space-x-2">
+                        <GitBranch className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
+                        <span>Branch</span>
+                      </Label>
+                      <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BRANCH_LIST.map((branch) => (
+                            <SelectItem key={branch.value} value={branch.value}>
+                              {branch.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Input customizado se selecionou "Outra" */}
+                      {selectedBranch === 'custom' && (
+                        <Input
+                          placeholder="Nome da branch"
+                          value={customBranch}
+                          onChange={(e) => setCustomBranch(e.target.value)}
+                          className="mt-2"
+                          style={{ borderColor: BRAND_COLORS.accent }}
+                        />
+                      )}
+                    </div>
 
                   {/* Tipo de Análise */}
                   <div className="space-y-2">
@@ -2025,87 +2129,215 @@ export default function TestPage() {
                 </CardHeader>
                 
                 <CardContent className="p-6">
-                  <ScrollArea className="h-[500px]">
-                    <div className="prose prose-sm max-w-none">
-                      <div 
-                        className="whitespace-pre-wrap text-gray-700 leading-relaxed"
-                        dangerouslySetInnerHTML={{ 
-                          __html: selectedJob.analysis_report
-                            // Headers
-                            .replace(/^###\s(.+)$/gm, '<h3 style="color: #011334; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1.1rem;">$1</h3>')
-                            .replace(/^##\s(.+)$/gm, '<h2 style="color: #011334; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #E1FF00; font-size: 1.3rem;">$1</h2>')
-                            .replace(/^#\s(.+)$/gm, '<h1 style="color: #011334; font-weight: 800; margin-top: 2rem; margin-bottom: 1rem; font-size: 1.5rem;">$1</h1>')
-                            // Bold e Itálico
-                            .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #011334; font-weight: 600;">$1</strong>')
-                            .replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>')
-                            // Código
-                            .replace(/```([\s\S]*?)```/g, '<pre style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; border-left: 3px solid #E1FF00; margin: 1rem 0; font-family: monospace; font-size: 0.9rem;"><code>$1</code></pre>')
-                            .replace(/`([^`]+)`/g, '<code style="background: #E1FF0020; color: #011334; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; font-family: monospace; border: 1px solid #E1FF0050;">$1</code>')
-                            // Listas
-                            .replace(/^-\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: disc; color: #374151;">$1</li>')
-                            .replace(/^\*\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: disc; color: #374151;">$1</li>')
-                            .replace(/^(\d+)\.\s(.+)$/gm, '<li style="margin-left: 1rem; margin-bottom: 0.5rem; list-style-type: decimal; color: #374151;">$2</li>')
-                            // Tabelas Markdown com estilo melhorado
-                            .replace(/\|(.+)\|/gm, (match) => {
-                              // Se é uma linha de separação de tabela (---|---|---)
-                              if (match.includes('---|')) {
-                                return '' // Remove a linha de separação
-                              }
-                              // Processar linha de tabela
-                              const cells = match.split('|').filter(cell => cell.trim())
-                              const isHeader = cells.some(cell => cell.trim().match(/^\*\*.+\*\*$/))
-                              
-                              if (isHeader || cells.some(cell => cell.toLowerCase().includes('arquivo') || cell.toLowerCase().includes('ação'))) {
-                                // É um cabeçalho
-                                return `<tr style="background: linear-gradient(135deg, #011334 0%, #022558 100%);">
-                                  ${cells.map(cell => `<th style="padding: 0.75rem; text-align: left; color: white; font-weight: 600; border: 1px solid #E1FF0030;">${cell.trim().replace(/\*\*/g, '')}</th>`).join('')}
-                                </tr>`
-                              } else {
-                                // É uma linha de dados
-                                return `<tr style="background: white; border-bottom: 1px solid #E5E7EB; hover: background: #f9fafb;">
-                                  ${cells.map((cell, index) => {
-                                    const cellContent = cell.trim()
-                                    // Primeira coluna (geralmente arquivo) em mono
-                                    if (index === 0 && cellContent.includes('.')) {
-                                      return `<td style="padding: 0.75rem; border: 1px solid #E5E7EB; font-family: monospace; font-size: 0.9rem; color: #011334; background: #f8f9fa;">
-                                        <code style="color: #7c3aed;">${cellContent.replace(/`/g, '')}</code>
-                                      </td>`
-                                    }
-                                    return `<td style="padding: 0.75rem; border: 1px solid #E5E7EB; color: #374151; font-size: 0.9rem;">${cellContent.replace(/`/g, '')}</td>`
-                                  }).join('')}
-                                </tr>`
-                              }
-                            })
-                            // Envolver grupos de <tr> em tabelas
-                            .replace(/(<tr[\s\S]*?<\/tr>[\s\S]*?)+/gm, (match) => {
-                              if (match.includes('<tr')) {
-                                return `<div style="overflow-x: auto; margin: 1.5rem 0; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                  <table style="width: 100%; border-collapse: collapse; background: white;">
-                                    <tbody>
-                                      ${match}
-                                    </tbody>
-                                  </table>
-                                </div>`
-                              }
-                              return match
-                            })
-                            // Seções numeradas com destaque
-                            .replace(/^(\d+)\.\s\*\*(.+?)\*\*$/gm, 
-                              '<div style="margin: 1.5rem 0; padding: 1rem; background: linear-gradient(135deg, #E1FF0010 0%, #E1FF0005 100%); border-left: 4px solid #E1FF00; border-radius: 0.25rem;">' +
-                              '<h3 style="color: #011334; font-weight: 700; font-size: 1.2rem; margin: 0;">' +
-                              '<span style="background: #E1FF00; color: #011334; padding: 0.25rem 0.5rem; border-radius: 50%; margin-right: 0.5rem; font-size: 0.9rem;">$1</span>' +
-                              '$2</h3>' +
-                              '</div>')
-                            // Blocos de citação
-                            .replace(/^>\s(.+)$/gm, '<blockquote style="border-left: 4px solid #E1FF00; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic;">$1</blockquote>')
-                            // Links
-                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #2563eb; text-decoration: underline; font-weight: 500;" target="_blank">$1</a>')
-                            // Separadores horizontais
-                            .replace(/^---$/gm, '<hr style="border: none; border-top: 2px solid #E1FF0050; margin: 2rem 0;" />')
-                            // Destacar palavras importantes
-                            .replace(/\b(IMPORTANTE|ATENÇÃO|NOTA|AVISO|DICA)\b:/g, '<span style="background: #E1FF00; color: #011334; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-weight: 700; font-size: 0.8rem;">$1:</span>')
+                  <ScrollArea className="h-[600px] w-full">
+                    {/* IMPORTANTE: Adicionar overflow-x-auto aqui */}
+                    <div className="overflow-x-auto">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          // Headers com estilo PEERS
+                          h1: ({children}) => (
+                            <h1 className="text-2xl font-bold mb-4 mt-6 pb-2 border-b-2"
+                                style={{ 
+                                  color: BRAND_COLORS.primary,
+                                  borderColor: BRAND_COLORS.secondary 
+                                }}>
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({children}) => (
+                            <h2 className="text-xl font-bold mb-3 mt-5 flex items-center gap-2">
+                              <div className="w-1 h-6 rounded" 
+                                  style={{ background: BRAND_COLORS.secondary }}/>
+                              <span style={{ color: BRAND_COLORS.primary }}>{children}</span>
+                            </h2>
+                          ),
+                          h3: ({children}) => (
+                            <h3 className="text-lg font-semibold mb-2 mt-4"
+                                style={{ color: BRAND_COLORS.primary }}>
+                              {children}
+                            </h3>
+                          ),
+                          
+                          // Parágrafos
+                          p: ({children}) => (
+                            <p className="mb-4 text-gray-700 leading-relaxed">
+                              {children}
+                            </p>
+                          ),
+                          
+                          // Tabelas com estilo profissional
+                          table: ({children}) => (
+                            <div className="my-6 max-w-full" style={{ overflowX: 'auto' }}>
+                              <div className="overflow-x-auto rounded-lg shadow-sm border"
+                                  style={{ borderColor: BRAND_COLORS.accent }}>
+                                <table className="min-w-full table-auto">
+                                  {children}
+                                </table>
+                              </div>
+                            </div>
+                          ),
+                          thead: ({children}) => (
+                            <thead style={{ 
+                              background: `linear-gradient(135deg, ${BRAND_COLORS.primary} 0%, #022558 100%)` 
+                            }}>
+                              {children}
+                            </thead>
+                          ),
+                          th: ({children}) => (
+                            <th className="px-4 py-3 text-left text-white font-semibold text-sm border-b-2"
+                                style={{ borderColor: BRAND_COLORS.secondary }}>
+                              {children}
+                            </th>
+                          ),
+                          tbody: ({children}) => (
+                            <tbody className="bg-white">
+                              {children}
+                            </tbody>
+                          ),
+                          tr: ({children, ...props}) => {
+                            // Verificar se é linha do header ou do body
+                            const isHeader = props.isHeader
+                            return (
+                              <tr className={isHeader ? "" : "hover:bg-gray-50 transition-colors border-b border-gray-100"}>
+                                {children}
+                              </tr>
+                            )
+                          },
+                          td: ({children}) => (
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              {children}
+                            </td>
+                          ),
+                          
+                          // Listas
+                          ul: ({children}) => (
+                            <ul className="mb-4 ml-6 space-y-2">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({children}) => (
+                            <ol className="mb-4 ml-6 space-y-2">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({children}) => (
+                            <li className="text-gray-700 leading-relaxed flex items-start">
+                              <span className="mr-2 mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ background: BRAND_COLORS.secondary }}/>
+                              <span>{children}</span>
+                            </li>
+                          ),
+                          
+                          // Código
+                          code: ({inline, className, children}) => {
+                            // Detectar linguagem do código
+                            const match = /language-(\w+)/.exec(className || '')
+                            
+                            if (!inline && match) {
+                              // Bloco de código com linguagem
+                              return (
+                                <div className="relative my-4">
+                                  <div className="absolute top-0 right-0 px-2 py-1 text-xs font-mono rounded-bl"
+                                      style={{ 
+                                        background: BRAND_COLORS.secondary,
+                                        color: BRAND_COLORS.primary 
+                                      }}>
+                                    {match[1]}
+                                  </div>
+                                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                                    <code className="text-sm font-mono">
+                                      {children}
+                                    </code>
+                                  </pre>
+                                </div>
+                              )
+                            }
+                            
+                            if (!inline) {
+                              // Bloco de código sem linguagem
+                              return (
+                                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 border-l-4"
+                                    style={{ borderColor: BRAND_COLORS.secondary }}>
+                                  <code className="text-sm font-mono">
+                                    {children}
+                                  </code>
+                                </pre>
+                              )
+                            }
+                            
+                            // Código inline
+                            return (
+                              <code className="px-2 py-0.5 rounded text-sm font-mono mx-1"
+                                    style={{ 
+                                      background: `${BRAND_COLORS.secondary}20`,
+                                      color: BRAND_COLORS.primary,
+                                      border: `1px solid ${BRAND_COLORS.secondary}50`
+                                    }}>
+                                {children}
+                              </code>
+                            )
+                          },
+                          
+                          // Blockquotes
+                          blockquote: ({children}) => (
+                            <blockquote className="border-l-4 pl-4 my-4 italic"
+                                      style={{ 
+                                        borderColor: BRAND_COLORS.secondary,
+                                        background: `${BRAND_COLORS.secondary}05`
+                                      }}>
+                              <p className="text-gray-600">{children}</p>
+                            </blockquote>
+                          ),
+                          
+                          // Links
+                          a: ({href, children}) => (
+                            <a href={href} 
+                              className="font-medium hover:underline"
+                              style={{ color: BRAND_COLORS.primary }}
+                              target="_blank" 
+                              rel="noopener noreferrer">
+                              {children}
+                            </a>
+                          ),
+                          
+                          // Linha horizontal
+                          hr: () => (
+                            <hr className="my-6 border-t-2" 
+                                style={{ borderColor: `${BRAND_COLORS.secondary}50` }}/>
+                          ),
+                          
+                          // Strong/Bold
+                          strong: ({children}) => (
+                            <strong className="font-bold" 
+                                    style={{ color: BRAND_COLORS.primary }}>
+                              {children}
+                            </strong>
+                          ),
+                          
+                          // Emphasis/Italic
+                          em: ({children}) => (
+                            <em className="italic text-gray-600">
+                              {children}
+                            </em>
+                          ),
+                          
+                          // Imagens (caso tenha)
+                          img: ({src, alt}) => (
+                            <img src={src} 
+                                alt={alt} 
+                                className="rounded-lg shadow-md my-4 max-w-full h-auto"/>
+                          )
                         }}
-                      />
+                      >
+                        {/* Limpar o relatório antes de processar */}
+                        {selectedJob.analysis_report
+                          .replace(/\*\*\*/g, '**')  // Corrigir bold triplo
+                          .replace(/```json\n/g, '```json\n')  // Manter linguagem
+                          .replace(/```python\n/g, '```python\n')  // Manter linguagem
+                          .replace(/\n{3,}/g, '\n\n')  // Limpar espaços extras
+                        }
+                      </ReactMarkdown>
                     </div>
                   </ScrollArea>
                 </CardContent>
