@@ -1081,7 +1081,7 @@ export default function CodeGenerationPage() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
                   <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                  <span>Code .IA</span>
+                  <span>Agentes Inteligentes</span>
                 </h1>
                 <p className="text-sm text-gray-500">Análise de código com IA multi-agentes</p>
               </div>
@@ -1286,6 +1286,8 @@ export default function CodeGenerationPage() {
                       })}
                     </div>
                   </div>
+                  )
+                }
 
                   {/* Divisor */}
                   <div className="relative">
