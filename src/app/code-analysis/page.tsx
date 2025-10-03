@@ -79,6 +79,7 @@ import {
   Save,
   Trash2,
   Edit,
+  Cloud,
   ExternalLink,
   HelpCircle,
   LogOut,
@@ -203,21 +204,43 @@ interface Project {
 }
 
 // Tipos de análise organizados por categoria - ATUALIZADO COM OS VALORES CORRETOS DA API
+// Tipos de análise organizados por categoria - ATUALIZADO COM YAML
 const analysisCategories = {
   '🚀 Geração e Implementação': [
     { 
       value: 'geracao_codigo_a_partir_de_reuniao', 
       label: 'Geração de Código', 
       icon: Code, 
-      description: 'Cria código a partir de requisitos de reunião', 
+      description: 'Gerar código a partir de requisitos', 
       color: 'yellow' 
     },
     { 
       value: 'relatorio_implentacao_feature', 
       label: 'Implementação de Features', 
       icon: Plus, 
-      description: 'Implementa novas funcionalidades', 
+      description: 'Plano de implementação técnico detalhado', 
       color: 'green' 
+    },
+    {
+      value: 'relatorio_implentacao_feature_azure',
+      label: 'Implementação Azure',
+      icon: Cloud,
+      description: 'Plano de implementação na Azure',
+      color: 'blue'
+    },
+    {
+      value: 'relatorio_modernizacao_asp_net',
+      label: 'Modernização ASP.NET',
+      icon: Layers,
+      description: 'Migração para ASP.NET Core 8',
+      color: 'indigo'
+    },
+    {
+      value: 'relatorio_erros_migracao',
+      label: 'Correção de Migração',
+      icon: Bug,
+      description: 'Correção de erros de migração',
+      color: 'red'
     },
   ],
   
@@ -226,28 +249,28 @@ const analysisCategories = {
       value: 'relatorio_avaliacao_terraform', 
       label: 'Avaliação Terraform', 
       icon: Layers, 
-      description: 'Infraestrutura como código', 
+      description: 'Auditoria técnica em código Terraform', 
       color: 'purple' 
     },
     { 
       value: 'relatorio_cleancode', 
       label: 'Clean Code', 
       icon: Sparkles, 
-      description: 'Avaliação de código limpo', 
+      description: 'Identificar violações dos princípios SOLID', 
       color: 'green' 
     },
     { 
       value: 'relatorio_conformidades', 
       label: 'Conformidades', 
       icon: CheckCircle, 
-      description: 'Verificação de conformidades no código', 
+      description: 'Identificar inconsistências funcionais', 
       color: 'orange' 
     },
     { 
       value: 'relatorio_simplicacao', 
       label: 'Simplificação de Código', 
       icon: Zap, 
-      description: 'Evitar complicações desnecessárias', 
+      description: 'Princípios DRY, YAGNI e KISS', 
       color: 'cyan' 
     },
   ],
@@ -264,7 +287,7 @@ const analysisCategories = {
       value: 'relatorio_documentacao', 
       label: 'Documentação Geral', 
       icon: FileCode, 
-      description: 'Documentação completa do projeto', 
+      description: 'Arquivos essenciais de documentação', 
       color: 'indigo' 
     },
   ],
@@ -274,14 +297,14 @@ const analysisCategories = {
       value: 'relatorio_owasp', 
       label: 'Avaliação OWASP', 
       icon: Shield, 
-      description: 'Análise de vulnerabilidades OWASP', 
+      description: 'Auditoria de segurança aprofundada', 
       color: 'red' 
     },
     { 
       value: 'relatorio_pentest', 
       label: 'Pentest', 
       icon: Bug, 
-      description: 'Avaliação de teste de penetração', 
+      description: 'Simular teste de invasão', 
       color: 'pink' 
     },
     { 
@@ -298,7 +321,7 @@ const analysisCategories = {
       value: 'relatorio_performance_eficiencia', 
       label: 'Performance e Eficiência', 
       icon: Activity, 
-      description: 'Avaliação de desempenho', 
+      description: 'Identificar gargalos e ineficiências', 
       color: 'orange' 
     },
   ],
@@ -308,14 +331,14 @@ const analysisCategories = {
       value: 'relatorio_teste_integracao', 
       label: 'Testes de Integração', 
       icon: GitBranch, 
-      description: 'Criação de testes de integração', 
+      description: 'Auditoria de testes de integração', 
       color: 'teal' 
     },
     { 
       value: 'relatorio_teste_unitario', 
       label: 'Testes Unitários', 
       icon: TestTube, 
-      description: 'Criação de testes unitários', 
+      description: 'Análise de cobertura e qualidade', 
       color: 'green' 
     },
   ]
