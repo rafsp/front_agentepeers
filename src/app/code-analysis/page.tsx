@@ -2292,7 +2292,7 @@ const requestPayload = {
           // Mostrar notificação de sucesso
           const successDiv = document.createElement('div')
           successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
-          successDiv.innerHTML = '✓ Relatório carregado com sucesso!'
+          successDiv.innerHTML = '✓ Relatório carregado com sucesso.!'
           document.body.appendChild(successDiv)
           setTimeout(() => successDiv.remove(), 3000)
           
