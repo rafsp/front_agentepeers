@@ -2911,7 +2911,7 @@ const requestPayload = {
                                   Execução Completa
                                 </h4>
                                 <p className="text-sm text-gray-600 mt-1">
-                                  Todas as alterações foram aplicadas com sucesso no repositório.
+                                  Todas as alterações foram aplicadas com sucesso no repositório
                                 </p>
                               </div>
                               <Badge 
