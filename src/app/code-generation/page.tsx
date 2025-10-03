@@ -1289,7 +1289,7 @@ export default function CodeGenerationPage() {
                   )
                 }
 
-                  {/* Divisor certo */}
+                  {/* Divisor certo 1dd . */}
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-gray-200" />
