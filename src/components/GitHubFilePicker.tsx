@@ -12,14 +12,17 @@ import {
   Check,
   X,
   Square,
-  CheckSquare
+  CheckSquare,
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 
 interface GitHubFile {
   path: string
   type: 'file' | 'dir'
   size?: number
-  children?: GitHubFile[]
+  sha?: string
+  url?: string
 }
 
 interface GitHubFilePickerProps {
@@ -37,37 +40,195 @@ export function GitHubFilePicker({
   repository, 
   branch 
 }: GitHubFilePickerProps) {
+  const [files, setFiles] = useState<GitHubFile[]>([])
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  
-  // Dados de exemplo para teste (substitua pela chamada real da API depois)
-  const mockFiles: GitHubFile[] = [
-    {
-      path: 'src',
-      type: 'dir',
-      children: [
-        { path: 'src/components/Header.tsx', type: 'file', size: 2048 },
-        { path: 'src/components/Footer.tsx', type: 'file', size: 1024 },
-        { path: 'src/pages/Home.tsx', type: 'file', size: 4096 }
-      ]
-    },
-    {
-      path: 'public',
-      type: 'dir',
-      children: [
-        { path: 'public/index.html', type: 'file', size: 512 },
-        { path: 'public/favicon.ico', type: 'file', size: 256 }
-      ]
-    },
-    { path: 'package.json', type: 'file', size: 1024 },
-    { path: 'README.md', type: 'file', size: 2048 }
-  ]
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [folderContents, setFolderContents] = useState<Record<string, GitHubFile[]>>({})
 
+  // Buscar estrutura de arquivos do GitHub
+  useEffect(() => {
+    if (isOpen && repository && branch) {
+      fetchGitHubFiles()
+    }
+  }, [isOpen, repository, branch])
+
+  const fetchGitHubFiles = async (path: string = '') => {
+    if (!repository || repository === 'custom') return
+    
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // Parse do repositório (pode ser owner/repo ou URL completa)
+      let owner, repo
+      if (repository.includes('github.com')) {
+        const match = repository.match(/github\.com\/([^\/]+)\/([^\/]+)/)
+        if (match) {
+          owner = match[1]
+          repo = match[2]
+        }
+      } else if (repository.includes('/')) {
+        [owner, repo] = repository.split('/')
+      } else {
+        throw new Error('Formato de repositório inválido')
+      }
+
+      // URL da API do GitHub
+      const apiUrl = path 
+        ? `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`
+        : `https://api.github.com/repos/${owner}/${repo}/contents?ref=${branch}`
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          // Se você tiver um token do GitHub, adicione aqui:
+          // 'Authorization': `token ${process.env.NEXT_PUBLIC_GITHUB_TOKEN}`
+        }
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Repositório ou branch não encontrado')
+        } else if (response.status === 403) {
+          throw new Error('Limite de requisições da API excedido. Tente novamente mais tarde.')
+        }
+        throw new Error(`Erro ao buscar arquivos: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (path) {
+        // Se estamos buscando conteúdo de uma pasta específica
+        setFolderContents(prev => ({
+          ...prev,
+          [path]: data.map((item: any) => ({
+            path: item.path,
+            type: item.type === 'dir' ? 'dir' : 'file',
+            size: item.size,
+            sha: item.sha,
+            url: item.download_url
+          }))
+        }))
+      } else {
+        // Arquivos da raiz
+        const formattedFiles = data.map((item: any) => ({
+          path: item.path,
+          type: item.type === 'dir' ? 'dir' : 'file',
+          size: item.size,
+          sha: item.sha,
+          url: item.download_url
+        }))
+        setFiles(formattedFiles)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar arquivos:', error)
+      setError(error instanceof Error ? error.message : 'Erro desconhecido')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Alternar seleção de arquivo
   const toggleFileSelection = (path: string) => {
     setSelectedFiles(prev => 
       prev.includes(path) 
         ? prev.filter(p => p !== path)
         : [...prev, path]
+    )
+  }
+
+  // Expandir/colapsar pasta
+  const toggleFolder = async (path: string) => {
+    if (expandedFolders.has(path)) {
+      setExpandedFolders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(path)
+        return newSet
+      })
+    } else {
+        setExpandedFolders(prev => {
+            const newSet = new Set(prev)
+            newSet.add(path)
+            return newSet
+            })
+      
+      // Se ainda não temos o conteúdo desta pasta, buscar
+      if (!folderContents[path]) {
+        await fetchGitHubFiles(path)
+      }
+    }
+  }
+
+  // Filtrar arquivos baseado na busca
+  const filterFiles = (items: GitHubFile[]): GitHubFile[] => {
+    if (!searchQuery) return items
+    
+    return items.filter(item => 
+      item.path.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }
+
+  // Renderizar item da árvore
+  const renderTreeItem = (item: GitHubFile, level: number = 0) => {
+    const isExpanded = expandedFolders.has(item.path)
+    const isSelected = selectedFiles.includes(item.path)
+    
+    return (
+      <div key={item.path}>
+        <div
+          className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
+            isSelected ? 'bg-blue-50' : ''
+          }`}
+          style={{ paddingLeft: `${level * 20 + 8}px` }}
+          onClick={() => {
+            if (item.type === 'dir') {
+              toggleFolder(item.path)
+            } else {
+              toggleFileSelection(item.path)
+            }
+          }}
+        >
+          {item.type === 'dir' ? (
+            <>
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <FolderOpen className="h-4 w-4 text-yellow-600" />
+            </>
+          ) : (
+            <>
+              {isSelected ? (
+                <CheckSquare className="h-4 w-4 text-blue-600" />
+              ) : (
+                <Square className="h-4 w-4 text-gray-400" />
+              )}
+              <FileCode className="h-4 w-4 text-blue-600" />
+            </>
+          )}
+          
+          <span className="text-sm flex-1">{item.path.split('/').pop()}</span>
+          
+          {item.type === 'file' && item.size && (
+            <span className="text-xs text-gray-500">
+              {(item.size / 1024).toFixed(1)} KB
+            </span>
+          )}
+        </div>
+        
+        {/* Renderizar subpastas se expandido */}
+        {item.type === 'dir' && isExpanded && folderContents[item.path] && (
+          <div>
+            {filterFiles(folderContents[item.path]).map(child => 
+              renderTreeItem(child, level + 1)
+            )}
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -77,7 +238,6 @@ export function GitHubFilePicker({
     onClose()
   }
 
-  // Se não estiver aberto, não renderiza nada
   if (!isOpen) return null
 
   return (
@@ -138,71 +298,39 @@ export function GitHubFilePicker({
               </div>
             )}
 
+            {/* Mensagem de erro */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <p className="text-sm text-red-900">{error}</p>
+              </div>
+            )}
+
             {/* Lista de arquivos */}
             <ScrollArea className="h-[400px] border rounded-lg p-4">
-              <div className="space-y-1">
-                {/* Arquivos mockados para teste */}
-                {mockFiles.map(file => (
-                  <div key={file.path}>
-                    {file.type === 'dir' ? (
-                      <div className="py-1">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <FolderOpen className="h-4 w-4 text-yellow-600" />
-                          <span>{file.path}/</span>
-                        </div>
-                        {file.children && (
-                          <div className="ml-6 mt-1 space-y-1">
-                            {file.children.map(child => (
-                              <div
-                                key={child.path}
-                                onClick={() => toggleFileSelection(child.path)}
-                                className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                                  selectedFiles.includes(child.path) ? 'bg-blue-50' : ''
-                                }`}
-                              >
-                                {selectedFiles.includes(child.path) ? (
-                                  <CheckSquare className="h-4 w-4 text-blue-600" />
-                                ) : (
-                                  <Square className="h-4 w-4 text-gray-400" />
-                                )}
-                                <FileCode className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm flex-1">
-                                  {child.path.split('/').pop()}
-                                </span>
-                                {child.size && (
-                                  <span className="text-xs text-gray-500">
-                                    {(child.size / 1024).toFixed(1)} KB
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => toggleFileSelection(file.path)}
-                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                          selectedFiles.includes(file.path) ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        {selectedFiles.includes(file.path) ? (
-                          <CheckSquare className="h-4 w-4 text-blue-600" />
-                        ) : (
-                          <Square className="h-4 w-4 text-gray-400" />
-                        )}
-                        <FileCode className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm flex-1">{file.path}</span>
-                        {file.size && (
-                          <span className="text-xs text-gray-500">
-                            {(file.size / 1024).toFixed(1)} KB
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <span className="ml-2 text-gray-500">Carregando arquivos...</span>
+                </div>
+              ) : error ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <AlertCircle className="h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-gray-500 text-center">
+                    Não foi possível carregar os arquivos.
+                    <br />
+                    Verifique o repositório e a branch.
+                  </p>
+                </div>
+              ) : files.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">Nenhum arquivo encontrado</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filterFiles(files).map(file => renderTreeItem(file))}
+                </div>
+              )}
             </ScrollArea>
           </div>
 
@@ -213,7 +341,7 @@ export function GitHubFilePicker({
             </Button>
             <Button 
               onClick={handleConfirm}
-              disabled={selectedFiles.length === 0}
+              disabled={selectedFiles.length === 0 || loading}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Check className="h-4 w-4 mr-2" />

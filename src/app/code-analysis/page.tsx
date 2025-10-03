@@ -203,6 +203,38 @@ interface Project {
   settings?: any
 }
 
+// Funções para gerenciar localStorage
+const STORAGE_KEYS = {
+  LLM_CONFIG: 'llm_config',
+  SELECTED_REPO: 'selected_repository',
+  SELECTED_BRANCH: 'selected_branch',
+  ANALYSIS_TYPE: 'selected_analysis',
+  MODEL_NAME: 'selected_model',
+  USE_RAG: 'use_rag',
+  FAST_MODE: 'fast_mode',
+  THEME: 'theme',
+  LANGUAGE: 'language',
+  NOTIFICATIONS: 'notifications'
+}
+
+const saveToStorage = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch (error) {
+    console.error('Erro ao salvar no localStorage:', error)
+  }
+}
+
+const loadFromStorage = (key: string, defaultValue: any) => {
+  try {
+    const saved = localStorage.getItem(key)
+    return saved ? JSON.parse(saved) : defaultValue
+  } catch (error) {
+    console.error('Erro ao carregar do localStorage:', error)
+    return defaultValue
+  }
+}
+
 // Tipos de análise organizados por categoria - ATUALIZADO COM OS VALORES CORRETOS DA API
 // Tipos de análise organizados por categoria - ATUALIZADO COM YAML
 const analysisCategories = {
@@ -459,17 +491,29 @@ const Sidebar = ({
             />
           </div>
 
-          <Button 
-            className="w-full"
-            style={{ backgroundColor: BRAND_COLORS.primary }}
-            onClick={() => {
-              localStorage.setItem('llmConfig', JSON.stringify(llmConfig))
-              alert('Configurações salvas!')
-            }}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Salvar Configurações
-          </Button>
+            <Button 
+              className="w-full"
+              style={{ backgroundColor: BRAND_COLORS.primary }}
+              onClick={() => {
+                // Salvar todas as configurações
+                saveToStorage(STORAGE_KEYS.LLM_CONFIG, llmConfig)
+                
+                // Mostrar notificação de sucesso
+                const successDiv = document.createElement('div')
+                successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
+                successDiv.innerHTML = `
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  Configurações salvas com sucesso!
+                `
+                document.body.appendChild(successDiv)
+                setTimeout(() => successDiv.remove(), 3000)
+              }}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Salvar Configurações
+            </Button>
         </div>
       )
     },
@@ -828,9 +872,17 @@ export default function TestPage() {
 
 
   // ADICIONAR estes estados junto com os outros useState:
-const [selectedRepository, setSelectedRepository] = useState('')
+const [selectedRepository, setSelectedRepository] = useState(() => 
+  loadFromStorage(STORAGE_KEYS.SELECTED_REPO, '')
+)
+
+
+
+
 const [customRepository, setCustomRepository] = useState('')
-const [selectedBranch, setSelectedBranch] = useState('main')
+const [selectedBranch, setSelectedBranch] = useState(() => 
+  loadFromStorage(STORAGE_KEYS.SELECTED_BRANCH, 'main')
+)
 const [customBranch, setCustomBranch] = useState('')
   
   // Estados do Menu Lateral
@@ -941,6 +993,44 @@ const [formData, setFormData] = useState({
     const interval = setInterval(checkConnection, 30000)
     return () => clearInterval(interval)
   }, [])
+  
+
+  // Salvar configurações automaticamente quando mudarem
+useEffect(() => {
+  if (selectedRepository) {
+    saveToStorage(STORAGE_KEYS.SELECTED_REPO, selectedRepository)
+  }
+}, [selectedRepository])
+
+useEffect(() => {
+  if (selectedBranch) {
+    saveToStorage(STORAGE_KEYS.SELECTED_BRANCH, selectedBranch)
+  }
+}, [selectedBranch])
+
+useEffect(() => {
+  if (formData.analysis_type) {
+    saveToStorage(STORAGE_KEYS.ANALYSIS_TYPE, formData.analysis_type)
+  }
+}, [formData.analysis_type])
+
+useEffect(() => {
+  if (formData.model_name) {
+    saveToStorage(STORAGE_KEYS.MODEL_NAME, formData.model_name)
+  }
+}, [formData.model_name])
+
+useEffect(() => {
+  saveToStorage(STORAGE_KEYS.USE_RAG, formData.usar_rag)
+}, [formData.usar_rag])
+
+useEffect(() => {
+  saveToStorage(STORAGE_KEYS.FAST_MODE, formData.gerar_relatorio_apenas)
+}, [formData.gerar_relatorio_apenas])
+
+useEffect(() => {
+  saveToStorage(STORAGE_KEYS.LLM_CONFIG, llmConfig)
+}, [llmConfig])
 
    //  ADICIONAR o novo useEffect AQUI (dentro do componente!)
   useEffect(() => {
