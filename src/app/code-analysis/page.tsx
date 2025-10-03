@@ -2499,10 +2499,13 @@ const requestPayload = {
                   </div>
                 </CardHeader>
                 
-                <CardContent className="p-6">
-                  <ScrollArea className="h-[600px] w-full">
-                    {/* IMPORTANTE: Adicionar overflow-x-auto aqui */}
-                    <div className="overflow-x-auto">
+                  <CardContent className="p-4">
+                    <div style={{ 
+                      maxHeight: '80vh',
+                      overflowY: 'auto',
+                      overflowX: 'auto',
+                      width: '100%'
+                    }}>
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -2539,13 +2542,13 @@ const requestPayload = {
                           
                           // Tabelas com estilo profissional
                           table: ({children}) => (
-                            <div className="my-6 max-w-full" style={{ overflowX: 'auto' }}>
-                              <div className="overflow-x-auto rounded-lg shadow-sm border"
-                                  style={{ borderColor: BRAND_COLORS.accent }}>
-                                <table className="min-w-full table-auto">
-                                  {children}
-                                </table>
-                              </div>
+                            <div className="my-6 w-full" style={{ overflowX: 'auto' }}>
+                              <table className="w-full" style={{ 
+                                minWidth: '1000px',  // Força largura mínima
+                                tableLayout: 'fixed'  // Layout fixo para controlar melhor as colunas
+                              }}>
+                                {children}
+                              </table>
                             </div>
                           ),
                           thead: ({children}) => (
@@ -2555,12 +2558,18 @@ const requestPayload = {
                               {children}
                             </thead>
                           ),
-                          th: ({children}) => (
-                            <th className="px-4 py-3 text-left text-white font-semibold text-sm border-b-2"
-                                style={{ borderColor: BRAND_COLORS.secondary }}>
-                              {children}
-                            </th>
-                          ),
+                            th: ({children}) => (
+                              <th className="px-4 py-3 text-left text-white font-semibold text-sm border-b-2"
+                                  style={{ 
+                                    borderColor: BRAND_COLORS.secondary,
+                                    minWidth: '250px',  // Aumenta largura mínima
+                                    maxWidth: '500px',  // Define largura máxima
+                                    whiteSpace: 'normal',  // Permite quebra de linha
+                                    wordBreak: 'break-word'  // Quebra palavras longas
+                                  }}>
+                                {children}
+                              </th>
+                            ),
                           tbody: ({children}) => (
                             <tbody className="bg-white">
                               {children}
@@ -2572,7 +2581,14 @@ const requestPayload = {
                             </tr>
                           ),
                           td: ({children}) => (
-                            <td className="px-4 py-3 text-sm text-gray-700">
+                            <td className="px-4 py-3 text-sm text-gray-700"
+                                style={{
+                                  minWidth: '250px',  // Aumenta largura mínima
+                                  maxWidth: '500px',  // Define largura máxima
+                                  whiteSpace: 'normal',  // Permite quebra de linha
+                                  wordBreak: 'break-word',  // Quebra palavras longas
+                                  wordWrap: 'break-word'  // Garante quebra de texto
+                                }}>
                               {children}
                             </td>
                           ),
@@ -2706,7 +2722,6 @@ const requestPayload = {
                         }
                       </ReactMarkdown>
                     </div>
-                  </ScrollArea>
                 </CardContent>
               </Card>
             )}
