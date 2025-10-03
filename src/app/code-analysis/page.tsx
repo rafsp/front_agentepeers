@@ -2566,15 +2566,11 @@ const requestPayload = {
                               {children}
                             </tbody>
                           ),
-                          tr: ({children, ...props}) => {
-                            // Verificar se é linha do header ou do body
-                            const isHeader = props.isHeader
-                            return (
-                              <tr className={isHeader ? "" : "hover:bg-gray-50 transition-colors border-b border-gray-100"}>
-                                {children}
-                              </tr>
-                            )
-                          },
+                          tr: ({children}) => (
+                            <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                              {children}
+                            </tr>
+                          ),
                           td: ({children}) => (
                             <td className="px-4 py-3 text-sm text-gray-700">
                               {children}
@@ -2600,55 +2596,55 @@ const requestPayload = {
                             </li>
                           ),
                           
-                          // Código
-                          code: ({inline, className, children}) => {
-                            // Detectar linguagem do código
-                            const match = /language-(\w+)/.exec(className || '')
-                            
-                            if (!inline && match) {
-                              // Bloco de código com linguagem
-                              return (
-                                <div className="relative my-4">
-                                  <div className="absolute top-0 right-0 px-2 py-1 text-xs font-mono rounded-bl"
-                                      style={{ 
-                                        background: BRAND_COLORS.secondary,
-                                        color: BRAND_COLORS.primary 
-                                      }}>
-                                    {match[1]}
+                            code: ({className, children}) => {
+                              // Detectar linguagem do código
+                              const match = /language-(\w+)/.exec(className || '')
+                              const isInline = !className
+                              
+                              if (!isInline && match) {
+                                // Bloco de código com linguagem
+                                return (
+                                  <div className="relative my-4">
+                                    <div className="absolute top-0 right-0 px-2 py-1 text-xs font-mono rounded-bl"
+                                        style={{ 
+                                          background: BRAND_COLORS.secondary,
+                                          color: BRAND_COLORS.primary 
+                                        }}>
+                                      {match[1]}
+                                    </div>
+                                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                                      <code className="text-sm font-mono">
+                                        {children}
+                                      </code>
+                                    </pre>
                                   </div>
-                                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                                )
+                              }
+                              
+                              if (!isInline) {
+                                // Bloco de código sem linguagem
+                                return (
+                                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 border-l-4"
+                                      style={{ borderColor: BRAND_COLORS.secondary }}>
                                     <code className="text-sm font-mono">
                                       {children}
                                     </code>
                                   </pre>
-                                </div>
-                              )
-                            }
-                            
-                            if (!inline) {
-                              // Bloco de código sem linguagem
+                                )
+                              }
+                              
+                              // Código inline
                               return (
-                                <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 border-l-4"
-                                    style={{ borderColor: BRAND_COLORS.secondary }}>
-                                  <code className="text-sm font-mono">
-                                    {children}
-                                  </code>
-                                </pre>
+                                <code className="px-2 py-0.5 rounded text-sm font-mono mx-1"
+                                      style={{ 
+                                        background: `${BRAND_COLORS.secondary}20`,
+                                        color: BRAND_COLORS.primary,
+                                        border: `1px solid ${BRAND_COLORS.secondary}50`
+                                      }}>
+                                  {children}
+                                </code>
                               )
-                            }
-                            
-                            // Código inline
-                            return (
-                              <code className="px-2 py-0.5 rounded text-sm font-mono mx-1"
-                                    style={{ 
-                                      background: `${BRAND_COLORS.secondary}20`,
-                                      color: BRAND_COLORS.primary,
-                                      border: `1px solid ${BRAND_COLORS.secondary}50`
-                                    }}>
-                                {children}
-                              </code>
-                            )
-                          },
+                            },
                           
                           // Blockquotes
                           blockquote: ({children}) => (
