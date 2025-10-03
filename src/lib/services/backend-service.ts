@@ -84,7 +84,8 @@ class BackendService {
   
   constructor() {
     // Usar variável de ambiente ou URL padrão
-  this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+  //this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+  this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
     
     // Verificar conexão inicial
     this.checkConnection()

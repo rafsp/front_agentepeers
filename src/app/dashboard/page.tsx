@@ -155,7 +155,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
                   <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                  <span>Agentes Inteligentes</span>
+                  <span>Code .IA</span>
                 </h1>
                 <p className="text-sm text-gray-500">Escolha sua ferramenta de análise</p>
               </div>

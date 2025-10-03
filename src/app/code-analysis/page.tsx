@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import ReactMarkdown from 'react-markdown'
+import { GitHubFilePicker } from '@/components/GitHubFilePicker'
 import remarkGfm from 'remark-gfm'
 import { Switch } from '@/components/ui/switch'
 import { 
@@ -86,7 +87,9 @@ import {
   PanelLeft
 } from 'lucide-react'
 
-const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+//const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+
+const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
@@ -201,22 +204,120 @@ interface Project {
 
 // Tipos de análise organizados por categoria - ATUALIZADO COM OS VALORES CORRETOS DA API
 const analysisCategories = {
-  'Código & Arquitetura': [
-    { value: 'relatorio_cleancode', label: 'Clean Code', icon: Layers, description: 'Análise de código limpo e boas práticas', color: 'blue' },
-    { value: 'relatorio_simplicacao_debito_tecnico', label: 'Débito Técnico', icon: Code, description: 'Identificação e simplificação de débito técnico', color: 'purple' },
-    { value: 'relatorio_solid', label: 'Princípios SOLID', icon: Cpu, description: 'Análise de conformidade com SOLID', color: 'indigo' },
-    { value: 'relatorio_performance_eficiencia', label: 'Performance', icon: Zap, description: 'Análise de performance e eficiência', color: 'yellow' },
+  '🚀 Geração e Implementação': [
+    { 
+      value: 'geracao_codigo_a_partir_de_reuniao', 
+      label: 'Geração de Código', 
+      icon: Code, 
+      description: 'Cria código a partir de requisitos de reunião', 
+      color: 'yellow' 
+    },
+    { 
+      value: 'relatorio_implentacao_feature', 
+      label: 'Implementação de Features', 
+      icon: Plus, 
+      description: 'Implementa novas funcionalidades', 
+      color: 'green' 
+    },
   ],
-  'Documentação': [
-    { value: 'relatorio_docstring_comentario', label: 'Docstrings e Comentários', icon: FileText, description: 'Análise de docstrings e comentários', color: 'green' },
-    { value: 'relatorio_documentacao', label: 'Documentação Geral', icon: FileCode, description: 'Análise completa da documentação', color: 'teal' },
+  
+  '🔍 Análise e Qualidade': [
+    { 
+      value: 'relatorio_avaliacao_terraform', 
+      label: 'Avaliação Terraform', 
+      icon: Layers, 
+      description: 'Infraestrutura como código', 
+      color: 'purple' 
+    },
+    { 
+      value: 'relatorio_cleancode', 
+      label: 'Clean Code', 
+      icon: Sparkles, 
+      description: 'Avaliação de código limpo', 
+      color: 'green' 
+    },
+    { 
+      value: 'relatorio_conformidades', 
+      label: 'Conformidades', 
+      icon: CheckCircle, 
+      description: 'Verificação de conformidades no código', 
+      color: 'orange' 
+    },
+    { 
+      value: 'relatorio_simplicacao', 
+      label: 'Simplificação de Código', 
+      icon: Zap, 
+      description: 'Evitar complicações desnecessárias', 
+      color: 'cyan' 
+    },
   ],
-  'Segurança & Conformidade': [
-    { value: 'relatorio_owasp', label: 'OWASP Security', icon: Shield, description: 'Análise de segurança OWASP', color: 'red' },
-    { value: 'relatorio_conformidades', label: 'Conformidades', icon: CheckCircle, description: 'Verificação de conformidades', color: 'orange' },
+  
+  '📚 Documentação': [
+    { 
+      value: 'relatorio_docstring', 
+      label: 'Docstrings', 
+      icon: FileText, 
+      description: 'Análise de docstrings e comentários', 
+      color: 'blue' 
+    },
+    { 
+      value: 'relatorio_documentacao', 
+      label: 'Documentação Geral', 
+      icon: FileCode, 
+      description: 'Documentação completa do projeto', 
+      color: 'indigo' 
+    },
   ],
-  'Testes': [
-    { value: 'relatorio_teste_unitario', label: 'Testes Unitários', icon: TestTube, description: 'Análise de cobertura de testes', color: 'green' },
+  
+  '🔒 Segurança': [
+    { 
+      value: 'relatorio_owasp', 
+      label: 'Avaliação OWASP', 
+      icon: Shield, 
+      description: 'Análise de vulnerabilidades OWASP', 
+      color: 'red' 
+    },
+    { 
+      value: 'relatorio_pentest', 
+      label: 'Pentest', 
+      icon: Bug, 
+      description: 'Avaliação de teste de penetração', 
+      color: 'pink' 
+    },
+    { 
+      value: 'relatorio_sast', 
+      label: 'SAST Analysis', 
+      icon: FileCode, 
+      description: 'Análise estática de segurança', 
+      color: 'purple' 
+    },
+  ],
+  
+  '⚡ Performance': [
+    { 
+      value: 'relatorio_performance_eficiencia', 
+      label: 'Performance e Eficiência', 
+      icon: Activity, 
+      description: 'Avaliação de desempenho', 
+      color: 'orange' 
+    },
+  ],
+  
+  '🧪 Testes': [
+    { 
+      value: 'relatorio_teste_integracao', 
+      label: 'Testes de Integração', 
+      icon: GitBranch, 
+      description: 'Criação de testes de integração', 
+      color: 'teal' 
+    },
+    { 
+      value: 'relatorio_teste_unitario', 
+      label: 'Testes Unitários', 
+      icon: TestTube, 
+      description: 'Criação de testes unitários', 
+      color: 'green' 
+    },
   ]
 }
 
@@ -694,6 +795,8 @@ export default function TestPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [isPolling, setIsPolling] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
+  const [showFilePicker, setShowFilePicker] = useState(false)
+
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -727,15 +830,19 @@ const [customBranch, setCustomBranch] = useState('')
   })
   
   // Formulário com valores padrão para teste
-  const [formData, setFormData] = useState({
-    repo_name: 'LucioFlavioRosa/teste_agent',  // Repositório padrão para testes
-    analysis_type: 'relatorio_teste_unitario',  // Tipo padrão que funciona
-    branch_name: 'main',
-    instrucoes_extras: '',
-    usar_rag: false,
-    gerar_relatorio_apenas: true,
-    model_name: 'gpt-4o'
-  })
+const [formData, setFormData] = useState({
+  repo_name: 'rafsp/LegadoAnalise',
+  analysis_type: 'relatorio_documentacao',
+  branch_name: 'main',
+  repository_type: 'github', // NOVO
+  analysis_name: '', // NOVO
+  arquivos_especificos: '', // NOVO
+  retornar_lista_arquivos: false, // NOVO
+  instrucoes_extras: '',
+  usar_rag: false,
+  gerar_relatorio_apenas: true,
+  model_name: 'gpt-4o'
+})
 
   // Carregar configurações do localStorage
   useEffect(() => {
@@ -993,96 +1100,112 @@ const [customBranch, setCustomBranch] = useState('')
   }
 
   // Submeter análise
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.repo_name || !formData.analysis_type) {
-      setErrorMessage('Preencha todos os campos obrigatórios')
-      return
-    }
-
-      // Determinar o repositório e branch finais
-      const finalRepo = selectedRepository === 'custom' ? customRepository : selectedRepository
-      const finalBranch = selectedBranch === 'custom' ? customBranch : selectedBranch
-
-
-    setIsSubmitting(true)
-    setErrorMessage('')
-    
-    try {
-      const response = await fetch(`${API_URL}/start-analysis`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        credentials: 'omit',
-        body: JSON.stringify(formData)
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const jobId = data.job_id || data.id || Math.random().toString(36).substr(2, 9)
-        
-        // Determinar status inicial baseado em gerar_relatorio_apenas
-        const initialStatus = formData.gerar_relatorio_apenas 
-          ? 'generating_report' 
-          : 'pending_approval'
-        
-        const newJob: Job = {
-          id: jobId,
-          status: initialStatus,
-          progress: formData.gerar_relatorio_apenas ? 10 : 0,
-          message: data.message || 'Análise iniciada',
-          analysis_report: data.report || data.analysis_report,
-          created_at: new Date(),
-          updated_at: new Date(),
-          repo_name: finalRepo,
-          analysis_type: formData.analysis_type,
-          branch_name: finalBranch,
-          gerar_relatorio_apenas: formData.gerar_relatorio_apenas
-        }
-        
-        setJobs(prev => [newJob, ...prev])
-        setSelectedJob(newJob)
-        
-        // Se já tem relatório e é modo rápido, mostrar direto
-        if (data.report || data.analysis_report) {
-          setShowReport(true)
-          newJob.analysis_report = data.report || data.analysis_report
-          if (formData.gerar_relatorio_apenas) {
-            // Marcar como concluído se for modo rápido
-            newJob.status = 'completed'
-            newJob.progress = 100
-            setJobs(prev => prev.map(job => 
-              job.id === jobId 
-                ? { ...job, status: 'completed', progress: 100, analysis_report: data.report || data.analysis_report }
-                : job
-            ))
-          }
-        } else {
-          // Iniciar polling sempre, mesmo em modo rápido
-          console.log('Iniciando polling para job:', jobId)
-          startPolling(jobId)
-        }
-        
-        // Reset form mas mantém alguns valores úteis
-        setFormData(prev => ({
-          ...prev,
-          instrucoes_extras: ''
-        }))
-      } else {
-        const errorText = await response.text()
-        setErrorMessage(`Erro ${response.status}: ${errorText || response.statusText}`)
-      }
-    } catch (error) {
-      console.error('Erro ao iniciar análise:', error)
-      setErrorMessage(`Erro de conexão: ${error instanceof Error ? error.message : 'Verifique CORS no backend'}`)
-    } finally {
-      setIsSubmitting(false)
-    }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  
+  if (!formData.repo_name || !formData.analysis_type) {
+    setErrorMessage('Preencha todos os campos obrigatórios')
+    return
   }
+
+  // Determinar o repositório e branch finais
+  const finalRepo = selectedRepository === 'custom' ? customRepository : selectedRepository
+  const finalBranch = selectedBranch === 'custom' ? customBranch : selectedBranch
+
+  setIsSubmitting(true)
+  setErrorMessage('')
+  
+  try {
+    // CRIAR PAYLOAD COM OS NOVOS CAMPOS DA API
+const requestPayload = {
+      repo_name_modernizado: finalRepo,
+      branch_name_modernizado: finalBranch,
+      repository_type: formData.repository_type || "github",  // ← USA O CAMPO DO FORM
+      projeto: formData.analysis_name || "AnaliseAgentes",  // ← USA NOME DA ANÁLISE
+      analysis_type: formData.analysis_type,
+      instrucoes_extras: formData.instrucoes_extras || '',
+      usar_rag: formData.usar_rag,
+      gerar_relatorio_apenas: formData.gerar_relatorio_apenas,
+      retornar_lista_arquivos: formData.retornar_lista_arquivos || false,  // ← NOVO
+      model_name: formData.model_name || 'gpt-4o',
+      arquivos_especificos: formData.arquivos_especificos  // ← CONVERTE STRING PARA ARRAY
+        ? formData.arquivos_especificos.split('\n').filter(f => f.trim())
+        : []
+    }
+
+    const response = await fetch(`${API_URL}/start-analysis`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      credentials: 'omit',
+      body: JSON.stringify(requestPayload)  // USA O NOVO PAYLOAD
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const jobId = data.job_id || data.id || Math.random().toString(36).substr(2, 9)
+      
+      // Determinar status inicial baseado em gerar_relatorio_apenas
+      const initialStatus = formData.gerar_relatorio_apenas 
+        ? 'generating_report' 
+        : 'pending_approval'
+      
+      const newJob: Job = {
+        id: jobId,
+        status: initialStatus,
+        progress: formData.gerar_relatorio_apenas ? 10 : 0,
+        message: data.message || 'Análise iniciada',
+        analysis_report: data.report || data.analysis_report,
+        created_at: new Date(),
+        updated_at: new Date(),
+        repo_name: finalRepo,
+        analysis_type: formData.analysis_type,
+        branch_name: finalBranch,
+        gerar_relatorio_apenas: formData.gerar_relatorio_apenas
+      }
+      
+      setJobs(prev => [newJob, ...prev])
+      setSelectedJob(newJob)
+      
+      // Se já tem relatório e é modo rápido, mostrar direto
+      if (data.report || data.analysis_report) {
+        setShowReport(true)
+        newJob.analysis_report = data.report || data.analysis_report
+        if (formData.gerar_relatorio_apenas) {
+          // Marcar como concluído se for modo rápido
+          newJob.status = 'completed'
+          newJob.progress = 100
+          setJobs(prev => prev.map(job => 
+            job.id === jobId 
+              ? { ...job, status: 'completed', progress: 100, analysis_report: data.report || data.analysis_report }
+              : job
+          ))
+        }
+      } else {
+        // Iniciar polling sempre, mesmo em modo rápido
+        console.log('Iniciando polling para job:', jobId)
+        startPolling(jobId)
+      }
+      
+      // Reset form mas mantém alguns valores úteis
+      setFormData(prev => ({
+        ...prev,
+        instrucoes_extras: ''
+      }))
+    } else {
+      const errorText = await response.text()
+      setErrorMessage(`Erro ${response.status}: ${errorText || response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Erro ao iniciar análise:', error)
+    setErrorMessage(`Erro de conexão: ${error instanceof Error ? error.message : 'Verifique CORS no backend'}`)
+  } finally {
+    setIsSubmitting(false)
+  }
+}
 
   // Aprovar/Rejeitar job (apenas para modo completo)
   const handleJobAction = async (jobId: string, action: 'approve' | 'reject') => {
@@ -1205,7 +1328,7 @@ const [customBranch, setCustomBranch] = useState('')
               <div>
                 <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
                   <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                  <span>Agentes Inteligentes</span>
+                  <span>Code .IA</span>
                 </h1>
                 <p className="text-sm text-gray-500">Análise de código com IA multi-agentes</p>
               </div>
@@ -1373,6 +1496,101 @@ const [customBranch, setCustomBranch] = useState('')
                       )}
                     </div>
 
+                                      {/* NOVO: Nome da Análise */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4" />
+                      <span>Nome da Análise</span>
+                      <Badge variant="outline" className="text-xs">Opcional</Badge>
+                    </Label>
+                    <Input
+                      placeholder="Ex: Análise Frontend v2.0"
+                      value={formData.analysis_name || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, analysis_name: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* NOVO: Tipo de Repositório */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center space-x-2">
+                      <Database className="h-4 w-4" />
+                      <span>Tipo de Repositório</span>
+                    </Label>
+                    <Select 
+                      value={formData.repository_type} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, repository_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="github">GitHub</SelectItem>
+                        <SelectItem value="gitlab">GitLab</SelectItem>
+                        <SelectItem value="azure">Azure DevOps</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                {/* Arquivos Específicos com Seletor */}
+                <div className="space-y-2">
+                  <Label className="flex items-center space-x-2">
+                    <FileCode className="h-4 w-4" />
+                    <span>Arquivos Específicos</span>
+                    <Badge variant="outline" className="text-xs">Opcional</Badge>
+                  </Label>
+                  
+                  <div className="space-y-2">
+                    {/* Botão para abrir o seletor */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                                        console.log('Abrindo file picker...')
+                                        setShowFilePicker(true)
+                                      }}
+                    >
+                      <FolderOpen className="h-4 w-4 mr-2" />
+                      Selecionar Arquivos do GitHub
+                    </Button>
+                    
+                    {/* Textarea para edição manual */}
+                    <Textarea
+                      placeholder="Ou digite os caminhos manualmente (um por linha)"
+                      value={formData.arquivos_especificos || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, arquivos_especificos: e.target.value }))}
+                      className="font-mono text-sm min-h-[80px]"
+                    />
+                    
+                    {/* Mostrar arquivos selecionados */}
+                    {formData.arquivos_especificos && (
+                      <div className="p-2 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">Arquivos selecionados:</p>
+                        <div className="text-xs font-mono">
+                          {formData.arquivos_especificos.split('\n').filter(f => f).length} arquivo(s)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                
+
+                  {/* File Picker Modal */}
+                  <GitHubFilePicker
+                    isOpen={showFilePicker}
+                    onClose={() => setShowFilePicker(false)}
+                    onSelect={(files) => {
+                      console.log('Arquivos selecionados:', files)
+                      setFormData(prev => ({
+                        ...prev,
+                        arquivos_especificos: files.join('\n')
+                      }))
+                    }}
+                    repository={selectedRepository === 'custom' ? customRepository : selectedRepository}
+                    branch={selectedBranch === 'custom' ? customBranch : selectedBranch}
+                  />
+
                   {/* Tipo de Análise */}
                   <div className="space-y-2">
                     <Label htmlFor="analysis" className="flex items-center space-x-2">
@@ -1412,7 +1630,7 @@ const [customBranch, setCustomBranch] = useState('')
                   </div>
 
                   {/* Modelo */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label htmlFor="model" className="flex items-center space-x-2">
                       <Cpu className="h-4 w-4 text-gray-500" />
                       <span>Modelo IA</span>
@@ -1437,7 +1655,7 @@ const [customBranch, setCustomBranch] = useState('')
                         <SelectItem value="claude-opus-4-20250514">Claude OPUS-4</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                   {/* Opções Avançadas */}
                   <div className="space-y-4 p-4 rounded-lg" style={{ background: `${BRAND_COLORS.accent}50` }}>
@@ -1483,10 +1701,28 @@ const [customBranch, setCustomBranch] = useState('')
                     </div>
                   </div>
 
+                   {/* NOVO: Retornar Lista de Arquivos */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <FolderOpen className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="list-files" className="text-sm font-medium">
+                          Apenas listar arquivos (sem analisar conteúdo)
+                        </Label>
+                      </div>
+                      <Switch
+                        id="list-files"
+                        checked={formData.retornar_lista_arquivos || false}
+                        onCheckedChange={(checked) => 
+                          setFormData(prev => ({ ...prev, retornar_lista_arquivos: checked }))
+                        }
+                      />
+                    </div>
+                  {/* Fim das opções avançadas */}
+
                   {/* Instruções Extras */}
                   <div className="space-y-2">
                     <Label htmlFor="instructions" className="flex items-center space-x-2">
-                      <FileText className="h-4 w-4 text-gray-500" />
+                      <FileText className="h-4 w-4 text-gray-700" />
                       <span>Instruções Adicionais</span>
                       <Badge variant="outline" className="text-xs">Opcional</Badge>
                     </Label>
@@ -1514,9 +1750,13 @@ const [customBranch, setCustomBranch] = useState('')
                         Iniciando Análise...
                       </>
                     ) : (
-                      <>
+  <>
                         <Rocket className="mr-2 h-5 w-5" />
-                        {formData.gerar_relatorio_apenas ? 'Gerar Relatório' : 'Iniciar Análise'}
+                        {formData.retornar_lista_arquivos 
+                          ? 'Listar Arquivos' 
+                          : formData.gerar_relatorio_apenas 
+                          ? 'Gerar Relatório' 
+                          : 'Iniciar Análise'}
                       </>
                     )}
                   </Button>
@@ -1956,6 +2196,137 @@ const [customBranch, setCustomBranch] = useState('')
                                             Ver Relatório
                                           </Button>
                                         )}
+
+                                        {/* Botão forçado para jobs concluídos sem relatório visível */}
+{/* Botão para recuperar e exibir relatório */}
+{(job.status === 'completed' || job.status === 'Concluído') && (
+  <Button
+    size="sm"
+    variant="outline"
+    className="h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+    onClick={async (e) => {
+      e.stopPropagation()
+      
+      // Indicador de loading
+      const button = e.currentTarget as HTMLButtonElement
+      const originalContent = button.innerHTML
+      button.innerHTML = '<svg class="animate-spin h-3 w-3 mr-1 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Carregando...'
+      button.disabled = true
+      
+      try {
+        // Tentar primeiro o endpoint /report
+        const reportUrl = `${API_URL}/jobs/${job.id}/report`
+        console.log('Tentando buscar relatório em:', reportUrl)
+        
+        let report = null
+        let response = await fetch(reportUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          mode: 'cors',
+          credentials: 'omit'
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Resposta do /report:', data)
+          
+          // Verificar vários campos possíveis
+          if (typeof data === 'string') {
+            report = data
+          } else {
+            report = data.report || 
+                    data.analysis_report || 
+                    data.result || 
+                    data.content ||
+                    data.data ||
+                    data.markdown ||
+                    data.text
+          }
+        }
+        
+        // Se não encontrou, tentar o endpoint /status
+        if (!report) {
+          console.log('Tentando endpoint /status...')
+          response = await fetch(`${API_URL}/status/${job.id}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            mode: 'cors',
+            credentials: 'omit'
+          })
+          
+          if (response.ok) {
+            const statusData = await response.json()
+            console.log('Resposta do /status:', statusData)
+            report = statusData.analysis_report || 
+                    statusData.report || 
+                    statusData.result
+          }
+        }
+        
+        // Se encontrou o relatório, atualizar e exibir
+        if (report) {
+          console.log('Relatório encontrado! Tamanho:', report.length, 'caracteres')
+          
+          // Atualizar o job com o relatório
+          const updatedJob = { ...job, analysis_report: report }
+          
+          // Atualizar a lista de jobs
+          setJobs(prev => {
+            const newJobs = prev.map(j => 
+              j.id === job.id ? updatedJob : j
+            )
+            console.log('Jobs atualizados')
+            return newJobs
+          })
+          
+          // Selecionar o job e mostrar o relatório imediatamente
+          setSelectedJob(updatedJob)
+          setShowReport(true)
+          
+          // Forçar re-render (às vezes necessário)
+          setTimeout(() => {
+            setSelectedJob(updatedJob)
+            setShowReport(true)
+          }, 100)
+          
+          // Mostrar notificação de sucesso
+          const successDiv = document.createElement('div')
+          successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
+          successDiv.innerHTML = '✓ Relatório carregado com sucesso!'
+          document.body.appendChild(successDiv)
+          setTimeout(() => successDiv.remove(), 3000)
+          
+        } else {
+          // Se não encontrou relatório
+          console.error('Nenhum relatório encontrado nas respostas')
+          
+          // Mostrar erro
+          const errorDiv = document.createElement('div')
+          errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
+          errorDiv.innerHTML = '✗ Relatório não encontrado. Tente novamente em alguns segundos.'
+          document.body.appendChild(errorDiv)
+          setTimeout(() => errorDiv.remove(), 4000)
+        }
+      } catch (error) {
+        console.error('Erro ao buscar relatório:', error)
+        
+        // Mostrar erro de conexão
+        const errorDiv = document.createElement('div')
+        errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
+        errorDiv.innerHTML = '✗ Erro de conexão. Verifique o console.'
+        document.body.appendChild(errorDiv)
+        setTimeout(() => errorDiv.remove(), 4000)
+      } finally {
+        // Restaurar botão
+        button.innerHTML = originalContent
+        button.disabled = false
+      }
+    }}
+  >
+    <Eye className="h-3 w-3 mr-1" />
+    Ver Relatório
+  </Button>
+)}
                                         
                                         {/* Botões de aprovação apenas se não for modo rápido E se tem relatório para revisar */}
                                         {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (

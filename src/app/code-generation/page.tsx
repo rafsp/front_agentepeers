@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { codeGenerationAPI } from '@/lib/api/code-generation-service'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -86,7 +87,9 @@ import {
   Server
 } from 'lucide-react'
 
-const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+//const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+
+const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
@@ -623,6 +626,11 @@ export default function CodeGenerationPage() {
   const [customRequirements, setCustomRequirements] = useState('')
   const [selectedModel, setSelectedModel] = useState('gpt-4o')
   const [showApprovalModal, setShowApprovalModal] = useState(false)
+
+
+  // NOVO: Estados para usar análise existente
+  const [analysisName, setAnalysisName] = useState<string>('')
+  const [useExistingAnalysis, setUseExistingAnalysis] = useState<boolean>(false)
   
   // Estados do Menu Lateral
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -834,12 +842,18 @@ export default function CodeGenerationPage() {
     }, 300000)
   }
 
-  // Submeter geração de código
+ // Submeter geração de código
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!selectedTemplate && !customRequirements) {
-      setErrorMessage('Selecione um template ou forneça requisitos personalizados')
+    // Validações diferentes para cada fluxo
+    if (useExistingAnalysis && !analysisName) {
+      setErrorMessage('Digite o nome da análise existente')
+      return
+    }
+    
+    if (!useExistingAnalysis && !selectedTemplate && !customRequirements) {
+      setErrorMessage('Selecione um template ou forneça requisitos')
       return
     }
 
@@ -847,69 +861,111 @@ export default function CodeGenerationPage() {
     setErrorMessage('')
     
     try {
-      const requirements = selectedTemplate 
-        ? CODE_TEMPLATES[selectedTemplate].requirements 
-        : customRequirements
-
-      const requestBody = {
-        repo_name: "LucioFlavioRosa/projeto_refinado",
-        analysis_type: "geracao_codigo_a_partir_de_reuniao",
-        branch_name: "main",
-        instrucoes_extras: requirements,
-        usar_rag: false,
-        gerar_relatorio_apenas: false,
-        model_name: selectedModel
-      }
-
-      const response = await fetch(`${API_URL}/start-analysis`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json; charset=utf-8',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        credentials: 'omit',
-        body: JSON.stringify(requestBody)
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const jobId = data.job_id || data.id || Math.random().toString(36).substr(2, 9)
+      let jobId: string
+      let initialReport: string | undefined
+      
+      if (useExistingAnalysis) {
+        // NOVO FLUXO: Usar análise existente
+        console.log('Gerando código a partir da análise:', analysisName)
         
+        const response = await codeGenerationAPI.startCodeGenerationFromReport(analysisName)
+        jobId = response.job_id
+        
+        // Criar job local
         const newJob: Job = {
           id: jobId,
-          status: 'generating_code',
-          progress: 10,
-          message: data.message || 'Geração de código iniciada',
-          analysis_report: data.report || data.analysis_report,
+          status: 'processing',
+          progress: 30,
+          message: `Gerando código a partir da análise: ${analysisName}`,
           created_at: new Date(),
           updated_at: new Date(),
-          repo_name: 'projeto_refinado',
-          analysis_type: 'geracao_codigo_a_partir_de_reuniao',
+          analysis_type: 'code_generation_from_report',
+          code_type: 'from_analysis',
+          repo_name: analysisName,
           branch_name: 'main',
-          gerar_relatorio_apenas: false,
-          code_type: selectedTemplate || 'custom'
+          gerar_relatorio_apenas: false
         }
         
         setJobs(prev => [newJob, ...prev])
         setSelectedJob(newJob)
         
-        if (data.report || data.analysis_report) {
-          setShowReport(true)
-          setShowApprovalModal(true)
-        } else {
-          startPolling(jobId)
-        }
+        // Iniciar polling direto (não precisa de aprovação)
+        startPolling(jobId)
         
-        setSelectedTemplate(null)
-        setCustomRequirements('')
       } else {
-        const errorText = await response.text()
-        setErrorMessage(`Erro ${response.status}: ${errorText || response.statusText}`)
+        // FLUXO EXISTENTE: Nova análise (mas com campos atualizados)
+        const requirements = selectedTemplate 
+          ? CODE_TEMPLATES[selectedTemplate].requirements 
+          : customRequirements
+
+        const requestBody = {
+          repo_name_modernizado: "LucioFlavioRosa/projeto_refinado", // Campo atualizado
+          branch_name_modernizado: "main", // Campo atualizado
+          repository_type: "github",  // ← ADICIONE ESTA LINHA AQUI
+          projeto: "GeracaoCodigo", // NOVO campo obrigatório
+          analysis_type: "geracao_codigo_a_partir_de_reuniao",
+          instrucoes_extras: requirements,
+          usar_rag: false,
+          gerar_relatorio_apenas: false,
+          model_name: selectedModel,
+          arquivos_especificos: [] // NOVO campo opcional
+        }
+
+        const response = await fetch(`${API_URL}/start-analysis`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          mode: 'cors',
+          credentials: 'omit',
+          body: JSON.stringify(requestBody)
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          jobId = data.job_id
+          initialReport = data.report || data.analysis_report
+          
+          const newJob: Job = {
+            id: jobId,
+            status: 'generating_code',
+            progress: 10,
+            message: 'Análise e geração iniciadas',
+            analysis_report: initialReport,
+            created_at: new Date(),
+            updated_at: new Date(),
+            repo_name: 'projeto_refinado',
+            analysis_type: 'geracao_codigo_a_partir_de_reuniao',
+            branch_name: 'main',
+            code_type: selectedTemplate || 'custom',
+            gerar_relatorio_apenas: false
+          }
+          
+          setJobs(prev => [newJob, ...prev])
+          setSelectedJob(newJob)
+          
+          if (initialReport) {
+            setShowReport(true)
+            setShowApprovalModal(true)
+          } else {
+            startPolling(jobId)
+          }
+        } else {
+          const errorText = await response.text()
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
       }
+      
+      // Limpar formulário após sucesso
+      setSelectedTemplate(null)
+      setCustomRequirements('')
+      setAnalysisName('')
+      setUseExistingAnalysis(false)
+      
     } catch (error) {
-      console.error('Erro ao iniciar geração:', error)
-      setErrorMessage(`Erro de conexão: ${error instanceof Error ? error.message : 'Verifique o backend'}`)
+      console.error('Erro:', error)
+      setErrorMessage(error instanceof Error ? error.message : 'Erro desconhecido')
     } finally {
       setIsSubmitting(false)
     }
@@ -1025,7 +1081,7 @@ export default function CodeGenerationPage() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
                   <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                  <span>Agentes Inteligentes</span>
+                  <span>Code .IA</span>
                 </h1>
                 <p className="text-sm text-gray-500">Análise de código com IA multi-agentes</p>
               </div>
@@ -1087,6 +1143,95 @@ export default function CodeGenerationPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Coluna Principal - Formulário de Geração */}
           <div className="lg:col-span-2 space-y-6">
+{/* NOVO: Card de Escolha do Método */}
+            <Card className="shadow-lg border-0 mb-6">
+              <CardHeader style={{ background: BRAND_COLORS.accent }}>
+                <CardTitle className="text-lg flex items-center">
+                  <Rocket className="mr-2 h-5 w-5" />
+                  Escolha o Método de Geração
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-4">
+                  {/* Opção 1: Nova Análise */}
+                  <div 
+                    onClick={() => setUseExistingAnalysis(false)}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      !useExistingAnalysis 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input 
+                        type="radio" 
+                        checked={!useExistingAnalysis}
+                        onChange={() => setUseExistingAnalysis(false)}
+                        className="h-4 w-4 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">
+                          Criar Nova Análise e Gerar Código
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Fornece requisitos e gera análise + código em sequência
+                        </p>
+                      </div>
+                      <FileText className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Opção 2: Usar Análise Existente */}
+                  <div 
+                    onClick={() => setUseExistingAnalysis(true)}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      useExistingAnalysis 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input 
+                        type="radio" 
+                        checked={useExistingAnalysis}
+                        onChange={() => setUseExistingAnalysis(true)}
+                        className="h-4 w-4 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">
+                          Usar Análise Existente
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Gera código a partir de uma análise já aprovada
+                        </p>
+                      </div>
+                      <Database className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Input para nome da análise */}
+                  {useExistingAnalysis && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <Label htmlFor="analysisName">Nome da Análise Existente</Label>
+                      <Input
+                        id="analysisName"
+                        placeholder="Ex: analysis_crm_2024"
+                        value={analysisName}
+                        onChange={(e) => setAnalysisName(e.target.value)}
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Digite o nome exato da análise aprovada anteriormente
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card do Formulário EXISTENTE continua aqui */}
+
+
             {/* Card do Formulário */}
             <Card className="shadow-lg border-0">
               <CardHeader className="pb-4" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
@@ -1101,12 +1246,13 @@ export default function CodeGenerationPage() {
 
               <CardContent className="pt-6">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Templates de Código */}
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold flex items-center">
-                      <Package className="h-5 w-5 mr-2 text-gray-500" />
-                      Escolha um Template
-                    </Label>
+                  {/* Templates de Código - Só mostra se não estiver usando análise existente */}
+                  {!useExistingAnalysis && (
+                    <div className="space-y-3">
+                      <Label className="text-base font-semibold flex items-center">
+                        <Package className="h-5 w-5 mr-2 text-gray-500" />
+                        Escolha um Template
+                      </Label>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {Object.entries(CODE_TEMPLATES).map(([key, template]) => {
@@ -1245,21 +1391,28 @@ Exemplo:
                   {/* Botão Submit */}
                   <Button
                     type="submit"
-                    disabled={isSubmitting || connectionStatus === 'error' || (!selectedTemplate && !customRequirements)}
+                    disabled={
+                      isSubmitting || 
+                      connectionStatus === 'error' || 
+                      (!useExistingAnalysis && !selectedTemplate && !customRequirements) || 
+                      (useExistingAnalysis && !analysisName)
+                    }
                     className="w-full font-semibold text-white transition-all duration-200 h-12 text-base"
                     style={{ 
-                      background: isSubmitting ? '#666' : BRAND_COLORS.primary,
+                      background: isSubmitting 
+                        ? '#666' 
+                        : BRAND_COLORS.primary,
                     }}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Gerando Código...
+                        {useExistingAnalysis ? 'Gerando da Análise...' : 'Gerando Código...'}
                       </>
                     ) : (
                       <>
                         <Rocket className="mr-2 h-5 w-5" />
-                        Gerar Código com IA
+                        {useExistingAnalysis ? 'Gerar Código da Análise' : 'Gerar Código com IA'}
                       </>
                     )}
                   </Button>
@@ -1348,6 +1501,19 @@ Exemplo:
                                   <span className={`font-semibold ${statusInfo.color}`}>
                                     {statusInfo.label}
                                   </span>
+                                  {/* NOVO: Badge para identificar origem */}
+                              {job.code_type === 'from_analysis' && (
+                                <Badge 
+                                  className="ml-2"
+                                  style={{ 
+                                    backgroundColor: BRAND_COLORS.secondary,
+                                    color: BRAND_COLORS.primary,
+                                    border: 'none'
+                                  }}
+                                >
+                                  De Análise
+                                </Badge>
+                              )}
                                   {isPolling === job.id && (
                                     <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                                   )}

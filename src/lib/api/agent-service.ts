@@ -2,7 +2,8 @@
 // Configurado para usar o backend Azure por padrão
 
 // URL do Backend Azure (publicado)
-const AZURE_API_ENDPOINT = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+//const AZURE_API_ENDPOINT = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+const AZURE_API_ENDPOINT = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
 const LOCAL_API_ENDPOINT = 'http://localhost:8000'
 
 // Usar variável de ambiente ou Azure por padrão
