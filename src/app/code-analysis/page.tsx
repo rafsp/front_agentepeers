@@ -1551,7 +1551,7 @@ const requestPayload = {
                                       }}
                     >
                       <FolderOpen className="h-4 w-4 mr-2" />
-                      Selecionar Arquivos do GitHub
+                      Selecionar Arquivos do Repositório
                     </Button>
                     
                     {/* Textarea para edição manual */}
@@ -2181,7 +2181,7 @@ const requestPayload = {
                                       
                                       <div className="flex items-center space-x-2">
                                         {/* Botão para visualizar relatório quando disponível */}
-                                        {job.analysis_report && (
+                                        {/* {job.analysis_report && (
                                           <Button
                                             size="sm"
                                             variant="outline"
@@ -2192,14 +2192,14 @@ const requestPayload = {
                                               setShowReport(true)
                                             }}
                                           >
-                                            <Eye className="h-3 w-3 mr-1" />
-                                            Ver Relatório
+                                            
+                                            
                                           </Button>
-                                        )}
+                                        )} */}
 
                                         {/* Botão forçado para jobs concluídos sem relatório visível */}
 {/* Botão para recuperar e exibir relatório */}
-{(job.status === 'completed' || job.status === 'Concluído') && (
+{(job.status === 'completed' || job.status === 'failed'  || job.status === 'Concluído') && (
   <Button
     size="sm"
     variant="outline"
