@@ -15,6 +15,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import ReactMarkdown from 'react-markdown'
 import { GitHubFilePicker } from '@/components/GitHubFilePicker'
 import remarkGfm from 'remark-gfm'
+import { azureBlobService, AzureProject } from '@/lib/azure-storage'
+import { fetchAzureProjects } from '@/lib/azure-direct'
 import { Switch } from '@/components/ui/switch'
 import { 
   Loader2, 
@@ -201,7 +203,11 @@ interface Project {
   lastModified: Date
   templates: string[]
   settings?: any
+  source?: 'azure' | 'local'  
 }
+
+
+
 
 // Funções para gerenciar localStorage
 const STORAGE_KEYS = {
@@ -411,6 +417,86 @@ const Sidebar = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const docInputRef = useRef<HTMLInputElement>(null)
 
+
+    useEffect(() => {
+    // Função para carregar projetos do Azure
+    const loadAzureProjects = async () => {
+      try {
+        const sasToken = localStorage.getItem('azure_sas_token') || 
+          'sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-10-04T06:55:14Z&st=2025-10-03T22:40:14Z&spr=https&sig=cuRKL4IfTDj%2Bm7I6CLEwx6QmoUzdyBMzV5IL0icXkY4%3D'
+        
+        const url = `https://reportsagentpeers.blob.core.windows.net/reports?restype=container&comp=list&${sasToken}`
+        
+        const response = await fetch(url)
+        const text = await response.text()
+        
+        const nameRegex = /<Name>([^<]+)<\/Name>/g
+        let match
+        const projectsSet = new Set<string>()
+        
+        while ((match = nameRegex.exec(text)) !== null) {
+          const fullPath = match[1]
+          
+          if (fullPath.includes('/')) {
+            const folderName = fullPath.split('/')[0]
+            projectsSet.add(folderName)
+          } else if (!fullPath.includes('.')) {
+            projectsSet.add(fullPath)
+          }
+        }
+        
+        const projectsList = Array.from(projectsSet).map((name: string) => ({
+          id: name,
+          name: name
+            .replace(/_/g, ' ')
+            .replace(/-/g, ' ')
+            .split(' ')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' '),
+          source: 'azure' as const,
+          created: new Date(),
+          lastModified: new Date(),
+          templates: [] as string[]
+        }))
+        
+        if (projectsList.length > 0) {
+          setProjects(projectsList)
+          console.log('Projetos carregados automaticamente:', projectsList.length)
+        }
+      } catch (error) {
+        console.log('Usando lista offline devido a erro:', error)
+        
+        // Fallback para lista fixa
+        const fallbackProjects = [
+          'AnaliseAgentes',
+          'atualizacao_sistema_legado',
+          'evolucao_agente',
+          'insercao_contexto',
+          'legado_avaliacao',
+          'melhoria_codigo'
+        ].map((name: string) => ({
+          id: name,
+          name: name
+            .replace(/_/g, ' ')
+            .split(' ')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' '),
+          source: 'azure' as const,
+          created: new Date(),
+          lastModified: new Date(),
+          templates: [] as string[]
+        }))
+        
+        setProjects(fallbackProjects)
+      }
+    }
+
+    // Carregar projetos apenas se ainda não foram carregados
+    if (projects.length === 0) {
+      loadAzureProjects()
+    }
+  }, [])
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
       prev.includes(section) 
@@ -443,6 +529,8 @@ const Sidebar = ({
       }
     }
   }
+
+  
 
   const menuSections = [
     {
@@ -627,81 +715,84 @@ const Sidebar = ({
         </div>
       )
     },
-    {
-      id: 'projects',
-      title: 'Projetos',
-      icon: Folder,
-      content: (
-        <div className="space-y-4">
-          <Button 
-            className="w-full"
-            style={{ 
-              backgroundColor: BRAND_COLORS.primary,
-              color: BRAND_COLORS.white
-            }}
-            onClick={() => {
-              const name = prompt('Nome do novo projeto:')
-              if (name) {
-                const newProject: Project = {
-                  id: Math.random().toString(36).substr(2, 9),
-                  name,
-                  created: new Date(),
-                  lastModified: new Date(),
-                  templates: []
-                }
-                setProjects([...projects, newProject])
-              }
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Projeto
-          </Button>
+    // Adicione este import no topo do arquivo
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-gray-700">Projetos Ativos</Label>
-            <ScrollArea className="h-48 border rounded-lg p-2">
-              {projects.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">Nenhum projeto disponível</p>
-              ) : (
-                projects.map((project: Project) => (
-                  <div 
-                    key={project.id} 
-                    className={`p-3 rounded-lg cursor-pointer transition-all ${
-                      currentProject?.id === project.id 
-                        ? 'bg-blue-50 border border-blue-200' 
-                        : 'hover:bg-gray-50 border border-transparent'
-                    }`}
-                    onClick={() => setCurrentProject(project)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-gray-500" />
-                        <div>
-                          <p className="text-xs font-medium">{project.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(project.lastModified).toLocaleDateString()}
-                          </p>
+// No componente Sidebar, atualize a seção de projetos:
+          {
+            id: 'projects',
+            title: 'Projetos',
+            icon: Folder,
+            content: (
+              <div className="space-y-4">
+                {/* Campo para configurar o SAS Token */}
+               <div className="space-y-2">
+                <Label className="text-xs font-medium text-gray-700">Projetos do Azure</Label>
+                <ScrollArea className="h-48 border rounded-lg p-2">
+                  {projects.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Cloud className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                      <p className="text-xs text-gray-500">Nenhum projeto carregado</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Clique em "Carregar do Azure" para buscar
+                      </p>
+                    </div>
+                  ) : (
+                    projects.map((project: Project) => (
+                      <div 
+                        key={project.id} 
+                        className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                          currentProject?.id === project.id 
+                            ? 'bg-blue-50 border border-blue-200' 
+                            : 'hover:bg-gray-50 border border-transparent'
+                        }`}
+                        onClick={() => setCurrentProject(project)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {project.source === 'azure' ? (
+                              <Cloud className="h-4 w-4 text-blue-500" />
+                            ) : (
+                              <FolderOpen className="h-4 w-4 text-gray-500" />
+                            )}
+                            <div>
+                              <p className="text-xs font-medium">{project.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(project.lastModified).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            
+                          </Badge>
                         </div>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setProjects(projects.filter((p: Project) => p.id !== project.id))
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </ScrollArea>
-          </div>
-        </div>
-      )
-    },
+                    ))
+                  )}
+                </ScrollArea>
+              </div>
+
+              {/* Botão para atualizar lista */}
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={async () => {
+                  const azureProjects = await azureBlobService.listProjects()
+                  setProjects(azureProjects.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    created: p.lastModified,
+                    lastModified: p.lastModified,
+                    templates: [],
+                    source: 'azure'
+                  })))
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Atualizar Lista
+              </Button>
+            </div>
+          )
+        },
     {
       id: 'settings',
       title: 'Configurações Gerais',
@@ -855,6 +946,84 @@ const Sidebar = ({
   )
 }
 
+
+// Modal de Aprovação com Instruções Extras
+  const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
+  const [instrucoes, setInstrucoes] = useState('')
+  
+  if (!job) return null
+
+  const handleApprove = () => {
+    onApprove(job.id, 'approve', instrucoes)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
+          <h2 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primary }}>
+            Relatório Gerado - Aguardando Aprovação
+          </h2>
+          <p className="text-gray-600 mt-1">Revise o relatório antes de prosseguir com as mudanças</p>
+        </div>
+        
+        <ScrollArea className="h-[50vh] p-6">
+          <div className="prose max-w-none">
+            <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
+              <code>{job.analysis_report || 'Processando análise...'}</code>
+            </pre>
+          </div>
+        </ScrollArea>
+        
+        {/* Campo de Instruções Extras */}
+        <div className="p-6 border-t bg-gray-50">
+          <Label htmlFor="instrucoes" className="text-sm font-medium mb-2 flex items-center">
+            <FileText className="h-4 w-4 mr-2" />
+            Instruções Adicionais para os Agentes (Opcional)
+          </Label>
+          <Textarea
+            id="instrucoes"
+            placeholder="Ex: Focar em melhorias de performance, adicionar testes unitários, seguir padrão da empresa..."
+            value={instrucoes}
+            onChange={(e) => setInstrucoes(e.target.value)}
+            className="w-full min-h-[100px] border-gray-200"
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            Estas instruções serão enviadas aos agentes junto com a aprovação
+          </p>
+        </div>
+        
+        <div className="p-6 border-t flex justify-end space-x-3">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="outline" 
+            className="border-red-200 text-red-600 hover:bg-red-50"
+            onClick={() => {
+              onReject(job.id, 'reject')
+              onClose()
+            }}
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Rejeitar
+          </Button>
+          <Button 
+            className="text-white"
+            style={{ background: BRAND_COLORS.primary }}
+            onClick={handleApprove}
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Aprovar e Continuar
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TestPage() {
   // Estados principais (mantendo todos os existentes)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -918,6 +1087,41 @@ const [formData, setFormData] = useState({
   gerar_relatorio_apenas: true,
   model_name: 'gpt-4o'
 })
+
+
+//const nova para modal
+
+  const [showApprovalModal, setShowApprovalModal] = useState(false)
+  const [jobToApprove, setJobToApprove] = useState<Job | null>(null)
+
+
+
+
+  // Carregar projetos do Azure automaticamente
+useEffect(() => {
+  const loadAzureProjects = async () => {
+    try {
+      const azureProjects = await azureBlobService.listProjects()
+      
+      if (azureProjects.length > 0) {
+        setProjects(azureProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          created: p.lastModified,
+          lastModified: p.lastModified,
+          templates: [],
+          source: 'azure'
+        })))
+        
+        console.log(`${azureProjects.length} projetos carregados do Azure`)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar projetos do Azure:', error)
+    }
+  }
+  
+  loadAzureProjects()
+}, [])
 
   // Carregar configurações do localStorage
   useEffect(() => {
@@ -1041,6 +1245,9 @@ useEffect(() => {
       }
     }
   }, [selectedRepository])
+
+
+  
 
   // Mapear status para exibição
   const getStatusDisplay = (status: string) => {
@@ -1320,39 +1527,58 @@ const requestPayload = {
   }
 }
 
-  // Aprovar/Rejeitar job (apenas para modo completo)
-  const handleJobAction = async (jobId: string, action: 'approve' | 'reject') => {
-    try {
-      const response = await fetch(`${API_URL}/update-job-status`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        credentials: 'omit',
-        body: JSON.stringify({ job_id: jobId, action })
-      })
-      
-      if (response.ok) {
-        setJobs(prev => prev.map(job => 
-          job.id === jobId 
-            ? { ...job, status: action === 'approve' ? 'approved' : 'rejected' }
-            : job
-        ))
-        
-        if (selectedJob?.id === jobId) {
-          setSelectedJob(prev => prev ? { ...prev, status: action === 'approve' ? 'approved' : 'rejected' } : null)
-        }
-        
-        if (action === 'approve') {
-          startPolling(jobId)
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error)
+ // Aprovar/Rejeitar job com instruções extras
+const handleJobAction = async (jobId: string, action: 'approve' | 'reject', instrucoes_extras?: string) => {
+  try {
+    const payload: any = {
+      job_id: jobId,
+      action: action
     }
+    
+    // Adicionar instruções extras se fornecidas
+    if (instrucoes_extras && instrucoes_extras.trim()) {
+      payload.instrucoes_extras = instrucoes_extras
+    }
+    
+    console.log('Enviando aprovação com payload:', payload)
+    
+    const response = await fetch(`${API_URL}/update-job-status`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      credentials: 'omit',
+      body: JSON.stringify(payload)
+    })
+    
+    if (response.ok) {
+      setJobs(prev => prev.map(job => 
+        job.id === jobId 
+          ? { ...job, status: action === 'approve' ? 'approved' : 'rejected' }
+          : job
+      ))
+      
+      if (selectedJob?.id === jobId) {
+        setSelectedJob(prev => prev ? { ...prev, status: action === 'approve' ? 'approved' : 'rejected' } : null)
+      }
+      
+      if (action === 'approve') {
+        startPolling(jobId)
+        
+        // Mostrar notificação de sucesso
+        const successDiv = document.createElement('div')
+        successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
+        successDiv.innerHTML = `✓ ${instrucoes_extras ? 'Aprovado com instruções!' : 'Aprovado com sucesso!'}`
+        document.body.appendChild(successDiv)
+        setTimeout(() => successDiv.remove(), 3000)
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error)
   }
+}
 
   // Copiar ID do job
   const copyJobId = (jobId: string) => {
@@ -2442,34 +2668,35 @@ const requestPayload = {
 )}
                                         
                                         {/* Botões de aprovação apenas se não for modo rápido E se tem relatório para revisar */}
-                                        {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-7 text-xs border-green-200 text-green-600 hover:bg-green-50"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleJobAction(job.id, 'approve')
-                                              }}
-                                            >
-                                              <ThumbsUp className="h-3 w-3 mr-1" />
-                                              Aprovar
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleJobAction(job.id, 'reject')
-                                              }}
-                                            >
-                                              <ThumbsDown className="h-3 w-3 mr-1" />
-                                              Rejeitar
-                                            </Button>
-                                          </>
-                                        )}
+                                          {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (
+                                            <>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs border-green-200 text-green-600 hover:bg-green-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setJobToApprove(job)
+                                                  setShowApprovalModal(true)
+                                                }}
+                                              >
+                                                <ThumbsUp className="h-3 w-3 mr-1" />
+                                                Aprovar
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleJobAction(job.id, 'reject')
+                                                }}
+                                              >
+                                                <ThumbsDown className="h-3 w-3 mr-1" />
+                                                Rejeitar
+                                              </Button>
+                                            </>
+                                          )}
                                         
                                         {/* Mensagem quando aguardando relatório para aprovar */}
                                         {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && !job.analysis_report && (
@@ -3024,6 +3251,8 @@ const requestPayload = {
                           </Card>
                         ))}
 
+                        
+
                         {/* Resumo da Execução */}
                         <Card className="border-2" style={{ borderColor: BRAND_COLORS.secondary + '50' }}>
                           <CardContent className="p-4">
@@ -3060,6 +3289,20 @@ const requestPayload = {
                 </CardContent>
               </Card>
             )}
+
+            {/* Modal de Aprovação */}
+              {showApprovalModal && jobToApprove && (
+                <ApprovalModal
+                  job={jobToApprove}
+                  onApprove={handleJobAction}
+                  onReject={handleJobAction}
+                  onClose={() => {
+                    setShowApprovalModal(false)
+                    setJobToApprove(null)
+                  }}
+                />
+              )}
+
 
             
           </div>
