@@ -423,7 +423,7 @@ const Sidebar = ({
     const loadAzureProjects = async () => {
       try {
         const sasToken = localStorage.getItem('azure_sas_token') || 
-          'sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-10-04T06:55:14Z&st=2025-10-03T22:40:14Z&spr=https&sig=cuRKL4IfTDj%2Bm7I6CLEwx6QmoUzdyBMzV5IL0icXkY4%3D'
+          'sv=2024-11-04&ss=b&srt=co&sp=rltfx&se=2027-01-10T00:20:40Z&st=2025-10-05T16:05:40Z&spr=https,http&sig=oFZQm01IJ3%2B92ySNjSY7FiHperFHqJJOcRBg2dlawtE%3D'
         
         const url = `https://reportsagentpeers.blob.core.windows.net/reports?restype=container&comp=list&${sasToken}`
         
