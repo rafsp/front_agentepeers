@@ -1,5 +1,7 @@
 "use client"
 
+import { useSession } from "next-auth/react"
+import { redirect } from "next/navigation"
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import CodeGenerationWidget from '@/components/CodeGenerationWidget'
@@ -408,7 +410,7 @@ const ProjectSelectionModal = ({
         <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-white">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Folder className="h-5 w-5 text-blue-600" />
-            Selecione um Projeto do Azure
+            Selecione um Projeto
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             Escolha o projeto para contextualizar a análise
@@ -1296,6 +1298,17 @@ const Sidebar = ({
 }
 
 export default function TestPage() {
+  const { data: session, status } = useSession()
+
+  if (status === "loading") {
+  return <div className="min-h-screen flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin" />
+  </div>
+}
+
+if (!session) {
+  redirect('/api/auth/signin')
+}
   // Estados principais (mantendo todos os existentes)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
@@ -2556,7 +2569,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       <div className="flex items-center space-x-2">
                         <FolderOpen className="h-4 w-4 text-gray-500" />
                         <Label htmlFor="list-files" className="text-sm font-medium">
-                          Apenas listar arquivos (sem analisar conteúdo)
+                          Listar arquivos (sem analisar conteúdo)
                         </Label>
                       </div>
                       <Switch
