@@ -1381,104 +1381,105 @@ const loadHistoricalAnalyses = async () => {
   setLoadingHistory(true)
   
   try {
-    // Usar o ID do projeto, não o nome
     const projectId = currentProject.id
+    console.log('Buscando análises no Azure Blob para projeto:', projectId)
     
-    console.log('Projeto atual ID:', projectId)
-    console.log('Projeto atual Nome:', currentProject.name)
+    // Buscar do Azure Blob Storage
+    const sasToken = localStorage.getItem('azure_sas_token') || 
+      'sv=2024-11-04&ss=b&srt=co&sp=rltfx&se=2027-01-10T00:20:40Z&st=2025-10-05T16:05:40Z&spr=https,http&sig=oFZQm01IJ3%2B92ySNjSY7FiHperFHqJJOcRBg2dlawtE%3D'
     
-    // Mapeamento usando os IDs reais do Azure
-    const projectAnalysesMap: Record<string, any[]> = {
-      'projeto_front': [
-        { 
-          id: 'relatorio_documentacao_001', 
-          date: '05/10/2024 14:18', 
-          type: 'relatorio_documentacao', 
-          size: '1.37 KB',
-          report: '# Relatório de Documentação\n\n## Análise do Projeto Front\n\nDocumentação completa...'
-        },
-        { 
-          id: 'relatorio_teste_unitario_001', 
-          date: '05/10/2024 15:24', 
-          type: 'relatorio_teste_unitario', 
-          size: '2.33 KB',
-          report: '# Relatório de Testes Unitários\n\n## Cobertura: 85%\n\nAnálise completa...'
+    const containerUrl = `https://reportsagentpeers.blob.core.windows.net/reports?restype=container&comp=list&prefix=${projectId}/&${sasToken}`
+    
+    const response = await fetch(containerUrl)
+    const text = await response.text()
+    
+    // Parse XML response
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(text, "text/xml")
+    const blobs = xmlDoc.getElementsByTagName("Blob")
+    
+    const analyses: any[] = []
+    
+    for (let i = 0; i < blobs.length; i++) {
+      const nameElement = blobs[i].getElementsByTagName("Name")[0]
+      const propertiesElement = blobs[i].getElementsByTagName("Properties")[0]
+      
+      if (nameElement && propertiesElement) {
+        const fullPath = nameElement.textContent || ''
+        const lastModified = propertiesElement.getElementsByTagName("Last-Modified")[0]?.textContent || ''
+        const contentLength = propertiesElement.getElementsByTagName("Content-Length")[0]?.textContent || '0'
+        
+        // Extrair nome do arquivo e tipo de análise
+        const pathParts = fullPath.split('/')
+        const fileName = pathParts[pathParts.length - 1]
+        
+        // Pular se não for um arquivo de análise
+        if (!fileName.includes('.md') && !fileName.includes('.json')) continue
+        
+        // Extrair tipo de análise do nome do arquivo
+        let analysisType = 'relatorio_documentacao'
+        if (fileName.includes('cleancode')) analysisType = 'relatorio_cleancode'
+        else if (fileName.includes('teste_unitario')) analysisType = 'relatorio_teste_unitario'
+        else if (fileName.includes('owasp')) analysisType = 'relatorio_owasp'
+        else if (fileName.includes('performance')) analysisType = 'relatorio_performance_eficiencia'
+        else if (fileName.includes('conformidades')) analysisType = 'relatorio_conformidades'
+        
+        // Buscar conteúdo do arquivo
+        let reportContent = ''
+        try {
+          const fileUrl = `https://reportsagentpeers.blob.core.windows.net/reports/${fullPath}?${sasToken}`
+          const fileResponse = await fetch(fileUrl)
+          if (fileResponse.ok) {
+            reportContent = await fileResponse.text()
+          }
+        } catch (err) {
+          console.log('Erro ao buscar conteúdo do arquivo:', err)
         }
-      ],
-      'Projeto Front': [  // Adicionar também com o nome exato
-        { 
-          id: 'relatorio_documentacao_001', 
-          date: '05/10/2024 14:18', 
-          type: 'relatorio_documentacao', 
-          size: '1.37 KB',
-          report: '# Relatório de Documentação\n\n## Análise do Projeto Front\n\nDocumentação completa...'
-        },
-        { 
-          id: 'relatorio_teste_unitario_001', 
-          date: '05/10/2024 15:24', 
-          type: 'relatorio_teste_unitario', 
-          size: '2.33 KB',
-          report: '# Relatório de Testes Unitários\n\n## Cobertura: 85%\n\nAnálise completa...'
-        }
-      ],
-      'teste_agente_tabela': [
-        { 
-          id: 'teste_tabela_001', 
-          date: '08/09/2024 17:52', 
-          type: 'relatorio_cleancode', 
-          size: '2.28 KB',
-          report: '# Clean Code Analysis\n\n## Principais Findings...'
-        }
-      ],
-      'Teste Agente Tabela': [
-        { 
-          id: 'teste_tabela_001', 
-          date: '08/09/2024 17:52', 
-          type: 'relatorio_cleancode', 
-          size: '2.28 KB',
-          report: '# Clean Code Analysis\n\n## Principais Findings...'
-        }
-      ]
-    }
-    
-    // Tentar buscar pelo ID primeiro, depois pelo nome
-    let analyses = projectAnalysesMap[projectId] || projectAnalysesMap[currentProject.name] || []
-    
-    console.log('Análises encontradas:', analyses.length)
-    
-    // Sempre retornar pelo menos dados de exemplo se não encontrar nada
-    if (analyses.length === 0 && (projectId === 'projeto_front' || currentProject.name === 'Projeto Front')) {
-      analyses = [
-        { 
-          id: 'relatorio_documentacao_001', 
-          date: '05/10/2024 14:18', 
-          type: 'relatorio_documentacao', 
-          size: '1.37 KB',
-          report: '# Relatório de Documentação\n\n## Análise Completa\n\nEste é um relatório de exemplo...'
-        },
-        { 
-          id: 'relatorio_teste_unitario_001', 
-          date: '05/10/2024 15:24', 
-          type: 'relatorio_teste_unitario', 
-          size: '2.33 KB',
-          report: '# Relatório de Testes\n\n## Resultados\n\nTestes executados com sucesso...'
-        }
-      ]
-    }
-    
-    setHistoricalAnalyses(analyses)
-  } catch (error) {
-    console.error('Erro ao carregar histórico:', error)
-    // Em caso de erro, pelo menos mostrar dados de exemplo
-    setHistoricalAnalyses([
-      { 
-        id: 'exemplo_001', 
-        date: new Date().toLocaleDateString('pt-BR'), 
-        type: 'relatorio_documentacao', 
-        size: '1 KB',
-        report: '# Relatório de Exemplo\n\nDados de demonstração...'
+        
+        analyses.push({
+          id: fileName.replace('.md', '').replace('.json', ''),
+          date: new Date(lastModified).toLocaleString('pt-BR'),
+          type: analysisType,
+          size: `${(parseInt(contentLength) / 1024).toFixed(2)} KB`,
+          report: reportContent || `# Relatório\n\nArquivo: ${fileName}\nProjeto: ${currentProject.name}`,
+          fullPath: fullPath
+        })
       }
-    ])
+    }
+    
+    // Ordenar por data mais recente
+    analyses.sort((a, b) => {
+      const dateA = new Date(a.date.split(' ')[0].split('/').reverse().join('-'))
+      const dateB = new Date(b.date.split(' ')[0].split('/').reverse().join('-'))
+      return dateB.getTime() - dateA.getTime()
+    })
+    
+    console.log(`Encontradas ${analyses.length} análises no Azure Blob`)
+    setHistoricalAnalyses(analyses)
+    
+    // Salvar em cache local
+    if (analyses.length > 0) {
+      const cacheKey = `analyses_${projectId}`
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: analyses,
+        timestamp: Date.now()
+      }))
+    }
+    
+  } catch (error) {
+    console.error('Erro ao carregar histórico do Azure Blob:', error)
+    
+    // Tentar carregar do cache se falhar
+    const cacheKey = `analyses_${currentProject.id}`
+    const cached = localStorage.getItem(cacheKey)
+    
+    if (cached) {
+      const parsedCache = JSON.parse(cached)
+      setHistoricalAnalyses(parsedCache.data || [])
+      console.log('Usando cache local')
+    } else {
+      setHistoricalAnalyses([])
+    }
   } finally {
     setLoadingHistory(false)
   }
@@ -1504,10 +1505,17 @@ useEffect(() => {
 
 // Carregar histórico quando mudar de projeto
 useEffect(() => {
-  if (currentProject && activeTab === 'history') {
-    loadHistoricalAnalyses()
+  if (currentProject) {
+    setHistoricalAnalyses([]) // Limpa imediatamente
+    
+    // Só carrega se estiver na aba de histórico
+    if (activeTab === 'history') {
+      loadHistoricalAnalyses()
+    }
+  } else {
+    setHistoricalAnalyses([])
   }
-}, [currentProject, activeTab])
+},  [currentProject?.id])
 
   // Carregar projetos do Azure automaticamente
 useEffect(() => {
@@ -1658,6 +1666,23 @@ useEffect(() => {
     }
   }, [selectedRepository])
 
+
+  // Limpar seleção ao mudar de aba
+useEffect(() => {
+  if (activeTab === 'history') {
+    // Limpar job selecionado das análises recentes
+    if (selectedJob && !selectedJob.id.startsWith('history_')) {
+      setSelectedJob(null)
+      setShowReport(false)
+    }
+  } else {
+    // Limpar job histórico ao voltar para recentes
+    if (selectedJob && selectedJob.id.startsWith('history_')) {
+      setSelectedJob(null)
+      setShowReport(false)
+    }
+  }
+}, [activeTab])
 
   
 
@@ -2710,7 +2735,12 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                 <div className="flex items-center justify-between px-6 pt-4">
                   <div className="flex items-center space-x-6">
                     <button
-                      onClick={() => setActiveTab('recent')}
+                      onClick={() => {
+                          setActiveTab('recent')
+                          // Não misturar com histórico
+                          setSelectedJob(null)
+                          setShowReport(false)
+                        }}
                       className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                         activeTab === 'recent'
                           ? 'border-blue-500 text-blue-600'
@@ -2729,8 +2759,9 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     <button
                       onClick={() => {
                         setActiveTab('history')
-                        if (currentProject && historicalAnalyses.length === 0) {
-                          loadHistoricalAnalyses()
+                        if (currentProject) {
+                          setHistoricalAnalyses([]) // Limpa antes de carregar
+                          loadHistoricalAnalyses() // Sempre recarrega quando clicar
                         }
                       }}
                       className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -3306,74 +3337,92 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                         const analysisType = getAnalysisDetails(analysis.type)
                         const TypeIcon = analysisType?.icon || FileText
                         
-                        return (
-                          <Card 
-                            key={analysis.id}
-                            className="border cursor-pointer transition-all duration-200 hover:shadow-lg"
-                            onClick={() => {
-                              const historicalJob: Job = {
-                                id: analysis.id,
-                                status: 'completed',
-                                progress: 100,
-                                message: 'Análise histórica',
-                                analysis_report: analysis.report || `# Relatório Histórico\n\nProjeto: ${currentProject.name}\nData: ${analysis.date}`,
-                                created_at: new Date(),
-                                updated_at: new Date(),
-                                repo_name: currentProject?.name,
-                                analysis_type: analysis.type,
-                                branch_name: 'main'
-                              }
-                              setSelectedJob(historicalJob)
-                              setShowReport(true)
-                            }}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-3">
-                                  <div className="flex items-center space-x-3">
-                                    <GitBranch className="h-4 w-4 text-gray-400" />
-                                    <span className="font-semibold text-gray-900">
-                                      {currentProject.name}
-                                    </span>
-                                  </div>
+                      return (
+                        <Card 
+                          key={analysis.id}
+                          className="border cursor-pointer transition-all duration-200 hover:shadow-lg"
+                          onClick={() => {
+                            // Criar job temporário apenas para visualização, não adicionar à lista
+                            const tempJob: Job = {
+                              id: `history_${analysis.id}`,  // ID único para histórico
+                              status: 'completed',
+                              progress: 100,
+                              message: 'Análise histórica',
+                              analysis_report: analysis.report || `# Relatório Histórico\n\nProjeto: ${currentProject.name}\nData: ${analysis.date}`,
+                              created_at: new Date(),
+                              updated_at: new Date(),
+                              repo_name: currentProject?.name,
+                              analysis_type: analysis.type,
+                              branch_name: 'main'
+                            }
+                            
+                            // Apenas selecionar e mostrar, não adicionar aos jobs
+                            setSelectedJob(tempJob)
+                            setShowReport(true)
+                          }}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-3">
+                                {/* Nome do arquivo */}
+                                <div className="flex items-center space-x-3">
+                                  <FileText className="h-4 w-4 text-gray-400" />
+                                  <span className="font-semibold text-gray-900">
+                                    {analysis.id}
+                                  </span>
+                                </div>
+                                
+                                {/* Caminho completo no blob */}
+                                <div className="flex items-center space-x-2">
+                                  <FolderOpen className="h-3 w-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500 font-mono">
+                                    {analysis.fullPath || `${currentProject.id}/${analysis.id}.md`}
+                                  </span>
+                                </div>
+                                
+                                {/* Status e tipo */}
+                                <div className="flex items-center space-x-3">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="bg-green-50 text-green-600 border-green-200"
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Concluído
+                                  </Badge>
                                   
-                                  <div className="flex items-center space-x-3">
-                                    <Badge 
-                                      variant="outline" 
-                                      className="bg-green-50 text-green-600 border-green-200"
-                                    >
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      Concluído
+                                  {analysisType && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <TypeIcon className="h-3 w-3 mr-1" />
+                                      {analysisType.label}
                                     </Badge>
-                                    
-                                    {analysisType && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        <TypeIcon className="h-3 w-3 mr-1" />
-                                        {analysisType.label}
-                                      </Badge>
-                                    )}
+                                  )}
+                                  
+                                  <Badge variant="outline" className="text-xs">
+                                    {analysis.size}
+                                  </Badge>
+                                </div>
+                                
+                                {/* Data e botão ver */}
+                                <div className="flex items-center justify-between pt-2">
+                                  <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{analysis.date}</span>
                                   </div>
                                   
-                                  <div className="flex items-center justify-between pt-2">
-                                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                      <Clock className="h-3 w-3" />
-                                      <span>{analysis.date}</span>
-                                    </div>
-                                    
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 text-xs"
-                                    >
-                                      <Eye className="h-4 w-4 mr-1" />
-                                      Ver
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs"
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    Ver
+                                  </Button>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        )
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
                       })}
                     </div>
                   )
