@@ -1004,7 +1004,7 @@ const Sidebar = ({
                       <Cloud className="h-8 w-8 mx-auto text-gray-300 mb-2" />
                       <p className="text-xs text-gray-500">Nenhum projeto carregado</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        Clique em "Carregar do Azure" para buscar
+                        Clique em "Carregar" para buscar
                       </p>
                     </div>
                   ) : (
