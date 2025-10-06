@@ -391,6 +391,277 @@ const getAnalysisDetails = (type: string) => {
   return null
 }
 
+// Modal de Seleção de Projeto
+const ProjectSelectionModal = ({ 
+  isOpen, 
+  onClose, 
+  projects, 
+  onSelect,
+  onCreateNew 
+}: any) => {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-white">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Folder className="h-5 w-5 text-blue-600" />
+            Selecione um Projeto do Azure
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Escolha o projeto para contextualizar a análise
+          </p>
+        </div>
+        
+        <ScrollArea className="h-96 p-6">
+          <div className="space-y-2">
+            {projects.map((project: any) => (
+              <button
+                key={project.id}
+                onClick={() => onSelect(project)}
+                className="w-full p-4 text-left rounded-lg border hover:border-blue-400 hover:bg-blue-50 transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Cloud className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <p className="font-medium text-gray-900">{project.name}</p>
+                      <p className="text-xs text-gray-500">ID: {project.id}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </div>
+              </button>
+            ))}
+            
+            <button
+              onClick={onCreateNew}
+              className="w-full p-4 text-left rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-gray-50 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <Plus className="h-5 w-5 text-gray-400" />
+                <div>
+                  <p className="font-medium text-gray-700">Criar Novo Projeto</p>
+                  <p className="text-xs text-gray-500">Definir um novo contexto de análise</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  )
+}
+
+// Componente de Histórico de Análises com Cache e Paginação
+const AnalysisHistoryModal = ({ 
+  isOpen, 
+  onClose, 
+  currentProject,
+  onSelectAnalysis 
+}: any) => {
+  const [analyses, setAnalyses] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [filter, setFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'date' | 'type'>('date')
+  const [cachedAnalyses, setCachedAnalyses] = useState<Record<string, any>>({})
+  
+  useEffect(() => {
+    if (isOpen && currentProject) {
+      loadAnalysisHistory()
+    }
+  }, [isOpen, currentProject])
+  
+  const loadAnalysisHistory = async () => {
+    setLoading(true)
+    
+    // Verificar cache primeiro
+    const cacheKey = `analyses_${currentProject?.id}`
+    const cached = localStorage.getItem(cacheKey)
+    
+    if (cached) {
+      const parsedCache = JSON.parse(cached)
+      if (Date.now() - parsedCache.timestamp < 300000) { // 5 minutos de cache
+        setAnalyses(parsedCache.data)
+        setLoading(false)
+        return
+      }
+    }
+    
+    try {
+      // Simular estrutura baseada no que vimos no Azure
+      const mockAnalyses = [
+        // Dados do projeto atual
+        ...(currentProject?.id === 'projeto_front' ? [
+          { id: 'Analise_Geral-1', date: '05/10/2025 14:18:38', type: 'relatorio_documentacao', size: '1.37 KB' },
+          { id: 'Analise_Geral', date: '05/10/2025 14:18:38', type: 'relatorio_documentacao', size: '1.37 KB' },
+          { id: 'Projeto Front - 05_10_2025-1', date: '05/10/2025 15:24:36', type: 'relatorio_teste_unitario', size: '2.33 KB' },
+        ] : []),
+        ...(currentProject?.id === 'teste_agente_tabela' ? [
+          { id: 'teste_tabela-1', date: '08/09/2025 17:52:08', type: 'relatorio_cleancode', size: '2.28 KB' },
+          { id: 'teste_tabela-10', date: '11/09/2025 01:03:26', type: 'relatorio_cleancode', size: '2.55 KB' },
+          { id: 'teste_tabela-11', date: '11/09/2025 01:04:56', type: 'relatorio_cleancode', size: '2.47 KB' },
+        ] : []),
+      ]
+      
+      setAnalyses(mockAnalyses)
+      
+      // Salvar no cache
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: mockAnalyses,
+        timestamp: Date.now()
+      }))
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const filteredAnalyses = analyses.filter(a => 
+    a.id.toLowerCase().includes(filter.toLowerCase()) ||
+    a.type.toLowerCase().includes(filter.toLowerCase())
+  ).sort((a, b) => {
+    if (sortBy === 'date') {
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    }
+    return a.type.localeCompare(b.type)
+  })
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <History className="h-5 w-5 text-blue-600" />
+                Histórico de Análises - {currentProject?.name}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Visualize e reutilize análises anteriores
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="p-4 border-b bg-gray-50">
+          <div className="flex gap-4 items-center">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar análises..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Data (Mais recente)</SelectItem>
+                <SelectItem value="type">Tipo de Análise</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={loadAnalysisHistory}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
+        </div>
+        
+        <ScrollArea className="h-[500px] p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : filteredAnalyses.length === 0 ? (
+            <div className="text-center py-12">
+              <Archive className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">Nenhuma análise encontrada</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredAnalyses.map((analysis) => {
+                const analysisType = getAnalysisDetails(analysis.type)
+                const TypeIcon = analysisType?.icon || FileText
+                
+                return (
+                  <Card 
+                    key={analysis.id}
+                    className="hover:shadow-lg transition-all cursor-pointer"
+                    onClick={() => onSelectAnalysis(analysis)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="p-2 rounded-lg"
+                          style={{ 
+                            backgroundColor: `${BRAND_COLORS.secondary}20`,
+                            color: BRAND_COLORS.primary
+                          }}
+                        >
+                          <TypeIcon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm">{analysis.id}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {analysisType?.label || analysis.type}
+                            </Badge>
+                            <span className="text-xs text-gray-500">
+                              {analysis.size}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                            <Clock className="h-3 w-3" />
+                            {analysis.date}
+                          </div>
+                        </div>
+                        <Button size="sm" variant="ghost">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </ScrollArea>
+        
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              {filteredAnalyses.length} análise(s) encontrada(s)
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Lista
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Componente do Menu Lateral
 const Sidebar = ({ 
   isOpen, 
@@ -726,7 +997,7 @@ const Sidebar = ({
               <div className="space-y-4">
                 {/* Campo para configurar o SAS Token */}
                <div className="space-y-2">
-                <Label className="text-xs font-medium text-gray-700">Projetos do Azure</Label>
+                <Label className="text-xs font-medium text-gray-700">Projetos</Label>
                 <ScrollArea className="h-48 border rounded-lg p-2">
                   {projects.length === 0 ? (
                     <div className="text-center py-8">
@@ -1095,7 +1366,148 @@ const [formData, setFormData] = useState({
   const [jobToApprove, setJobToApprove] = useState<Job | null>(null)
 
 
+const [showProjectModal, setShowProjectModal] = useState(false)
+const [userName, setUserName] = useState(() => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('user_name') || 'Usuário'
+  }
+  return 'Usuário'
+})
 
+// Função para carregar análises históricas
+const loadHistoricalAnalyses = async () => {
+  if (!currentProject) return
+  
+  setLoadingHistory(true)
+  
+  try {
+    // Usar o ID do projeto, não o nome
+    const projectId = currentProject.id
+    
+    console.log('Projeto atual ID:', projectId)
+    console.log('Projeto atual Nome:', currentProject.name)
+    
+    // Mapeamento usando os IDs reais do Azure
+    const projectAnalysesMap: Record<string, any[]> = {
+      'projeto_front': [
+        { 
+          id: 'relatorio_documentacao_001', 
+          date: '05/10/2024 14:18', 
+          type: 'relatorio_documentacao', 
+          size: '1.37 KB',
+          report: '# Relatório de Documentação\n\n## Análise do Projeto Front\n\nDocumentação completa...'
+        },
+        { 
+          id: 'relatorio_teste_unitario_001', 
+          date: '05/10/2024 15:24', 
+          type: 'relatorio_teste_unitario', 
+          size: '2.33 KB',
+          report: '# Relatório de Testes Unitários\n\n## Cobertura: 85%\n\nAnálise completa...'
+        }
+      ],
+      'Projeto Front': [  // Adicionar também com o nome exato
+        { 
+          id: 'relatorio_documentacao_001', 
+          date: '05/10/2024 14:18', 
+          type: 'relatorio_documentacao', 
+          size: '1.37 KB',
+          report: '# Relatório de Documentação\n\n## Análise do Projeto Front\n\nDocumentação completa...'
+        },
+        { 
+          id: 'relatorio_teste_unitario_001', 
+          date: '05/10/2024 15:24', 
+          type: 'relatorio_teste_unitario', 
+          size: '2.33 KB',
+          report: '# Relatório de Testes Unitários\n\n## Cobertura: 85%\n\nAnálise completa...'
+        }
+      ],
+      'teste_agente_tabela': [
+        { 
+          id: 'teste_tabela_001', 
+          date: '08/09/2024 17:52', 
+          type: 'relatorio_cleancode', 
+          size: '2.28 KB',
+          report: '# Clean Code Analysis\n\n## Principais Findings...'
+        }
+      ],
+      'Teste Agente Tabela': [
+        { 
+          id: 'teste_tabela_001', 
+          date: '08/09/2024 17:52', 
+          type: 'relatorio_cleancode', 
+          size: '2.28 KB',
+          report: '# Clean Code Analysis\n\n## Principais Findings...'
+        }
+      ]
+    }
+    
+    // Tentar buscar pelo ID primeiro, depois pelo nome
+    let analyses = projectAnalysesMap[projectId] || projectAnalysesMap[currentProject.name] || []
+    
+    console.log('Análises encontradas:', analyses.length)
+    
+    // Sempre retornar pelo menos dados de exemplo se não encontrar nada
+    if (analyses.length === 0 && (projectId === 'projeto_front' || currentProject.name === 'Projeto Front')) {
+      analyses = [
+        { 
+          id: 'relatorio_documentacao_001', 
+          date: '05/10/2024 14:18', 
+          type: 'relatorio_documentacao', 
+          size: '1.37 KB',
+          report: '# Relatório de Documentação\n\n## Análise Completa\n\nEste é um relatório de exemplo...'
+        },
+        { 
+          id: 'relatorio_teste_unitario_001', 
+          date: '05/10/2024 15:24', 
+          type: 'relatorio_teste_unitario', 
+          size: '2.33 KB',
+          report: '# Relatório de Testes\n\n## Resultados\n\nTestes executados com sucesso...'
+        }
+      ]
+    }
+    
+    setHistoricalAnalyses(analyses)
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error)
+    // Em caso de erro, pelo menos mostrar dados de exemplo
+    setHistoricalAnalyses([
+      { 
+        id: 'exemplo_001', 
+        date: new Date().toLocaleDateString('pt-BR'), 
+        type: 'relatorio_documentacao', 
+        size: '1 KB',
+        report: '# Relatório de Exemplo\n\nDados de demonstração...'
+      }
+    ])
+  } finally {
+    setLoadingHistory(false)
+  }
+}
+
+
+
+
+const [activeTab, setActiveTab] = useState<'recent' | 'history'>('recent')
+const [historicalAnalyses, setHistoricalAnalyses] = useState<any[]>([])
+const [loadingHistory, setLoadingHistory] = useState(false)
+
+const [showHistoryModal, setShowHistoryModal] = useState(false)
+const [selectedHistoryAnalysis, setSelectedHistoryAnalysis] = useState<any>(null)
+
+
+useEffect(() => {
+  if (currentProject && activeTab === 'history' && historicalAnalyses.length === 0) {
+    console.log('Carregando histórico automaticamente para:', currentProject.name)
+    loadHistoricalAnalyses()
+  }
+}, [currentProject, activeTab])
+
+// Carregar histórico quando mudar de projeto
+useEffect(() => {
+  if (currentProject && activeTab === 'history') {
+    loadHistoricalAnalyses()
+  }
+}, [currentProject, activeTab])
 
   // Carregar projetos do Azure automaticamente
 useEffect(() => {
@@ -1423,6 +1835,24 @@ useEffect(() => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
   
+  // Validar se tem projeto selecionado
+  if (!currentProject) {
+    setShowProjectModal(true)
+    
+    // Mostrar alerta
+    const alertBadge = document.createElement('div')
+    alertBadge.className = 'fixed top-20 right-4 z-50 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
+    alertBadge.innerHTML = `
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      Selecione um projeto antes de continuar
+    `
+    document.body.appendChild(alertBadge)
+    setTimeout(() => alertBadge.remove(), 3000)
+    return
+  }
+  
   if (!formData.repo_name || !formData.analysis_type) {
     setErrorMessage('Preencha todos os campos obrigatórios')
     return
@@ -1441,7 +1871,9 @@ const requestPayload = {
       repo_name_modernizado: finalRepo,
       branch_name_modernizado: finalBranch,
       repository_type: formData.repository_type || "github",  // ← USA O CAMPO DO FORM
-      projeto: formData.analysis_name || "AnaliseAgentes",  // ← USA NOME DA ANÁLISE
+      projeto: currentProject.id, // USA O PROJETO SELECIONADO
+      analysis_name: formData.analysis_name || `${currentProject.name} - ${new Date().toLocaleDateString()}`,
+      usuario_executor: userName, 
       analysis_type: formData.analysis_type,
       instrucoes_extras: formData.instrucoes_extras || '',
       usar_rag: formData.usar_rag,
@@ -1768,7 +2200,61 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     </Alert>
                   )}
 
-                                    {/* Dropdown de Repositório */}
+  {/* Projeto Selecionado */}
+<div className="space-y-2 mb-4">
+  <Label className="flex items-center space-x-2">
+    <Folder className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
+    <span>Projeto</span>
+    <span className="text-red-500">*</span>
+  </Label>
+  
+  {currentProject ? (
+    <div className="p-3 rounded-lg border-2 border-blue-200 bg-blue-50">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Cloud className="h-4 w-4 text-blue-600" />
+          <div>
+            <p className="font-medium text-gray-900">{currentProject.name}</p>
+            <p className="text-xs text-gray-600">ID: {currentProject.id}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setShowProjectModal(true)}
+        >
+          <Edit className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  ) : (
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full justify-start"
+      onClick={() => setShowProjectModal(true)}
+    >
+      <FolderOpen className="h-4 w-4 mr-2" />
+      Selecionar Projeto do Azure
+    </Button>
+  )}
+</div>
+
+{/* Botão para ver histórico */}
+{currentProject && (
+  <Button
+    type="button"
+    variant="outline"
+    className="w-full mb-4"
+    onClick={() => setShowHistoryModal(true)}
+  >
+    <History className="h-4 w-4 mr-2" />
+    Ver Análises Anteriores deste Projeto
+  </Button>
+)}
+
+  {/* Dropdown de Repositório */}
 <div className="space-y-2">
   <Label htmlFor="repository" className="flex items-center space-x-2">
     <Folder className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
@@ -2210,9 +2696,78 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
           </div>
 
           {/* Coluna Direita - Jobs e Relatórios (mantém exatamente igual) */}
+
           <div className="lg:col-span-2 space-y-6">
-            {/* Filtros e Busca */}
-            <Card className="border-0 shadow-lg">
+            {/* Card com Abas */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <div 
+                className="h-1"
+                style={{ background: `linear-gradient(90deg, ${BRAND_COLORS.primary} 0%, ${BRAND_COLORS.secondary} 100%)` }}
+              />
+              
+              {/* Header com Abas */}
+              <div className="border-b">
+                <div className="flex items-center justify-between px-6 pt-4">
+                  <div className="flex items-center space-x-6">
+                    <button
+                      onClick={() => setActiveTab('recent')}
+                      className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                        activeTab === 'recent'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Terminal className="h-4 w-4" />
+                        <span>Análises Recentes</span>
+                        <Badge variant="secondary" className="ml-1">
+                          {filteredJobs.length}
+                        </Badge>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setActiveTab('history')
+                        if (currentProject && historicalAnalyses.length === 0) {
+                          loadHistoricalAnalyses()
+                        }
+                      }}
+                      className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                        activeTab === 'history'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
+                      disabled={!currentProject}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <History className="h-4 w-4" />
+                        <span>Histórico do Projeto</span>
+                        {currentProject && (
+                          <Badge variant="outline" className="ml-1">
+                            {historicalAnalyses.length}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 pb-3">
+                    {activeTab === 'history' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={loadHistoricalAnalyses}
+                        disabled={loadingHistory}
+                      >
+                        <RefreshCw className={`h-4 w-4 ${loadingHistory ? 'animate-spin' : ''}`} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Filtros - Mantendo a lógica original */}
               <CardContent className="py-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 relative">
@@ -2222,10 +2777,9 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={async (e) => {
-                        // Se pressionar Enter e tiver um valor que parece ser um UUID
+                        // MANTER TODA A LÓGICA ORIGINAL DE BUSCA
                         if (e.key === 'Enter' && searchQuery.length > 30) {
                           try {
-                            // Buscar job pelo ID diretamente na API
                             const response = await fetch(`${API_URL}/status/${searchQuery.trim()}`, {
                               method: 'GET',
                               headers: { 'Accept': 'application/json' },
@@ -2237,7 +2791,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                               const data = await response.json()
                               console.log('Job encontrado:', data)
                               
-                              // Criar um objeto job a partir dos dados retornados
                               const fetchedJob: Job = {
                                 id: data.job_id || searchQuery.trim(),
                                 status: data.status || 'completed',
@@ -2249,28 +2802,21 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                 repo_name: data.repo_name || 'Repositório',
                                 analysis_type: data.analysis_type || 'relatorio_teste_unitario',
                                 branch_name: data.branch_name || 'main',
-                               // summary: data.summary
                               }
                               
-                              // Adicionar o job à lista se não existir
                               const existingJob = jobs.find(j => j.id === fetchedJob.id)
                               if (!existingJob) {
                                 setJobs(prev => [fetchedJob, ...prev])
                               } else {
-                                // Atualizar o job existente
                                 setJobs(prev => prev.map(j => 
                                   j.id === fetchedJob.id ? { ...j, ...fetchedJob } : j
                                 ))
                               }
                               
-                              // Selecionar o job e mostrar o relatório
                               setSelectedJob(fetchedJob)
                               setShowReport(!!fetchedJob.analysis_report)
-                              
-                              // Limpar a busca
                               setSearchQuery('')
                               
-                              // Mostrar mensagem de sucesso
                               const successBadge = document.createElement('div')
                               successBadge.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
                               successBadge.innerHTML = `
@@ -2282,7 +2828,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                               document.body.appendChild(successBadge)
                               setTimeout(() => successBadge.remove(), 3000)
                             } else {
-                              // Mostrar erro se não encontrar
                               const errorBadge = document.createElement('div')
                               errorBadge.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2'
                               errorBadge.innerHTML = `
@@ -2301,7 +2846,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       }}
                       className="pl-10 border-gray-200"
                     />
-                    {/* Indicador de dica */}
                     {searchQuery.length === 0 && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
                         Pressione Enter para buscar por ID
@@ -2309,12 +2853,10 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     )}
                   </div>
                   
-                  {/* Botão de busca direta */}
                   <Button
                     variant="outline"
                     onClick={async () => {
                       if (searchQuery.length > 30) {
-                        // Simular o evento de Enter para buscar
                         const event = new KeyboardEvent('keypress', { key: 'Enter' })
                         const input = document.querySelector('input[placeholder*="repositório"]') as HTMLInputElement
                         if (input) {
@@ -2345,7 +2887,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   </Select>
                 </div>
                 
-                {/* Card de ajuda para busca por ID */}
                 {searchQuery.length > 0 && searchQuery.length < 30 && (
                   <Alert className="mt-4 border-blue-200 bg-blue-50">
                     <Info className="h-4 w-4 text-blue-600" />
@@ -2357,18 +2898,19 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
               </CardContent>
             </Card>
 
+
             {/* Lista de Jobs */}
             <Card className="border-0 shadow-xl overflow-hidden">
               <div 
                 className="h-1"
                 style={{ background: `linear-gradient(90deg, ${BRAND_COLORS.primary} 0%, ${BRAND_COLORS.secondary} 100%)` }}
               />
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Terminal className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
-                    <span>Análises Recentes</span>
-                  </div>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Terminal className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
+                      <span>{activeTab === 'recent' ? 'Análises Recentes' : 'Histórico do Projeto'}</span>
+                    </div>
                   <Badge 
                     variant="secondary" 
                     className="font-normal"
@@ -2377,17 +2919,20 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       color: BRAND_COLORS.primary 
                     }}
                   >
-                    {filteredJobs.length} {filteredJobs.length === 1 ? 'análise' : 'análises'}
+                    {activeTab === 'recent' 
+                      ? `${filteredJobs.length} ${filteredJobs.length === 1 ? 'análise' : 'análises'}`
+                      : `${historicalAnalyses.length} ${historicalAnalyses.length === 1 ? 'registro' : 'registros'}`
+                    }
                   </Badge>
                 </CardTitle>
               </CardHeader>
               
               <CardContent>
-                <ScrollArea className="h-[600px]">
-                  {filteredJobs.length === 0 ? (
-                    <div
-                      className="flex flex-col items-center justify-center py-12 text-gray-500"
-                    >
+              <ScrollArea className="h-[600px]">
+                {activeTab === 'recent' ? (
+                  // ANÁLISES RECENTES
+                  filteredJobs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                       <FileText className="h-12 w-12 mb-4 text-gray-300" />
                       <p className="text-lg font-medium">Nenhuma análise encontrada</p>
                       <p className="text-sm mt-1">Inicie uma nova análise para começar</p>
@@ -2421,7 +2966,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 space-y-3">
-                                    {/* Repositório e Branch */}
                                     <div className="flex items-center space-x-3">
                                       <GitBranch className="h-4 w-4 text-gray-400" />
                                       <span className="font-semibold text-gray-900">
@@ -2447,7 +2991,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                       )}
                                     </div>
                                     
-                                    {/* Status e Tipo */}
                                     <div className="flex items-center space-x-3">
                                       <Badge 
                                         variant="outline" 
@@ -2472,7 +3015,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                       )}
                                     </div>
                                     
-                                    {/* Progress Bar */}
                                     {job.progress > 0 && job.progress < 100 && (
                                       <div className="space-y-1">
                                         <div className="flex items-center justify-between text-xs text-gray-500">
@@ -2486,7 +3028,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                       </div>
                                     )}
                                     
-                                    {/* Footer com ações */}
                                     <div className="flex items-center justify-between pt-2">
                                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                                         <div className="flex items-center space-x-1">
@@ -2519,186 +3060,151 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                       </div>
                                       
                                       <div className="flex items-center space-x-2">
-                                        {/* Botão para visualizar relatório quando disponível */}
-                                        {/* {job.analysis_report && (
+                                        {(job.status === 'completed' || job.status === 'failed' || job.status === 'Concluído') && (
                                           <Button
                                             size="sm"
                                             variant="outline"
                                             className="h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
-                                            onClick={(e) => {
+                                            onClick={async (e) => {
                                               e.stopPropagation()
-                                              setSelectedJob(job)
-                                              setShowReport(true)
+                                              
+                                              const button = e.currentTarget as HTMLButtonElement
+                                              const originalContent = button.innerHTML
+                                              button.innerHTML = '<svg class="animate-spin h-3 w-3 mr-1 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Carregando...'
+                                              button.disabled = true
+                                              
+                                              try {
+                                                const reportUrl = `${API_URL}/jobs/${job.id}/report`
+                                                console.log('Tentando buscar relatório em:', reportUrl)
+                                                
+                                                let report = null
+                                                let response = await fetch(reportUrl, {
+                                                  method: 'GET',
+                                                  headers: { 'Accept': 'application/json' },
+                                                  mode: 'cors',
+                                                  credentials: 'omit'
+                                                })
+                                                
+                                                if (response.ok) {
+                                                  const data = await response.json()
+                                                  console.log('Resposta do /report:', data)
+                                                  
+                                                  if (typeof data === 'string') {
+                                                    report = data
+                                                  } else {
+                                                    report = data.report || 
+                                                            data.analysis_report || 
+                                                            data.result || 
+                                                            data.content ||
+                                                            data.data ||
+                                                            data.markdown ||
+                                                            data.text
+                                                  }
+                                                }
+                                                
+                                                if (!report) {
+                                                  console.log('Tentando endpoint /status...')
+                                                  response = await fetch(`${API_URL}/status/${job.id}`, {
+                                                    method: 'GET',
+                                                    headers: { 'Accept': 'application/json' },
+                                                    mode: 'cors',
+                                                    credentials: 'omit'
+                                                  })
+                                                  
+                                                  if (response.ok) {
+                                                    const statusData = await response.json()
+                                                    console.log('Resposta do /status:', statusData)
+                                                    report = statusData.analysis_report || 
+                                                            statusData.report || 
+                                                            statusData.result
+                                                  }
+                                                }
+                                                
+                                                if (report) {
+                                                  console.log('Relatório encontrado! Tamanho:', report.length, 'caracteres')
+                                                  
+                                                  const updatedJob = { ...job, analysis_report: report }
+                                                  
+                                                  setJobs(prev => {
+                                                    const newJobs = prev.map(j => 
+                                                      j.id === job.id ? updatedJob : j
+                                                    )
+                                                    console.log('Jobs atualizados')
+                                                    return newJobs
+                                                  })
+                                                  
+                                                  setSelectedJob(updatedJob)
+                                                  setShowReport(true)
+                                                  
+                                                  setTimeout(() => {
+                                                    setSelectedJob(updatedJob)
+                                                    setShowReport(true)
+                                                  }, 100)
+                                                  
+                                                  const successDiv = document.createElement('div')
+                                                  successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
+                                                  successDiv.innerHTML = '✓ Relatório carregado com sucesso!'
+                                                  document.body.appendChild(successDiv)
+                                                  setTimeout(() => successDiv.remove(), 3000)
+                                                  
+                                                } else {
+                                                  console.error('Nenhum relatório encontrado nas respostas')
+                                                  
+                                                  const errorDiv = document.createElement('div')
+                                                  errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
+                                                  errorDiv.innerHTML = '✗ Relatório não encontrado. Tente novamente em alguns segundos.'
+                                                  document.body.appendChild(errorDiv)
+                                                  setTimeout(() => errorDiv.remove(), 4000)
+                                                }
+                                              } catch (error) {
+                                                console.error('Erro ao buscar relatório:', error)
+                                                
+                                                const errorDiv = document.createElement('div')
+                                                errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
+                                                errorDiv.innerHTML = '✗ Erro de conexão. Verifique o console.'
+                                                document.body.appendChild(errorDiv)
+                                                setTimeout(() => errorDiv.remove(), 4000)
+                                              } finally {
+                                                button.innerHTML = originalContent
+                                                button.disabled = false
+                                              }
                                             }}
                                           >
-                                            
-                                            
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            Ver Relatório
                                           </Button>
-                                        )} */}
-
-                                        {/* Botão forçado para jobs concluídos sem relatório visível */}
-{/* Botão para recuperar e exibir relatório */}
-{(job.status === 'completed' || job.status === 'failed'  || job.status === 'Concluído') && (
-  <Button
-    size="sm"
-    variant="outline"
-    className="h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
-    onClick={async (e) => {
-      e.stopPropagation()
-      
-      // Indicador de loading
-      const button = e.currentTarget as HTMLButtonElement
-      const originalContent = button.innerHTML
-      button.innerHTML = '<svg class="animate-spin h-3 w-3 mr-1 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Carregando...'
-      button.disabled = true
-      
-      try {
-        // Tentar primeiro o endpoint /report
-        const reportUrl = `${API_URL}/jobs/${job.id}/report`
-        console.log('Tentando buscar relatório em:', reportUrl)
-        
-        let report = null
-        let response = await fetch(reportUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-          mode: 'cors',
-          credentials: 'omit'
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('Resposta do /report:', data)
-          
-          // Verificar vários campos possíveis
-          if (typeof data === 'string') {
-            report = data
-          } else {
-            report = data.report || 
-                    data.analysis_report || 
-                    data.result || 
-                    data.content ||
-                    data.data ||
-                    data.markdown ||
-                    data.text
-          }
-        }
-        
-        // Se não encontrou, tentar o endpoint /status
-        if (!report) {
-          console.log('Tentando endpoint /status...')
-          response = await fetch(`${API_URL}/status/${job.id}`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            mode: 'cors',
-            credentials: 'omit'
-          })
-          
-          if (response.ok) {
-            const statusData = await response.json()
-            console.log('Resposta do /status:', statusData)
-            report = statusData.analysis_report || 
-                    statusData.report || 
-                    statusData.result
-          }
-        }
-        
-        // Se encontrou o relatório, atualizar e exibir
-        if (report) {
-          console.log('Relatório encontrado! Tamanho:', report.length, 'caracteres')
-          
-          // Atualizar o job com o relatório
-          const updatedJob = { ...job, analysis_report: report }
-          
-          // Atualizar a lista de jobs
-          setJobs(prev => {
-            const newJobs = prev.map(j => 
-              j.id === job.id ? updatedJob : j
-            )
-            console.log('Jobs atualizados')
-            return newJobs
-          })
-          
-          // Selecionar o job e mostrar o relatório imediatamente
-          setSelectedJob(updatedJob)
-          setShowReport(true)
-          
-          // Forçar re-render (às vezes necessário)
-          setTimeout(() => {
-            setSelectedJob(updatedJob)
-            setShowReport(true)
-          }, 100)
-          
-          // Mostrar notificação de sucesso
-          const successDiv = document.createElement('div')
-          successDiv.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
-          successDiv.innerHTML = '✓ Relatório carregado com sucesso!'
-          document.body.appendChild(successDiv)
-          setTimeout(() => successDiv.remove(), 3000)
-          
-        } else {
-          // Se não encontrou relatório
-          console.error('Nenhum relatório encontrado nas respostas')
-          
-          // Mostrar erro
-          const errorDiv = document.createElement('div')
-          errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
-          errorDiv.innerHTML = '✗ Relatório não encontrado. Tente novamente em alguns segundos.'
-          document.body.appendChild(errorDiv)
-          setTimeout(() => errorDiv.remove(), 4000)
-        }
-      } catch (error) {
-        console.error('Erro ao buscar relatório:', error)
-        
-        // Mostrar erro de conexão
-        const errorDiv = document.createElement('div')
-        errorDiv.className = 'fixed top-20 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg'
-        errorDiv.innerHTML = '✗ Erro de conexão. Verifique o console.'
-        document.body.appendChild(errorDiv)
-        setTimeout(() => errorDiv.remove(), 4000)
-      } finally {
-        // Restaurar botão
-        button.innerHTML = originalContent
-        button.disabled = false
-      }
-    }}
-  >
-    <Eye className="h-3 w-3 mr-1" />
-    Ver Relatório
-  </Button>
-)}
+                                        )}
                                         
-                                        {/* Botões de aprovação apenas se não for modo rápido E se tem relatório para revisar */}
-                                          {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (
-                                            <>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-7 text-xs border-green-200 text-green-600 hover:bg-green-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  setJobToApprove(job)
-                                                  setShowApprovalModal(true)
-                                                }}
-                                              >
-                                                <ThumbsUp className="h-3 w-3 mr-1" />
-                                                Aprovar
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleJobAction(job.id, 'reject')
-                                                }}
-                                              >
-                                                <ThumbsDown className="h-3 w-3 mr-1" />
-                                                Rejeitar
-                                              </Button>
-                                            </>
-                                          )}
+                                        {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && job.analysis_report && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 text-xs border-green-200 text-green-600 hover:bg-green-50"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setJobToApprove(job)
+                                                setShowApprovalModal(true)
+                                              }}
+                                            >
+                                              <ThumbsUp className="h-3 w-3 mr-1" />
+                                              Aprovar
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleJobAction(job.id, 'reject')
+                                              }}
+                                            >
+                                              <ThumbsDown className="h-3 w-3 mr-1" />
+                                              Rejeitar
+                                            </Button>
+                                          </>
+                                        )}
                                         
-                                        {/* Mensagem quando aguardando relatório para aprovar */}
                                         {job.status === 'pending_approval' && !job.gerar_relatorio_apenas && !job.analysis_report && (
                                           <Badge variant="outline" className="text-xs border-orange-200 text-orange-600 bg-orange-50">
                                             <Clock className="h-3 w-3 mr-1" />
@@ -2706,7 +3212,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                           </Badge>
                                         )}
                                         
-                                        {/* Botão para forçar busca do relatório */}
                                         {(job.status === 'generating_report' || job.status === 'pending_approval' || job.progress === 10) && !job.analysis_report && (
                                           <Button
                                             size="sm"
@@ -2715,7 +3220,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                             onClick={async (e) => {
                                               e.stopPropagation()
                                               try {
-                                                // Primeiro tenta buscar do status
                                                 const statusResponse = await fetch(`${API_URL}/status/${job.id}`, {
                                                   method: 'GET',
                                                   headers: { 'Accept': 'application/json' },
@@ -2730,7 +3234,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                                   report = statusData.report || statusData.analysis_report
                                                 }
                                                 
-                                                // Se não encontrou no status, tenta no endpoint de report
                                                 if (!report) {
                                                   const reportResponse = await fetch(`${API_URL}/jobs/${job.id}/report`, {
                                                     method: 'GET',
@@ -2746,7 +3249,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                                 }
                                                 
                                                 if (report) {
-                                                  // Atualiza o job mantendo o status atual
                                                   setJobs(prev => prev.map(j => 
                                                     j.id === job.id 
                                                       ? { ...j, analysis_report: report }
@@ -2779,8 +3281,104 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                         )
                       })}
                     </div>
-                  )}
-                </ScrollArea>
+                  )
+                ) : (
+                  // HISTÓRICO DO PROJETO
+                  !currentProject ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <Folder className="h-12 w-12 mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">Selecione um projeto</p>
+                      <p className="text-sm mt-1">Escolha um projeto para ver o histórico</p>
+                    </div>
+                  ) : loadingHistory ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    </div>
+                  ) : historicalAnalyses.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <Archive className="h-12 w-12 mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">Sem histórico disponível</p>
+                      <p className="text-sm mt-1">Nenhuma análise anterior encontrada para {currentProject.name}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {historicalAnalyses.map((analysis) => {
+                        const analysisType = getAnalysisDetails(analysis.type)
+                        const TypeIcon = analysisType?.icon || FileText
+                        
+                        return (
+                          <Card 
+                            key={analysis.id}
+                            className="border cursor-pointer transition-all duration-200 hover:shadow-lg"
+                            onClick={() => {
+                              const historicalJob: Job = {
+                                id: analysis.id,
+                                status: 'completed',
+                                progress: 100,
+                                message: 'Análise histórica',
+                                analysis_report: analysis.report || `# Relatório Histórico\n\nProjeto: ${currentProject.name}\nData: ${analysis.date}`,
+                                created_at: new Date(),
+                                updated_at: new Date(),
+                                repo_name: currentProject?.name,
+                                analysis_type: analysis.type,
+                                branch_name: 'main'
+                              }
+                              setSelectedJob(historicalJob)
+                              setShowReport(true)
+                            }}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 space-y-3">
+                                  <div className="flex items-center space-x-3">
+                                    <GitBranch className="h-4 w-4 text-gray-400" />
+                                    <span className="font-semibold text-gray-900">
+                                      {currentProject.name}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-3">
+                                    <Badge 
+                                      variant="outline" 
+                                      className="bg-green-50 text-green-600 border-green-200"
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Concluído
+                                    </Badge>
+                                    
+                                    {analysisType && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        <TypeIcon className="h-3 w-3 mr-1" />
+                                        {analysisType.label}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between pt-2">
+                                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                      <Clock className="h-3 w-3" />
+                                      <span>{analysis.date}</span>
+                                    </div>
+                                    
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                    >
+                                      <Eye className="h-4 w-4 mr-1" />
+                                      Ver
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )
+                )}
+              </ScrollArea>
               </CardContent>
             </Card>
 
@@ -3289,6 +3887,82 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                 </CardContent>
               </Card>
             )}
+
+            {/* Modal de Histórico */}
+      {showHistoryModal && (
+        <AnalysisHistoryModal
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          currentProject={currentProject}
+          onSelectAnalysis={async (analysis: any) => {
+            try {
+              // Simular carregamento de análise histórica
+              const historicalJob: Job = {
+                id: analysis.id,
+                status: 'completed',
+                progress: 100,
+                message: 'Análise histórica carregada',
+                analysis_report: `# Relatório Histórico: ${analysis.id}\n\nData: ${analysis.date}\nTipo: ${analysis.type}\n\n## Conteúdo\n\nEste é um relatório histórico recuperado do Azure Blob Storage.`,
+                created_at: new Date(analysis.date),
+                updated_at: new Date(analysis.date),
+                repo_name: currentProject?.name,
+                analysis_type: analysis.type,
+                branch_name: 'main'
+              }
+              
+              setJobs(prev => [historicalJob, ...prev])
+              setSelectedJob(historicalJob)
+              setShowReport(true)
+              setShowHistoryModal(false)
+              
+              // Notificação
+              const badge = document.createElement('div')
+              badge.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
+              badge.innerHTML = `✓ Análise histórica carregada`
+              document.body.appendChild(badge)
+              setTimeout(() => badge.remove(), 3000)
+            } catch (error) {
+              console.error('Erro ao carregar análise:', error)
+            }
+          }}
+        />
+      )}
+            
+            {/* Modal de Seleção de Projeto */}
+      {showProjectModal && (
+        <ProjectSelectionModal
+          isOpen={showProjectModal}
+          onClose={() => setShowProjectModal(false)}
+          projects={projects}
+          onSelect={(project: Project) => {
+            setCurrentProject(project)
+            setShowProjectModal(false)
+            
+            // Notificação
+            const badge = document.createElement('div')
+            badge.className = 'fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg'
+            badge.innerHTML = `✓ Projeto "${project.name}" selecionado`
+            document.body.appendChild(badge)
+            setTimeout(() => badge.remove(), 2000)
+          }}
+          onCreateNew={() => {
+            const name = prompt('Nome do novo projeto:')
+            if (name) {
+              const newProject = {
+                id: name.toLowerCase().replace(/ /g, '_'),
+                name,
+                source: 'local' as const,
+                created: new Date(),
+                lastModified: new Date(),
+                templates: []
+              }
+              setProjects([...projects, newProject])
+              setCurrentProject(newProject)
+              setShowProjectModal(false)
+            }
+          }}
+        />
+      )}
 
             {/* Modal de Aprovação */}
               {showApprovalModal && jobToApprove && (
