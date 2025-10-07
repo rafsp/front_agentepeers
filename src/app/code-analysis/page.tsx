@@ -1321,11 +1321,7 @@ const Sidebar = ({
 export default function TestPage() {
 
 
-  if (status === "loading") {
-  return <div className="min-h-screen flex items-center justify-center">
-    <Loader2 className="h-8 w-8 animate-spin" />
-  </div>
-}
+
 
 
   // Estados principais (mantendo todos os existentes)
@@ -2435,7 +2431,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     <Label className="flex items-center space-x-2">
                       <FileText className="h-4 w-4" />
                       <span>Nome da Análise</span>
-                      <Badge variant="outline" className="text-xs">Opcional</Badge>
+                      <Badge variant="outline" className="text-xs"></Badge>
                     </Label>
                     <Input
                       placeholder="Ex: Análise Frontend v2.0"
@@ -2529,7 +2525,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   <div className="space-y-2">
                     <Label htmlFor="analysis" className="flex items-center space-x-2">
                       <Sparkles className="h-4 w-4 text-gray-500" />
-                      <span>Tipo de Análise</span>
+                      <span>Agente Assistente</span>
                       <span className="text-red-500">*</span>
                     </Label>
                     <Select
@@ -2538,7 +2534,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       required
                     >
                       <SelectTrigger className="border-gray-200">
-                        <SelectValue placeholder="Selecione o tipo de análise" />
+                        <SelectValue placeholder="Selecione o tipo de agente" />
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(analysisCategories).map(([category, items]) => (
@@ -2640,7 +2636,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       <div className="flex items-center space-x-2">
                         <FolderOpen className="h-4 w-4 text-gray-500" />
                         <Label htmlFor="list-files" className="text-sm font-medium">
-                          Agente assistente
+                          Listar arquivos (sem analisar conteúdo)
                         </Label>
                       </div>
                       <Switch
