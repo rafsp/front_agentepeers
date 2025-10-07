@@ -1410,10 +1410,10 @@ const [formData, setFormData] = useState({
   repository_type: 'github', // NOVO
   analysis_name: '', // NOVO
   arquivos_especificos: '', // NOVO
-  retornar_lista_arquivos: false, // NOVO
+  retornar_lista_arquivos: true, // NOVO
   instrucoes_extras: '',
-  usar_rag: false,
-  gerar_relatorio_apenas: true,
+  usar_rag: true,
+  gerar_relatorio_apenas: false,
   model_name: 'gpt-4o'
 })
 
@@ -1556,6 +1556,7 @@ const [selectedHistoryAnalysis, setSelectedHistoryAnalysis] = useState<any>(null
 
 useEffect(() => {
   if (currentProject && activeTab === 'history' && historicalAnalyses.length === 0) {
+    setHistoricalAnalyses([])
     console.log('Carregando histórico automaticamente para:', currentProject.name)
     loadHistoricalAnalyses()
   }
@@ -1734,6 +1735,7 @@ useEffect(() => {
       setShowReport(false)
     }
   } else {
+          setHistoricalAnalyses([])
     // Limpar job histórico ao voltar para recentes
     if (selectedJob && selectedJob.id.startsWith('history_')) {
       setSelectedJob(null)
@@ -2629,9 +2631,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                         }
                       />
                     </div>
-                  </div>
-
-                   {/* NOVO: Retornar Lista de Arquivos */}
+                       {/* NOVO: Retornar Lista de Arquivos */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <FolderOpen className="h-4 w-4 text-gray-500" />
@@ -2649,6 +2649,9 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     </div>
                   {/* Fim das opções avançadas */}
 
+
+                  </div>
+
                   {/* Instruções Extras */}
                   <div className="space-y-2">
                     <Label htmlFor="instructions" className="flex items-center space-x-2">
@@ -2664,6 +2667,8 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       className="border-gray-200 focus:border-blue-400 min-h-[100px] transition-colors"
                     />
                   </div>
+
+                
 
                   {/* Botão Submit */}
                   <Button
@@ -2816,10 +2821,17 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   <div className="flex items-center space-x-6">
                     <button
                       onClick={() => {
+                        setHistoricalAnalyses([])
                           setActiveTab('recent')
+                          
+
                           // Não misturar com histórico
-                          setSelectedJob(null)
-                          setShowReport(false)
+                          if (selectedJob?.id?.startsWith('history_')) {
+                            setHistoricalAnalyses([])
+
+                              setSelectedJob(null)
+                              setShowReport(false)
+                            }
                         }}
                       className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                         activeTab === 'recent'
@@ -2839,6 +2851,13 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     <button
                       onClick={() => {
                         setActiveTab('history')
+
+                          if (selectedJob && !selectedJob.id?.startsWith('history_')) {
+                            setSelectedJob(null)
+                            setHistoricalAnalyses([])
+                            setShowReport(false)
+                          }
+
                         if (currentProject) {
                           setHistoricalAnalyses([]) // Limpa antes de carregar
                           loadHistoricalAnalyses() // Sempre recarrega quando clicar
@@ -2884,7 +2903,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Buscar por repositório ou ID do job..."
+                      placeholder="Buscar por repositório ..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={async (e) => {
@@ -3070,6 +3089,8 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                   : undefined
                               }}
                               onClick={() => {
+                                setHistoricalAnalyses([])
+
                                 setSelectedJob(job)
                                 setShowReport(!!job.analysis_report)
                               }}
@@ -4039,7 +4060,9 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                 branch_name: 'main'
               }
               
-              setJobs(prev => [historicalJob, ...prev])
+              //setJobs(prev => [historicalJob, ...prev])
+               
+               setShowReport(true)
               setSelectedJob(historicalJob)
               setShowReport(true)
               setShowHistoryModal(false)
