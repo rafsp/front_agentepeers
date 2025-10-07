@@ -1,6 +1,4 @@
 "use client"
-
-import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -156,6 +154,29 @@ const BRANCH_LIST = [
   { value: 'staging', label: 'staging' },
   { value: 'custom', label: 'Outra branch...' }
 ]
+
+const fetchGitHubBranches = async (repoPath: string) => {
+  try {
+    // Extrair owner e repo do path
+    const parts = repoPath.split('/')
+    if (parts.length < 2) return []
+    
+    const owner = parts[0]
+    const repo = parts[1]
+    
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches`)
+    if (!response.ok) return []
+    
+    const branches = await response.json()
+    return branches.map((b: any) => ({
+      value: b.name,
+      label: b.name
+    }))
+  } catch (error) {
+    console.error('Erro ao buscar branches:', error)
+    return []
+  }
+}
 
 interface Job {
   id: string
@@ -1298,7 +1319,7 @@ const Sidebar = ({
 }
 
 export default function TestPage() {
-  const { data: session, status } = useSession()
+
 
   if (status === "loading") {
   return <div className="min-h-screen flex items-center justify-center">
@@ -1306,9 +1327,7 @@ export default function TestPage() {
   </div>
 }
 
-if (!session) {
-  redirect('/api/auth/signin')
-}
+
   // Estados principais (mantendo todos os existentes)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
@@ -1329,7 +1348,37 @@ const [selectedRepository, setSelectedRepository] = useState(() =>
   loadFromStorage(STORAGE_KEYS.SELECTED_REPO, '')
 )
 
+const [dynamicBranches, setDynamicBranches] = useState<{value: string, label: string}[]>([])
+const [loadingBranches, setLoadingBranches] = useState(false)
 
+// Buscar branches quando mudar o repositório
+useEffect(() => {
+  const loadBranches = async () => {
+    if (!selectedRepository || selectedRepository === 'custom') {
+      setDynamicBranches([])
+      return
+    }
+    
+    setLoadingBranches(true)
+    const branches = await fetchGitHubBranches(selectedRepository)
+    
+    if (branches.length > 0) {
+      setDynamicBranches(branches)
+      // Se a branch atual não existe, selecionar a primeira
+      const branchExists = branches.find((b: any) => b.value === selectedBranch)
+      if (!branchExists && branches[0]) {
+        setSelectedBranch(branches[0].value)
+      }
+    } else {
+      // Fallback para branches padrão se não conseguir buscar
+      setDynamicBranches(BRANCH_LIST)
+    }
+    
+    setLoadingBranches(false)
+  }
+  
+  loadBranches()
+}, [selectedRepository])
 
 
 const [customRepository, setCustomRepository] = useState('')
@@ -2280,7 +2329,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
 </div>
 
 {/* Botão para ver histórico */}
-{currentProject && (
+{/* {currentProject && (
   <Button
     type="button"
     variant="outline"
@@ -2290,7 +2339,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
     <History className="h-4 w-4 mr-2" />
     Ver Análises Anteriores deste Projeto
   </Button>
-)}
+)} */}
 
   {/* Dropdown de Repositório */}
 <div className="space-y-2">
@@ -2328,36 +2377,58 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
   )}
 </div>
 
-                    {/* Dropdown de Branch */}
-                    <div className="space-y-2">
-                      <Label htmlFor="branch" className="flex items-center space-x-2">
-                        <GitBranch className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
-                        <span>Branch</span>
-                      </Label>
-                      <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BRANCH_LIST.map((branch) => (
+                  {/* Dropdown de Branch */}
+                  <div className="space-y-2">
+                    <Label htmlFor="branch" className="flex items-center space-x-2">
+                      <GitBranch className="h-4 w-4" style={{ color: BRAND_COLORS.secondary }} />
+                      <span>Branch</span>
+                      {loadingBranches && (
+                        <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
+                      )}
+                    </Label>
+                    <Select 
+                      value={selectedBranch} 
+                      onValueChange={setSelectedBranch}
+                      disabled={loadingBranches}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingBranches ? "Carregando branches..." : "Selecione a branch"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dynamicBranches.length > 0 ? (
+                          dynamicBranches.map((branch) => (
                             <SelectItem key={branch.value} value={branch.value}>
                               {branch.label}
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      {/* Input customizado se selecionou "Outra" */}
-                      {selectedBranch === 'custom' && (
-                        <Input
-                          placeholder="Nome da branch"
-                          value={customBranch}
-                          onChange={(e) => setCustomBranch(e.target.value)}
-                          className="mt-2"
-                          style={{ borderColor: BRAND_COLORS.accent }}
-                        />
-                      )}
-                    </div>
+                          ))
+                        ) : (
+                          // Fallback para branches padrão
+                          BRANCH_LIST.map((branch) => (
+                            <SelectItem key={branch.value} value={branch.value}>
+                              {branch.label}
+                            </SelectItem>
+                          ))
+                        )}
+                        <SelectItem value="custom">
+                          <div className="flex items-center gap-2">
+                            <Edit className="h-3 w-3" />
+                            Outra branch...
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* Input customizado se selecionou "Outra" */}
+                    {selectedBranch === 'custom' && (
+                      <Input
+                        placeholder="Nome da branch"
+                        value={customBranch}
+                        onChange={(e) => setCustomBranch(e.target.value)}
+                        className="mt-2"
+                        style={{ borderColor: BRAND_COLORS.accent }}
+                      />
+                    )}
+                  </div>
 
                                       {/* NOVO: Nome da Análise */}
                   <div className="space-y-2">
@@ -2374,7 +2445,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   </div>
 
                   {/* NOVO: Tipo de Repositório */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label className="flex items-center space-x-2">
                       <Database className="h-4 w-4" />
                       <span>Tipo de Repositório</span>
@@ -2392,7 +2463,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                         <SelectItem value="azure">Azure DevOps</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                 {/* Arquivos Específicos com Seletor */}
                 <div className="space-y-2">
@@ -2569,7 +2640,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       <div className="flex items-center space-x-2">
                         <FolderOpen className="h-4 w-4 text-gray-500" />
                         <Label htmlFor="list-files" className="text-sm font-medium">
-                          Listar arquivos (sem analisar conteúdo)
+                          Agente assistente
                         </Label>
                       </div>
                       <Switch
@@ -2616,7 +2687,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
   <>
                         <Rocket className="mr-2 h-5 w-5" />
                         {formData.retornar_lista_arquivos 
-                          ? 'Listar Arquivos' 
+                          ? 'Iniciar Análise' 
                           : formData.gerar_relatorio_apenas 
                           ? 'Gerar Relatório' 
                           : 'Iniciar Análise'}
@@ -2762,7 +2833,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     >
                       <div className="flex items-center space-x-2">
                         <Terminal className="h-4 w-4" />
-                        <span>Análises Recentes</span>
+                        <span>Status da análise atual</span>
                         <Badge variant="secondary" className="ml-1">
                           {filteredJobs.length}
                         </Badge>
@@ -3312,7 +3383,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                                             }}
                                           >
                                             <RefreshCw className="h-3 w-3 mr-1" />
-                                            Buscar Relatório
+                                            Relatório
                                           </Button>
                                         )}
                                       </div>

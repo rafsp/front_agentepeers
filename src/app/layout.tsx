@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { SessionProvider } from "next-auth/react"
+import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -11,17 +11,17 @@ export const metadata: Metadata = {
   description: 'Plataforma inteligente para análise de código com IA multi-agentes',
 }
 
-function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>
-}
-
-// Envolver children com Providers no return
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={inter.className}>
         <Providers>
           {children}
+          <Toaster />
         </Providers>
       </body>
     </html>
