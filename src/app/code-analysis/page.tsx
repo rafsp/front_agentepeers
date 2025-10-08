@@ -93,6 +93,8 @@ import {
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
 const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
+const AZURE_PAT = 'seu-personal-access-token-aqui' // SUBSTITUA PELO SEU TOKEN
+
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
@@ -118,31 +120,36 @@ const REPOSITORY_LIST = [
     value: 'rafsp/front_agentes_peers',
     label: 'Front Agentes PEERS',
     branch: 'main',
-    description: 'Frontend do sistema de agentes'
+    description: 'Frontend do sistema de agentes',
+    type: 'github'
   },
   {
     value: 'rafsp/backend_agent_revisor',
     label: 'Backend Agent Revisor',
     branch: 'main',
-    description: 'API backend dos agentes'
+    description: 'API backend dos agentes',
+    type: 'github'
   },
   {
-    value: 'rafsp/LegadoAnalise/tree/main/SistemaAvaliacao',
+    value: 'peersconsulting/FIOP%20-%20Avaliação%20Desempenho/FIOP-Avaliacao%20Legado',
     label: 'Sistema Peers - Avaliação de Desempenho',
     branch: 'main',
-    description: 'Sistema de avaliação de desempenho'
+    description: 'Sistema de avaliação de desempenho',
+    type: 'azure'
   },
   {
     value: 'LucioFlavioRosa/teste_agent',
     label: 'Sistema POC Porto',
     branch: 'main',
-    description: 'Sistema de análise de código POC Porto'
+    description: 'Sistema de análise de código POC Porto',
+    type: 'github'
   },
   {
     value: 'custom',
     label: 'Outro repositório...',
     branch: '',
-    description: 'Inserir repositório personalizado'
+    description: 'Inserir repositório personalizado',
+    type: 'github'
   }
 ]
 
@@ -152,12 +159,55 @@ const BRANCH_LIST = [
   { value: 'master', label: 'master' },
   { value: 'develop', label: 'develop' },
   { value: 'staging', label: 'staging' },
-  { value: 'custom', label: 'Outra branch...' }
+  { value: 'custom-branch', label: 'Outra branch...' }
 ]
+
+const fetchAzureBranches = async (repoPath: string) => {
+  try {
+    const parts = repoPath.split('/')
+    if (parts.length < 3) return []
+    
+    const organization = parts[0]
+    const project = parts[1].replace(/ /g, '%20')
+    const repository = parts[2].replace(/ /g, '%20')
+    
+    const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repository}/refs?filter=heads&api-version=6.0`
+    
+    // ADICIONAR AUTENTICAÇÃO
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      console.log('Usando branches padrão para Azure')
+      return [
+        { value: 'main', label: 'main' },
+        { value: 'master', label: 'master' },
+        { value: 'develop', label: 'develop' }
+      ]
+    }
+    
+    const data = await response.json()
+    return data.value.map((ref: any) => ({
+      value: ref.name.replace('refs/heads/', ''),
+      label: ref.name.replace('refs/heads/', '')
+    }))
+  } catch (error) {
+    console.error('Erro ao buscar branches do Azure:', error)
+    return [
+      { value: 'main', label: 'main' },
+      { value: 'master', label: 'master' },
+      { value: 'develop', label: 'develop' }
+    ]
+  }
+}
+
 
 const fetchGitHubBranches = async (repoPath: string) => {
   try {
-    // Extrair owner e repo do path
     const parts = repoPath.split('/')
     if (parts.length < 2) return []
     
@@ -1350,27 +1400,31 @@ const [loadingBranches, setLoadingBranches] = useState(false)
 // Buscar branches quando mudar o repositório
 useEffect(() => {
   const loadBranches = async () => {
-    if (!selectedRepository || selectedRepository === 'custom') {
-      setDynamicBranches([])
-      return
-    }
-    
-    setLoadingBranches(true)
-    const branches = await fetchGitHubBranches(selectedRepository)
-    
-    if (branches.length > 0) {
-      setDynamicBranches(branches)
-      // Se a branch atual não existe, selecionar a primeira
-      const branchExists = branches.find((b: any) => b.value === selectedBranch)
-      if (!branchExists && branches[0]) {
-        setSelectedBranch(branches[0].value)
+    if (selectedRepository && selectedRepository !== 'custom') {
+      const repoConfig = REPOSITORY_LIST.find(r => r.value === selectedRepository)
+      
+      if (repoConfig) {
+        let branches = []
+        
+        if (repoConfig.type === 'azure') {
+          branches = await fetchAzureBranches(selectedRepository)
+        } else {
+          branches = await fetchGitHubBranches(selectedRepository)
+        }
+        
+        // Se encontrou branches, atualizar a lista
+        if (branches.length > 0) {
+          // Você pode salvar em um estado se quiser mostrar dinamicamente
+          console.log('Branches encontradas:', branches)
+          
+          // Se a branch atual não está na lista, resetar para main
+          const currentBranchExists = branches.find((b: {value: string; label: string}) => b.value === selectedBranch)
+          if (!currentBranchExists && branches.length > 0) {
+            setSelectedBranch(branches[0].value)
+          }
+        }
       }
-    } else {
-      // Fallback para branches padrão se não conseguir buscar
-      setDynamicBranches(BRANCH_LIST)
     }
-    
-    setLoadingBranches(false)
   }
   
   loadBranches()
@@ -1937,15 +1991,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     setTimeout(() => alertBadge.remove(), 3000)
     return
   }
-  
+
   if (!formData.repo_name || !formData.analysis_type) {
     setErrorMessage('Preencha todos os campos obrigatórios')
     return
   }
 
   // Determinar o repositório e branch finais
+
+  const selectedRepoConfig = REPOSITORY_LIST.find(r => r.value === selectedRepository)
   const finalRepo = selectedRepository === 'custom' ? customRepository : selectedRepository
-  const finalBranch = selectedBranch === 'custom' ? customBranch : selectedBranch
+  const finalBranch = selectedBranch === 'custom-branch' ? customBranch : selectedBranch // ATUALIZAR
+
+
+
 
   setIsSubmitting(true)
   setErrorMessage('')
@@ -1955,7 +2014,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 const requestPayload = {
       repo_name_modernizado: finalRepo,
       branch_name_modernizado: finalBranch,
-      repository_type: formData.repository_type || "github",  // ← USA O CAMPO DO FORM
+      repository_type: selectedRepoConfig?.type || formData.repository_type || 'github', // PEGAR O TIPO DO REPO SELECIONADO
       projeto: currentProject.id, // USA O PROJETO SELECIONADO
       analysis_name: formData.analysis_name || `${currentProject.name} - ${new Date().toLocaleDateString()}`,
       usuario_executor: userName, 
@@ -2513,7 +2572,6 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     isOpen={showFilePicker}
                     onClose={() => setShowFilePicker(false)}
                     onSelect={(files) => {
-                      console.log('Arquivos selecionados:', files)
                       setFormData(prev => ({
                         ...prev,
                         arquivos_especificos: files.join('\n')
@@ -2521,6 +2579,9 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     }}
                     repository={selectedRepository === 'custom' ? customRepository : selectedRepository}
                     branch={selectedBranch === 'custom' ? customBranch : selectedBranch}
+                    type={
+                          (REPOSITORY_LIST.find(r => r.value === selectedRepository)?.type || 'github') as 'github' | 'azure'
+                    }
                   />
 
                   {/* Tipo de Análise */}
@@ -3039,7 +3100,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Terminal className="h-5 w-5" style={{ color: BRAND_COLORS.secondary }} />
-                      <span>{activeTab === 'recent' ? 'Análises Recentes' : 'Histórico do Projeto'}</span>
+                      <span>{activeTab === 'recent' ? 'Análises Atuais' : 'Histórico do Projeto'}</span>
                     </div>
                   <Badge 
                     variant="secondary" 

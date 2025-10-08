@@ -31,6 +31,7 @@ interface GitHubFilePickerProps {
   onSelect: (files: string[]) => void
   repository: string
   branch: string
+  type?: 'github' | 'azure' // ADICIONAR
 }
 
 export function GitHubFilePicker({ 
@@ -130,6 +131,46 @@ export function GitHubFilePicker({
       setLoading(false)
     }
   }
+
+  const AZURE_PAT = 'seu-personal-access-token-aqui' // SUBSTITUA PELO SEU TOKEN
+
+
+  // Dentro do componente, adicionar função para buscar arquivos do Azure
+const fetchAzureFiles = async (path: string = '') => {
+  try {
+    const parts = repository.split('/')
+    const organization = parts[0]
+    const project = parts[1].replace(/ /g, '%20')
+    const repoName = parts[2].replace(/ /g, '%20')
+    
+    const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repoName}/items?recursionLevel=Full&versionDescriptor.version=${branch}&api-version=6.0`
+    
+    // ADICIONAR AUTENTICAÇÃO
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      console.error('Erro ao buscar arquivos do Azure')
+      return []
+    }
+    
+    const data = await response.json()
+    return data.value
+      .filter((item: any) => !item.isFolder)
+      .map((item: any) => ({
+        path: item.path.startsWith('/') ? item.path.substring(1) : item.path,
+        name: item.path.split('/').pop(),
+        type: 'file'
+      }))
+  } catch (error) {
+    console.error('Erro ao buscar arquivos do Azure:', error)
+    return []
+  }
+}
 
   // Alternar seleção de arquivo
   const toggleFileSelection = (path: string) => {
