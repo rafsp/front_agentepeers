@@ -119,7 +119,7 @@ const REPOSITORY_LIST = [
     value: 'rafsp/front_agentes_peers',
     label: 'Front Agentes PEERS',
     branch: 'main',
-    description: 'Frontend do sistema de agentes',
+    description: 'Frontend sistema de agentes',
     type: 'github'
   },
   {
