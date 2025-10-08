@@ -31,15 +31,16 @@ interface GitHubFilePickerProps {
   onSelect: (files: string[]) => void
   repository: string
   branch: string
-  type?: 'github' | 'azure' // ADICIONAR
+  type?: string  // ADICIONAR
 }
 
 export function GitHubFilePicker({ 
   isOpen, 
   onClose, 
   onSelect, 
-  repository, 
-  branch 
+  repository,
+  branch,
+  type 
 }: GitHubFilePickerProps) {
   const [files, setFiles] = useState<GitHubFile[]>([])
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
@@ -52,7 +53,15 @@ export function GitHubFilePicker({
   // Buscar estrutura de arquivos do GitHub
   useEffect(() => {
     if (isOpen && repository && branch) {
-      fetchGitHubFiles()
+      if(type === 'azure')
+      {
+
+          fetchAzureFiles();
+      }
+      else
+      {
+        fetchGitHubFiles()
+      }
     }
   }, [isOpen, repository, branch])
 
@@ -132,42 +141,68 @@ export function GitHubFilePicker({
     }
   }
 
-  const AZURE_PAT = 'seu-personal-access-token-aqui' // SUBSTITUA PELO SEU TOKEN
+  const AZURE_PAT = 'BT3PJ864DfM50NQsV9AfP2s5rlN1vXd1jmpiMey5SocpLNsHICGyJQQJ99BJACAAAAAyS9tVAAASAZDO20q4' // SUBSTITUA PELO SEU TOKEN
 
 
   // Dentro do componente, adicionar função para buscar arquivos do Azure
 const fetchAzureFiles = async (path: string = '') => {
   try {
     const parts = repository.split('/')
+    if (parts.length < 3) {
+      console.error('Formato inválido do repositório Azure:', repository)
+      return []
+    }
+    
     const organization = parts[0]
-    const project = parts[1].replace(/ /g, '%20')
-    const repoName = parts[2].replace(/ /g, '%20')
+    const project = encodeURIComponent(parts[1])
+    const repoName = encodeURIComponent(parts[2])
     
     const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repoName}/items?recursionLevel=Full&versionDescriptor.version=${branch}&api-version=6.0`
     
-    // ADICIONAR AUTENTICAÇÃO
+    console.log('Buscando arquivos Azure de:', url)
+    
     const response = await fetch(url, {
       headers: {
         'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
         'Content-Type': 'application/json'
       }
     })
-    
+
     if (!response.ok) {
-      console.error('Erro ao buscar arquivos do Azure')
+      console.error('Erro na resposta do Azure:', response.status)
       return []
     }
     
     const data = await response.json()
-    return data.value
+    console.log('Dados recebidos do Azure:', data)
+    
+    if (!data.value) {
+      console.error('Resposta do Azure não contém "value"')
+      return []
+    }
+
+
+    
+    // Formatar os arquivos no mesmo formato que o GitHub
+    const formattedFiles = data.value
       .filter((item: any) => !item.isFolder)
       .map((item: any) => ({
         path: item.path.startsWith('/') ? item.path.substring(1) : item.path,
-        name: item.path.split('/').pop(),
-        type: 'file'
+        type: 'file',  // Importante: deve ser 'file' não 'dir'
+        size: item.size || 0,
+        sha: item.objectId,
+        url: item.url,
+        name: item.path.split('/').pop()
       }))
+    
+    console.log(`Formatados ${formattedFiles.length} arquivos do Azure`)
+    
+    // IMPORTANTE: Retornar os arquivos formatados
+    setFiles(formattedFiles)  // Setar diretamente aqui
+    return formattedFiles
+    
   } catch (error) {
-    console.error('Erro ao buscar arquivos do Azure:', error)
+    console.error('Erro ao buscar arquivos do Azure Repos:', error)
     return []
   }
 }
