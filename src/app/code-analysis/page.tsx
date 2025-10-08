@@ -93,7 +93,7 @@ import {
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
 const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
-const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT1' // SUBSTITUA PELO SEU TOKEN
+const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT' // SUBSTITUA PELO SEU TOKEN
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
