@@ -54,7 +54,7 @@ export function GitHubFilePicker({
   useEffect(() => {
     if (isOpen && repository && branch) {
 
-      alert(type)
+      //alert(type)
       if(type === 'azure')
       {
 
