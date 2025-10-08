@@ -53,6 +53,8 @@ export function GitHubFilePicker({
   // Buscar estrutura de arquivos do GitHub
   useEffect(() => {
     if (isOpen && repository && branch) {
+
+      alert(type)
       if(type === 'azure')
       {
 
@@ -141,7 +143,7 @@ export function GitHubFilePicker({
     }
   }
 
-  const AZURE_PAT = 'BT3PJ864DfM50NQsV9AfP2s5rlN1vXd1jmpiMey5SocpLNsHICGyJQQJ99BJACAAAAAyS9tVAAASAZDO20q4' // SUBSTITUA PELO SEU TOKEN
+  const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT' // SUBSTITUA PELO SEU TOKEN
 
 
   // Dentro do componente, adicionar função para buscar arquivos do Azure
@@ -157,7 +159,14 @@ const fetchAzureFiles = async (path: string = '') => {
     const project = encodeURIComponent(parts[1])
     const repoName = encodeURIComponent(parts[2])
     
-    const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repoName}/items?recursionLevel=Full&versionDescriptor.version=${branch}&api-version=6.0`
+    const baseUrl = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repoName}/items`
+        const params = new URLSearchParams({
+          'recursionLevel': 'Full',
+          'versionDescriptor.version': branch,
+          'api-version': '6.0'
+        })
+        
+        const url = `${baseUrl}?${params.toString()}`
     
     console.log('Buscando arquivos Azure de:', url)
     

@@ -93,7 +93,7 @@ import {
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
 const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
-const AZURE_PAT = 'BT3PJ864DfM50NQsV9AfP2s5rlN1vXd1jmpiMey5SocpLNsHICGyJQQJ99BJACAAAAAyS9tVAAASAZDO20q4' // SUBSTITUA PELO SEU TOKEN
+const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT' // SUBSTITUA PELO SEU TOKEN
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
@@ -136,6 +136,13 @@ const REPOSITORY_LIST = [
     description: 'Sistema de avaliação de desempenho',
     type: 'azure'
   },
+    {
+    value: 'lucioefei/teste_poc_agente/teste_poc_agente',
+    label: 'Sistema Peers - Avaliação de Desempenho - Lucio',
+    branch: 'main',
+    description: 'Sistema de avaliação de desempenho - Lucio',
+    type: 'azure'
+  },
   {
     value: 'LucioFlavioRosa/teste_agent',
     label: 'Sistema POC Porto',
@@ -158,7 +165,7 @@ const BRANCH_LIST = [
   { value: 'master', label: 'master' },
   { value: 'develop', label: 'develop' },
   { value: 'staging', label: 'staging' },
-  { value: 'custom', label: 'Outra branch...' }
+  { value: 'custom-', label: 'Outra branch...' }
 ]
 
 
@@ -189,6 +196,8 @@ const fetchAzureBranches = async (repoPath: string) => {
         { value: 'develop', label: 'develop' }
       ]
     }
+
+
     
     const data = await response.json()
     return data.value.map((ref: any) => ({
@@ -213,10 +222,11 @@ const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github'
     
     const owner = parts_[0]
     const repo = parts_[1]
-    
+    //alert(repoType);
     if(repoType === 'azure')
     {
           try {
+        
               const parts = repoPath.split('/')
               if (parts.length < 3) return []
               
@@ -226,14 +236,23 @@ const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github'
               
               const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repository}/refs?filter=heads&api-version=6.0`
               
-              // ADICIONAR AUTENTICAÇÃO
+              alert(`Basic ${btoa(`:${AZURE_PAT}`)}`);
+
               const response = await fetch(url, {
                 headers: {
-                  'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
-                  'Content-Type': 'application/json'
-                }
+                 'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
+                 'Content-Type': 'application/json'
+               }
               })
-              
+              // ADICIONAR AUTENTICAÇÃO
+            //   const response = await fetch(url) //, {
+            //     headers: {
+            //   //    'Authorization': `Basic ${btoa(`:${AZURE_PAT}`)}`,
+            //  //     'Content-Type': 'application/json'
+            //   //  }
+            //   })
+
+              console.log(response);              
               if (!response.ok) {
                 console.log('Usando branches padrão para Azure')
                 return [
@@ -242,7 +261,7 @@ const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github'
                   { value: 'develop', label: 'develop' }
                 ]
               }
-              
+              //alert('teste;')
               const data = await response.json()
               return data.value.map((ref: any) => ({
                 value: ref.name.replace('refs/heads/', ''),
@@ -261,8 +280,8 @@ const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github'
     {
       //alert(repoType);
     }
-    
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches`)
+    
     if (!response.ok) return []
     
     const branches = await response.json()
@@ -1463,7 +1482,6 @@ useEffect(() => {
       const branchExists = branches.find((b: any) => b.value === selectedBranch)
       if (!branchExists && branches[0]) {
         setSelectedBranch(branches[0].value)
-        setSelectedBranch(branches[0].type)
       }
     } else {
       // Fallback para branches padrão se não conseguir buscar
@@ -2056,6 +2074,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   const selectedRepoConfig = REPOSITORY_LIST.find(r => r.value === selectedRepository)
   const repoType = selectedRepoConfig?.type || formData.repository_type || 'github'
 
+ // alert(selectedRepoConfig?.type)
   setIsSubmitting(true)
   setErrorMessage('')
   
@@ -2064,20 +2083,27 @@ const handleSubmit = async (e: React.FormEvent) => {
 const requestPayload = {
       repo_name_modernizado: finalRepo,
       branch_name_modernizado: finalBranch,
-      repository_type: formData.repository_type || "github",  // ← USA O CAMPO DO FORM
-      projeto: currentProject.id, // USA O PROJETO SELECIONADO
-      analysis_name: formData.analysis_name || `${currentProject.name} - ${new Date().toLocaleDateString()}`,
-      usuario_executor: userName, 
       analysis_type: formData.analysis_type,
       instrucoes_extras: formData.instrucoes_extras || '',
-      usar_rag: formData.usar_rag,
-      gerar_relatorio_apenas: formData.gerar_relatorio_apenas,
-      retornar_lista_arquivos: formData.retornar_lista_arquivos || false,  // ← NOVO
-      model_name: formData.model_name || 'gpt-4o',
       arquivos_especificos: formData.arquivos_especificos  // ← CONVERTE STRING PARA ARRAY
         ? formData.arquivos_especificos.split('\n').filter(f => f.trim())
-        : []
+        : [],
+      projeto: currentProject.id, // USA O PROJETO SELECIONADO
+      usar_rag: formData.usar_rag,
+      gerar_novo_relatorio: !formData.usar_rag,
+      repository_type: selectedRepoConfig?.type || "github",  // ← USA O CAMPO DO FORM
+      analysis_name: formData.analysis_name || `${currentProject.name} - ${new Date().toLocaleDateString()}`,
+      gerar_relatorio_apenas: formData.gerar_relatorio_apenas,
+      retornar_lista_arquivos: formData.retornar_lista_arquivos || false,
+      modo_adicao_incremental: formData.retornar_lista_arquivos,
+      usuario_executor: userName
+
+        // ← NOVO
+     // model_name: formData.model_name || 'gpt-4o',
+
     }
+
+    console.log(requestPayload);
 
     const response = await fetch(`${API_URL}/start-analysis`, {
       method: 'POST',
