@@ -93,7 +93,7 @@ import {
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
 const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
-const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT' // SUBSTITUA PELO SEU TOKEN
+const AZURE_PAT = process.env.NEXT_PUBLIC_AZURE_PAT || ''
 
 // Cores da marca PEERS
 const BRAND_COLORS = {
@@ -137,10 +137,17 @@ const REPOSITORY_LIST = [
     type: 'azure'
   },
     {
-    value: 'lucioefei/teste_poc_agente/teste_poc_agente',
-    label: 'Sistema Peers - Avaliação de Desempenho - Lucio',
+    value: 'peersconsulting/AvaliacaoDesempenho/AvaliacaoLegado',
+    label: 'Sistema Peers - Avaliação de Desempenho Legado - Lucio',
     branch: 'main',
-    description: 'Sistema de avaliação de desempenho - Lucio',
+    description: 'Sistema de avaliação de desempenho Legado - Lucio',
+    type: 'azure'
+  },
+      {
+    value: 'peersconsulting/AvaliacaoDesempenho/AvaliacaoNET9',
+    label: 'Sistema Peers - Avaliação de Desempenho - Avaliacao .NET 9',
+    branch: 'main',
+    description: 'Sistema de avaliação de desempenho - Avaliacao .NET 9',
     type: 'azure'
   },
   {
@@ -167,6 +174,8 @@ const BRANCH_LIST = [
   { value: 'staging', label: 'staging' },
   { value: 'custom-', label: 'Outra branch...' }
 ]
+
+
 
 
 const fetchAzureBranches = async (repoPath: string) => {
@@ -216,6 +225,7 @@ const fetchAzureBranches = async (repoPath: string) => {
 
 const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github') => {
   try {
+
     // Extrair owner e repo do path
     const parts_ = repoPath.split('/')
     if (parts_.length < 2) return []
@@ -236,7 +246,7 @@ const fetchGitHubBranches = async (repoPath: string, repoType: string = 'github'
               
               const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repository}/refs?filter=heads&api-version=6.0`
               
-              alert(`Basic ${btoa(`:${AZURE_PAT}`)}`);
+              //alert(`Basic ${btoa(`:${AZURE_PAT}`)}`);
 
               const response = await fetch(url, {
                 headers: {
@@ -1439,7 +1449,10 @@ export default function TestPage() {
 
 
 
+   const AZURE_PAT = process.env.AZURE_PAT;
+     console.log('AZURE_PAT:', AZURE_PAT);
 
+  //alert(AZURE_PAT)
 
   // Estados principais (mantendo todos os existentes)
   const [isSubmitting, setIsSubmitting] = useState(false)

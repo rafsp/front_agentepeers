@@ -142,8 +142,7 @@ export function GitHubFilePicker({
       setLoading(false)
     }
   }
-
-  const AZURE_PAT = 'Bck34wQuazfZ2nTzQ84Njlo1lOZP3giVYZcgBNLxXfgZjeFtc9w6JQQJ99BJACAAAAAAAAAAAAASAZDO3BwT' // SUBSTITUA PELO SEU TOKEN
+const AZURE_PAT = process.env.NEXT_PUBLIC_AZURE_PAT || ''
 
 
   // Dentro do componente, adicionar função para buscar arquivos do Azure
