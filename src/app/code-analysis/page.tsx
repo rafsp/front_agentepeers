@@ -145,9 +145,9 @@ const REPOSITORY_LIST = [
   },
       {
     value: 'peersconsulting/AvaliacaoDesempenho/AvaliacaoNET9',
-    label: 'Peers - Avaliação de Desempenho - Avaliacao .NET 9',
+    label: 'Peers - Avaliação de Desempenho - Avali. .NET9',
     branch: 'main',
-    description: 'Sis. de avali. de desem. - Avaliacao .NET 9',
+    description: 'Sis. de avali. de desem. - Avali .NET9',
     type: 'azure'
   },
   {
