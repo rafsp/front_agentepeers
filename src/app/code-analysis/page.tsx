@@ -410,6 +410,13 @@ const analysisCategories = {
       color: 'green' 
     },
     {
+      value: 'suporte_dot_net',
+      label: 'Suporte ao .NET',
+      icon: Code,
+      description: 'Suporte ao desenvolvedor .net',
+      color: 'blue'
+    },
+    {
       value: 'relatorio_implentacao_feature_azure',
       label: 'Implementação Azure',
       icon: Cloud,
@@ -420,7 +427,7 @@ const analysisCategories = {
       value: 'relatorio_modernizacao_asp_net',
       label: 'Modernização ASP.NET',
       icon: Layers,
-      description: 'Migração para ASP.NET Core 8',
+      description: 'Migração para ASP.NET Core 9',
       color: 'indigo'
     },
     {
