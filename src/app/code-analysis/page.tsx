@@ -138,16 +138,16 @@ const REPOSITORY_LIST = [
   },
     {
     value: 'peersconsulting/AvaliacaoDesempenho/AvaliacaoLegado',
-    label: 'Sistema Peers - Avaliação de Desempenho Legado - Lucio',
+    label: 'Peers - Avaliação de Desempenho Legado - Lucio',
     branch: 'main',
-    description: 'Sistema de avaliação de desempenho Legado - Lucio',
+    description: 'Sis. de avali. de desempenho Legado',
     type: 'azure'
   },
       {
     value: 'peersconsulting/AvaliacaoDesempenho/AvaliacaoNET9',
-    label: 'Sistema Peers - Avaliação de Desempenho - Avaliacao .NET 9',
+    label: 'Peers - Avaliação de Desempenho - Avaliacao .NET 9',
     branch: 'main',
-    description: 'Sistema de avaliação de desempenho - Avaliacao .NET 9',
+    description: 'Sis. de avali. de desem. - Avaliacao .NET 9',
     type: 'azure'
   },
   {
