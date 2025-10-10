@@ -44,6 +44,8 @@ jobs:
           api_location: "" # Api source code path - optional
           output_location: ".next" # Built app content directory - optional
           github_id_token: ${{ steps.idtoken.outputs.result }}
+        env:
+              NEXT_PUBLIC_AZURE_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
@@ -56,4 +58,5 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
+
 
