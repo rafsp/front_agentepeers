@@ -803,41 +803,23 @@ const AnalysisHistoryModal = ({
     setLoading(true)
     
     // Verificar cache primeiro
-    const cacheKey = `analyses_${currentProject?.id}`
-    const cached = localStorage.getItem(cacheKey)
+    //const cacheKey = `analyses_${currentProject?.id}`
+    //const cached = localStorage.getItem(cacheKey)
     
-    if (cached) {
-      const parsedCache = JSON.parse(cached)
-      if (Date.now() - parsedCache.timestamp < 300000) { // 5 minutos de cache
-        setAnalyses(parsedCache.data)
-        setLoading(false)
-        return
-      }
-    }
+    // if (cached) {
+    //   const parsedCache = JSON.parse(cached)
+    //   if (Date.now() - parsedCache.timestamp < 300000) { // 5 minutos de cache
+    //     setAnalyses(parsedCache.data)
+    //     setLoading(false)
+    //     return
+    //   }
+    // }
     
     try {
       // Simular estrutura baseada no que vimos no Azure
-      const mockAnalyses = [
-        // Dados do projeto atual
-        ...(currentProject?.id === 'projeto_front' ? [
-          { id: 'Analise_Geral-1', date: '05/10/2025 14:18:38', type: 'relatorio_documentacao', size: '1.37 KB' },
-          { id: 'Analise_Geral', date: '05/10/2025 14:18:38', type: 'relatorio_documentacao', size: '1.37 KB' },
-          { id: 'Projeto Front - 05_10_2025-1', date: '05/10/2025 15:24:36', type: 'relatorio_teste_unitario', size: '2.33 KB' },
-        ] : []),
-        ...(currentProject?.id === 'teste_agente_tabela' ? [
-          { id: 'teste_tabela-1', date: '08/09/2025 17:52:08', type: 'relatorio_cleancode', size: '2.28 KB' },
-          { id: 'teste_tabela-10', date: '11/09/2025 01:03:26', type: 'relatorio_cleancode', size: '2.55 KB' },
-          { id: 'teste_tabela-11', date: '11/09/2025 01:04:56', type: 'relatorio_cleancode', size: '2.47 KB' },
-        ] : []),
-      ]
+   
       
-      setAnalyses(mockAnalyses)
-      
-      // Salvar no cache
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data: mockAnalyses,
-        timestamp: Date.now()
-      }))
+
     } catch (error) {
       console.error('Erro ao carregar histórico:', error)
     } finally {
@@ -1547,266 +1529,19 @@ const Sidebar = ({
 // Modal de Aprovação com Instruções Extras
 const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
   const [instrucoes, setInstrucoes] = useState('')
-  const [showFullReport, setShowFullReport] = useState(false)
   
   if (!job) return null
 
   const handleApprove = () => {
     onApprove(job.id, 'approve', instrucoes)
-    setShowFullReport(true)
+    onClose()
   }
 
-  // Se aprovado e deve mostrar relatório completo
-  if (showFullReport) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-        <div className="relative bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-          {/* Header com status de aprovado */}
-          <div className="p-6 border-b" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primary }}>
-                  Relatório Aprovado
-                </h2>
-                <Badge 
-                  className="ml-2"
-                  style={{ 
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: 'white'
-                  }}
-                >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Aprovado com Sucesso
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const blob = new Blob([job.analysis_report!], { type: 'text/markdown' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `analise-aprovada-${job.id}.md`
-                    a.click()
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Exportar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={onClose}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Conteúdo do Relatório com Scroll - IGUAL ao Ver Relatório */}
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-[calc(95vh-120px)]">
-              <div className="p-6">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    // COPIAR TODOS OS COMPONENTES DO RELATÓRIO PRINCIPAL
-                    h1: ({children}) => (
-                      <h1 className="text-2xl font-bold mb-4 mt-6 pb-2 border-b-2"
-                          style={{ 
-                            color: BRAND_COLORS.primary,
-                            borderColor: BRAND_COLORS.secondary 
-                          }}>
-                        {children}
-                      </h1>
-                    ),
-                    h2: ({children}) => (
-                      <h2 className="text-xl font-bold mb-3 mt-5 flex items-center gap-2">
-                        <div className="w-1 h-6 rounded" 
-                            style={{ background: BRAND_COLORS.secondary }}/>
-                        <span style={{ color: BRAND_COLORS.primary }}>{children}</span>
-                      </h2>
-                    ),
-                    h3: ({children}) => (
-                      <h3 className="text-lg font-semibold mb-2 mt-4"
-                          style={{ color: BRAND_COLORS.primary }}>
-                        {children}
-                      </h3>
-                    ),
-                    p: ({children}) => (
-                      <p className="mb-4 text-gray-700 leading-relaxed">
-                        {children}
-                      </p>
-                    ),
-                    // TABELA IDÊNTICA AO RELATÓRIO PRINCIPAL
-                    table: ({children}) => (
-                      <div className="my-6 w-full" style={{ overflowX: 'auto' }}>
-                        <table className="w-full" style={{ 
-                          minWidth: '1000px',
-                          tableLayout: 'fixed'
-                        }}>
-                          {children}
-                        </table>
-                      </div>
-                    ),
-                    thead: ({children}) => (
-                      <thead style={{ 
-                        background: `linear-gradient(135deg, ${BRAND_COLORS.primary} 0%, #022558 100%)` 
-                      }}>
-                        {children}
-                      </thead>
-                    ),
-                    th: ({children}) => (
-                      <th className="px-4 py-3 text-left text-white font-semibold text-sm border-b-2"
-                          style={{ 
-                            borderColor: BRAND_COLORS.secondary,
-                            minWidth: '250px',
-                            maxWidth: '500px',
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word'
-                          }}>
-                        {children}
-                      </th>
-                    ),
-                    tbody: ({children}) => (
-                      <tbody className="bg-white">
-                        {children}
-                      </tbody>
-                    ),
-                    tr: ({children}) => (
-                      <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100">
-                        {children}
-                      </tr>
-                    ),
-                    td: ({children}) => (
-                      <td className="px-4 py-3 text-sm text-gray-700"
-                          style={{
-                            minWidth: '250px',
-                            maxWidth: '500px',
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            wordWrap: 'break-word'
-                          }}>
-                        {children}
-                      </td>
-                    ),
-                    ul: ({children}) => (
-                      <ul className="mb-4 ml-6 space-y-2">
-                        {children}
-                      </ul>
-                    ),
-                    ol: ({children}) => (
-                      <ol className="mb-4 ml-6 space-y-2">
-                        {children}
-                      </ol>
-                    ),
-                    li: ({children}) => (
-                      <li className="text-gray-700 leading-relaxed flex items-start">
-                        <span className="mr-2 mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ background: BRAND_COLORS.secondary }}/>
-                        <span>{children}</span>
-                      </li>
-                    ),
-                    code: ({className, children}) => {
-                      const match = /language-(\w+)/.exec(className || '')
-                      const isInline = !className
-                      
-                      if (!isInline && match) {
-                        return (
-                          <div className="relative my-4">
-                            <div className="absolute top-0 right-0 px-2 py-1 text-xs font-mono rounded-bl"
-                                style={{ 
-                                  background: BRAND_COLORS.secondary,
-                                  color: BRAND_COLORS.primary 
-                                }}>
-                              {match[1]}
-                            </div>
-                            <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-                              <code className="text-sm font-mono">
-                                {children}
-                              </code>
-                            </pre>
-                          </div>
-                        )
-                      }
-                      
-                      if (!isInline) {
-                        return (
-                          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 border-l-4"
-                              style={{ borderColor: BRAND_COLORS.secondary }}>
-                            <code className="text-sm font-mono">
-                              {children}
-                            </code>
-                          </pre>
-                        )
-                      }
-                      
-                      return (
-                        <code className="px-2 py-0.5 rounded text-sm font-mono mx-1"
-                              style={{ 
-                                background: `${BRAND_COLORS.secondary}20`,
-                                color: BRAND_COLORS.primary,
-                                border: `1px solid ${BRAND_COLORS.secondary}50`
-                              }}>
-                          {children}
-                        </code>
-                      )
-                    },
-                    blockquote: ({children}) => (
-                      <blockquote className="border-l-4 pl-4 my-4 italic"
-                                style={{ 
-                                  borderColor: BRAND_COLORS.secondary,
-                                  background: `${BRAND_COLORS.secondary}05`
-                                }}>
-                        <p className="text-gray-600">{children}</p>
-                      </blockquote>
-                    ),
-                    a: ({href, children}) => (
-                      <a href={href} 
-                        className="font-medium hover:underline"
-                        style={{ color: BRAND_COLORS.primary }}
-                        target="_blank" 
-                        rel="noopener noreferrer">
-                        {children}
-                      </a>
-                    ),
-                    hr: () => (
-                      <hr className="my-6 border-t-2" 
-                          style={{ borderColor: `${BRAND_COLORS.secondary}50` }}/>
-                    ),
-                    strong: ({children}) => (
-                      <strong className="font-bold" 
-                              style={{ color: BRAND_COLORS.primary }}>
-                        {children}
-                      </strong>
-                    ),
-                    em: ({children}) => (
-                      <em className="italic text-gray-600">
-                        {children}
-                      </em>
-                    ),
-                    img: ({src, alt}) => (
-                      <img src={src} 
-                          alt={alt} 
-                          className="rounded-lg shadow-md my-4 max-w-full h-auto"/>
-                    )
-                  }}
-                >
-                  {job.analysis_report || 'Processando análise...'}
-                </ReactMarkdown>
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-      </div>
-    )
+  const handleReject = () => {
+    onReject(job.id, 'reject')
+    onClose()
   }
 
-  // MODAL INICIAL DE APROVAÇÃO (antes de aprovar)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
@@ -1818,12 +1553,10 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
           <p className="text-gray-600 mt-1">Revise o relatório antes de prosseguir com as mudanças</p>
         </div>
         
-        {/* AQUI - RENDERIZAR O RELATÓRIO COM MARKDOWN AO INVÉS DE PRE/CODE */}
         <ScrollArea className="h-[50vh] p-6">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              // Versão simplificada para o modal de aprovação
               table: ({children}) => (
                 <div className="my-4 w-full overflow-x-auto">
                   <table className="w-full min-w-full border-collapse">
@@ -1854,24 +1587,72 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
                   {children}
                 </tr>
               ),
+              tbody: ({children}) => (
+                <tbody className="bg-white">
+                  {children}
+                </tbody>
+              ),
               p: ({children}) => (
                 <p className="mb-3 text-sm text-gray-700">
                   {children}
                 </p>
+              ),
+              h1: ({children}) => (
+                <h1 className="text-xl font-bold mb-3 mt-4" style={{ color: BRAND_COLORS.primary }}>
+                  {children}
+                </h1>
               ),
               h2: ({children}) => (
                 <h2 className="text-lg font-bold mb-2 mt-4" style={{ color: BRAND_COLORS.primary }}>
                   {children}
                 </h2>
               ),
-              code: ({children}) => (
-                <code className="px-1 py-0.5 rounded text-xs font-mono mx-1"
-                      style={{ 
-                        background: `${BRAND_COLORS.secondary}20`,
-                        color: BRAND_COLORS.primary
-                      }}>
+              h3: ({children}) => (
+                <h3 className="text-base font-semibold mb-2 mt-3" style={{ color: BRAND_COLORS.primary }}>
                   {children}
-                </code>
+                </h3>
+              ),
+              ul: ({children}) => (
+                <ul className="mb-3 ml-4 space-y-1">
+                  {children}
+                </ul>
+              ),
+              li: ({children}) => (
+                <li className="text-sm text-gray-700 flex items-start">
+                  <span className="mr-2 mt-1">•</span>
+                  <span>{children}</span>
+                </li>
+              ),
+              code: ({className, children}) => {
+                const isInline = !className
+                if (isInline) {
+                  return (
+                    <code className="px-1 py-0.5 rounded text-xs font-mono mx-1"
+                          style={{ 
+                            background: `${BRAND_COLORS.secondary}20`,
+                            color: BRAND_COLORS.primary
+                          }}>
+                      {children}
+                    </code>
+                  )
+                }
+                return (
+                  <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto my-3">
+                    <code className="text-xs font-mono">
+                      {children}
+                    </code>
+                  </pre>
+                )
+              },
+              strong: ({children}) => (
+                <strong className="font-bold" style={{ color: BRAND_COLORS.primary }}>
+                  {children}
+                </strong>
+              ),
+              em: ({children}) => (
+                <em className="italic text-gray-600">
+                  {children}
+                </em>
               )
             }}
           >
@@ -1879,7 +1660,6 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
           </ReactMarkdown>
         </ScrollArea>
         
-        {/* Campo de Instruções Extras */}
         <div className="p-6 border-t bg-gray-50">
           <Label htmlFor="instrucoes" className="text-sm font-medium mb-2 flex items-center">
             <FileText className="h-4 w-4 mr-2" />
@@ -1904,10 +1684,7 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
           <Button 
             variant="outline" 
             className="border-red-200 text-red-600 hover:bg-red-50"
-            onClick={() => {
-              onReject(job.id, 'reject')
-              onClose()
-            }}
+            onClick={handleReject}
           >
             <XCircle className="h-4 w-4 mr-2" />
             Rejeitar
@@ -2051,7 +1828,16 @@ const [userName, setUserName] = useState(() => {
 const loadHistoricalAnalyses = async () => {
   if (!currentProject) return
   
+  // ADICIONE ESTA VERIFICAÇÃO
+  if (activeTab !== 'history') {
+    console.log('Não carregando histórico - não está na aba history')
+    return
+  }
+  
   setLoadingHistory(true)
+
+
+
   
   try {
     const projectId = currentProject.id
@@ -2143,16 +1929,16 @@ const loadHistoricalAnalyses = async () => {
     console.error('Erro ao carregar histórico do Azure Blob:', error)
     
     // Tentar carregar do cache se falhar
-    const cacheKey = `analyses_${currentProject.id}`
-    const cached = localStorage.getItem(cacheKey)
+   // const cacheKey = `analyses_${currentProject.id}`
+    // const cached = localStorage.getItem(cacheKey)
     
-    if (cached) {
-      const parsedCache = JSON.parse(cached)
-      setHistoricalAnalyses(parsedCache.data || [])
-      console.log('Usando cache local')
-    } else {
-      setHistoricalAnalyses([])
-    }
+    // if (cached) {
+    //   const parsedCache = JSON.parse(cached)
+    //   setHistoricalAnalyses(parsedCache.data || [])
+    //   console.log('Usando cache local')
+    // } else {
+    //   setHistoricalAnalyses([])
+    // }
   } finally {
     setLoadingHistory(false)
   }
@@ -2273,27 +2059,15 @@ const [showHistoryModal, setShowHistoryModal] = useState(false)
 const [selectedHistoryAnalysis, setSelectedHistoryAnalysis] = useState<any>(null)
 
 
-useEffect(() => {
-  if (currentProject && activeTab === 'history' && historicalAnalyses.length === 0) {
-    setHistoricalAnalyses([])
-    console.log('Carregando histórico automaticamente para:', currentProject.name)
-    loadHistoricalAnalyses()
-  }
-}, [currentProject, activeTab])
 
-// Carregar histórico quando mudar de projeto
 useEffect(() => {
-  if (currentProject) {
-    setHistoricalAnalyses([]) // Limpa imediatamente
-    
-    // Só carrega se estiver na aba de histórico
-    if (activeTab === 'history') {
-      loadHistoricalAnalyses()
-    }
-  } else {
-    setHistoricalAnalyses([])
+  setHistoricalAnalyses([]) // sempre limpa
+  
+  if (activeTab === 'history' && currentProject) {
+    setTimeout(() => loadHistoricalAnalyses(), 200) // carrega só se for history
   }
-},  [currentProject?.id])
+}, [activeTab, currentProject?.id])
+
 
   // Carregar projetos do Azure automaticamente
 useEffect(() => {
@@ -3599,67 +3373,76 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
               <div className="border-b">
                 <div className="flex items-center justify-between px-6 pt-4">
                   <div className="flex items-center space-x-6">
-                    <button
-                      onClick={() => {
-                        setHistoricalAnalyses([])
-                          setActiveTab('recent')
-                          
+              {/* Botão Status da análise atual */}
+              <button
+                onClick={() => {
 
-                          // Não misturar com histórico
-                          if (selectedJob?.id?.startsWith('history_')) {
-                            setHistoricalAnalyses([])
-
-                              setSelectedJob(null)
-                              setShowReport(false)
-                            }
-                        }}
-                      className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                        activeTab === 'recent'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Terminal className="h-4 w-4" />
-                        <span>Status da análise atual</span>
-                        <Badge variant="secondary" className="ml-1">
-                          {filteredJobs.length}
-                        </Badge>
-                      </div>
-                    </button>
                     
-                    <button
-                      onClick={() => {
-                        setActiveTab('history')
+                          const projectBackup = currentProject
+                          
+                          setCurrentProject({ 
+                            id: 'PROJETO_INEXISTENTE_LIMPAR_CACHE_999', 
+                            name: 'Limpando...', 
+                            source: 'azure' as const,
+                            created: new Date(),
+                            lastModified: new Date(),
+                            templates: []
+                          })
+                          
+                          // 2. Muda para history para forçar busca (que vai falhar e limpar)
+                          setActiveTab('history')
+                          
+                          // 3. Depois volta tudo ao normal
+                          setTimeout(() => {
+                            setHistoricalAnalyses([]) // Garante limpeza
+                            setCurrentProject(projectBackup) // Restaura projeto real
+                            setActiveTab('recent') // Volta pra recent
+                          }, 200)
+                        }}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'recent'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Terminal className="h-4 w-4" />
+                  <span>Status da análise atual</span>
+                  <Badge variant="secondary" className="ml-1">
+                    {filteredJobs.filter(job => !job.id.startsWith('history_')).length}
+                  </Badge>
+                </div>
+              </button>
 
-                          if (selectedJob && !selectedJob.id?.startsWith('history_')) {
-                            setSelectedJob(null)
-                            setHistoricalAnalyses([])
-                            setShowReport(false)
-                          }
-
-                        if (currentProject) {
-                          setHistoricalAnalyses([]) // Limpa antes de carregar
-                          loadHistoricalAnalyses() // Sempre recarrega quando clicar
-                        }
-                      }}
-                      className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                        activeTab === 'history'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700'
-                      }`}
-                      disabled={!currentProject}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <History className="h-4 w-4" />
-                        <span>Histórico do Projeto</span>
-                        {currentProject && (
-                          <Badge variant="outline" className="ml-1">
-                            {historicalAnalyses.length}
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
+                {/* Botão Histórico do Projeto */}
+                <button
+                  onClick={() => {
+                    if (!currentProject) return
+                    
+                    // PRIMEIRO limpa tudo de recentes
+                    setSelectedJob(null)
+                    setShowReport(false)
+                    
+                    // DEPOIS muda a aba
+                    setActiveTab('history')
+                  }}
+                  className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'history'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                  disabled={!currentProject}
+                >
+                  <div className="flex items-center space-x-2">
+                    <History className="h-4 w-4" />
+                    <span>Histórico do Projeto</span>
+                    {currentProject && (
+                      <Badge variant="outline" className="ml-1">
+                        {activeTab === 'history' ? historicalAnalyses.length : 0}
+                      </Badge>
+                    )}
+                  </div>
+                </button>
                   </div>
                   
                   <div className="flex items-center space-x-2 pb-3">
@@ -3830,26 +3613,31 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     }}
                   >
                     {activeTab === 'recent' 
-                      ? `${filteredJobs.length} ${filteredJobs.length === 1 ? 'análise' : 'análises'}`
-                      : `${historicalAnalyses.length} ${historicalAnalyses.length === 1 ? 'registro' : 'registros'}`
+                      ? `${filteredJobs.filter(job => !job.id.startsWith('history_')).length} ${filteredJobs.filter(job => !job.id.startsWith('history_')).length === 1 ? 'análise' : 'análises'}`
+                      : activeTab === 'history' 
+                        ? `${historicalAnalyses.length} ${historicalAnalyses.length === 1 ? 'registro' : 'registros'}`
+                        : '0 registros'
                     }
                   </Badge>
                 </CardTitle>
               </CardHeader>
               
               <CardContent>
-              <ScrollArea className="h-[600px]">
-                {activeTab === 'recent' ? (
-                  // ANÁLISES RECENTES
-                  filteredJobs.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                      <FileText className="h-12 w-12 mb-4 text-gray-300" />
-                      <p className="text-lg font-medium">Nenhuma análise encontrada</p>
-                      <p className="text-sm mt-1">Inicie uma nova análise para começar</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredJobs.map((job) => {
+                  <ScrollArea className="h-[600px]">
+                    {/* FORÇA RENDERIZAÇÃO CONDICIONAL ESTRITA */}
+                    {activeTab === 'recent' ? (
+                      // Renderizar APENAS jobs recentes
+                      filteredJobs.filter(job => !job.id.startsWith('history_')).length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                          <FileText className="h-12 w-12 mb-4 text-gray-300" />
+                          <p className="text-lg font-medium">Nenhuma análise encontrada</p>
+                          <p className="text-sm mt-1">Inicie uma nova análise para começar</p>
+                        </div>
+                      ) : (
+                      <div className="space-y-4" style={{ display: activeTab === 'recent' ? 'block' : 'none' }}>
+                      {filteredJobs
+                        .filter(job => !job.id.startsWith('history_')) // IMPORTANTE: filtrar histórico
+                        .map((job) => {
                         const statusDisplay = getStatusDisplay(job.status)
                         const StatusIcon = statusDisplay.icon
                         const analysisDetails = getAnalysisDetails(job.analysis_type || '')
@@ -4194,7 +3982,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       })}
                     </div>
                   )
-                ) : (
+                )  : (activeTab === 'history' && historicalAnalyses.length > 0) ? (
                   // HISTÓRICO DO PROJETO
                   !currentProject ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -4213,7 +4001,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       <p className="text-sm mt-1">Nenhuma análise anterior encontrada para {currentProject.name}</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4" style={{ display: activeTab === 'history' ? 'block' : 'none' }}>
                       {historicalAnalyses.map((analysis) => {
                         const analysisType = getAnalysisDetails(analysis.type)
                         const TypeIcon = analysisType?.icon || FileText
@@ -4307,7 +4095,7 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                       })}
                     </div>
                   )
-                )}
+                ): null}
               </ScrollArea>
               </CardContent>
             </Card>
