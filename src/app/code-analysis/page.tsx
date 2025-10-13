@@ -1,4 +1,5 @@
 "use client"
+
 import { redirect } from "next/navigation"
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -18,6 +19,8 @@ import remarkGfm from 'remark-gfm'
 import { azureBlobService, AzureProject } from '@/lib/azure-storage'
 import { fetchAzureProjects } from '@/lib/azure-direct'
 import { Switch } from '@/components/ui/switch'
+
+
 import { 
   Loader2, 
   Play, 
@@ -27,6 +30,7 @@ import {
   RefreshCw,
   FileText,
   Clock,
+  Gauge,
   ThumbsUp,
   ThumbsDown,
   Eye,
@@ -44,6 +48,7 @@ import {
   Zap,
   Shield,
   FileCode,
+  FileSearch,
   TestTube,
   Bug,
   Cpu,
@@ -87,7 +92,8 @@ import {
   LogOut,
   BarChart3,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+
 } from 'lucide-react'
 
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
@@ -398,44 +404,98 @@ const analysisCategories = {
     { 
       value: 'geracao_codigo_a_partir_de_reuniao', 
       label: 'Geração de Código', 
-      icon: Code, 
-      description: 'Gerar código a partir de requisitos', 
-      color: 'yellow' 
+      icon: Code,
+      description: 'Geração de código a partir de um descritivo de requisitos',
+      quickInfo: 'Transforma requisitos em código',
+      tags: ['Automação', 'Produtividade'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'yellow',
+      useCases: [
+        '📝 Reuniões de requisitos',
+        '🎯 Prototipagem rápida',
+        '⚡ MVPs e POCs'
+      ]
     },
     { 
       value: 'relatorio_implentacao_feature', 
       label: 'Implementação de Features', 
-      icon: Plus, 
-      description: 'Plano de implementação técnico detalhado', 
-      color: 'green' 
+      icon: Plus,
+      description: 'Melhorias e correções de erros gerais em códigos',
+      quickInfo: 'Adiciona funcionalidades e corrige bugs',
+      tags: ['Melhoria', 'Correção'],
+      complexity: 'Baixo',
+      timeEstimate: '3-8 min',
+      color: 'green',
+      useCases: [
+        '🐛 Correção de bugs',
+        '✨ Novas features',
+        '🔧 Refatoração'
+      ]
     },
     {
       value: 'suporte_dot_net',
-      label: 'Suporte ao .NET',
+      label: 'Suporte .NET',
       icon: Code,
-      description: 'Suporte ao desenvolvedor .net',
-      color: 'blue'
+      description: 'Melhorias e correções de erros gerais em códigos .NET 9.0',
+      quickInfo: 'Especialista em .NET 9.0',
+      tags: ['.NET', 'C#', 'Framework'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'blue',
+      useCases: [
+        '🎯 Otimização .NET',
+        '🔄 Migração de versões',
+        '⚡ Performance tuning'
+      ]
     },
     {
       value: 'relatorio_implentacao_feature_azure',
       label: 'Implementação Azure',
       icon: Cloud,
-      description: 'Plano de implementação na Azure',
-      color: 'blue'
+      description: 'Plano de desenvolvimento de infraestrutura na AZURE',
+      quickInfo: 'Arquitetura cloud Azure',
+      tags: ['Cloud', 'Azure', 'DevOps'],
+      complexity: 'Alto',
+      timeEstimate: '10-15 min',
+      color: 'blue',
+      useCases: [
+        '☁️ Migração para cloud',
+        '🏗️ Infraestrutura como código',
+        '📊 Escalabilidade'
+      ]
     },
     {
       value: 'relatorio_modernizacao_asp_net',
       label: 'Modernização ASP.NET',
       icon: Layers,
-      description: 'Migração para ASP.NET Core 9',
-      color: 'indigo'
+      description: 'Migração de .NET 4.0 para .NET 9.0',
+      quickInfo: 'Moderniza aplicações legadas',
+      tags: ['Migração', 'Modernização', 'Legacy'],
+      complexity: 'Alto',
+      timeEstimate: '10-20 min',
+      color: 'indigo',
+      useCases: [
+        '🔄 Legacy para moderno',
+        '⚡ Ganho de performance',
+        '🛡️ Segurança atualizada'
+      ]
     },
     {
       value: 'relatorio_erros_migracao',
       label: 'Correção de Migração',
       icon: Bug,
-      description: 'Correção de erros de migração',
-      color: 'red'
+      description: 'Correção de erros devido a migração .NET 4.0 para 9.0',
+      quickInfo: 'Resolve problemas pós-migração',
+      tags: ['Troubleshooting', 'Migration', 'Fix'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'red',
+      useCases: [
+        '🚨 Erros de compatibilidade',
+        '🔧 Breaking changes',
+        '📦 Dependências quebradas'
+      ]
     },
   ],
   
@@ -443,30 +503,66 @@ const analysisCategories = {
     { 
       value: 'relatorio_avaliacao_terraform', 
       label: 'Avaliação Terraform', 
-      icon: Layers, 
-      description: 'Auditoria técnica em código Terraform', 
-      color: 'purple' 
+      icon: Layers,
+      description: 'Auditoria técnica aprofundada no código Terraform fornecido',
+      quickInfo: 'Valida infraestrutura como código',
+      tags: ['IaC', 'DevOps', 'Audit'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'purple',
+      useCases: [
+        '🏗️ Validação de IaC',
+        '🔒 Segurança de infra',
+        '💰 Otimização de custos'
+      ]
     },
     { 
       value: 'relatorio_cleancode', 
       label: 'Clean Code', 
-      icon: Sparkles, 
-      description: 'Identificar violações dos princípios SOLID', 
-      color: 'green' 
+      icon: Sparkles,
+      description: 'Identificação de violações claras dos 5 princípios SOLID',
+      quickInfo: 'Melhora qualidade do código',
+      tags: ['SOLID', 'Best Practices', 'Quality'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'green',
+      useCases: [
+        '📚 Princípios SOLID',
+        '🎨 Code patterns',
+        '📏 Padrões de projeto'
+      ]
     },
     { 
       value: 'relatorio_conformidades', 
       label: 'Conformidades', 
-      icon: CheckCircle, 
-      description: 'Identificar inconsistências funcionais', 
-      color: 'orange' 
+      icon: CheckCircle,
+      description: 'Identificação de inconsistências funcionais (Linter)',
+      quickInfo: 'Verifica padrões e convenções',
+      tags: ['Linting', 'Standards', 'Compliance'],
+      complexity: 'Baixo',
+      timeEstimate: '3-5 min',
+      color: 'orange',
+      useCases: [
+        '✅ Code standards',
+        '📋 Style guide',
+        '🔍 Code review'
+      ]
     },
     { 
       value: 'relatorio_simplicacao', 
       label: 'Simplificação de Código', 
-      icon: Zap, 
-      description: 'Princípios DRY, YAGNI e KISS', 
-      color: 'cyan' 
+      icon: Zap,
+      description: 'Identificar violações dos princípios DRY, YAGNI e KISS',
+      quickInfo: 'Torna código mais simples',
+      tags: ['DRY', 'KISS', 'YAGNI'],
+      complexity: 'Médio',
+      timeEstimate: '5-8 min',
+      color: 'cyan',
+      useCases: [
+        '🔄 Remove duplicação',
+        '✂️ Elimina código morto',
+        '🎯 Simplifica lógica'
+      ]
     },
   ],
   
@@ -474,16 +570,34 @@ const analysisCategories = {
     { 
       value: 'relatorio_docstring', 
       label: 'Docstrings', 
-      icon: FileText, 
-      description: 'Análise de docstrings e comentários', 
-      color: 'blue' 
+      icon: FileText,
+      description: 'Escrita de docstrings para explicar os códigos fornecidos',
+      quickInfo: 'Documenta funções e classes',
+      tags: ['Docs', 'Comments', 'API'],
+      complexity: 'Baixo',
+      timeEstimate: '3-5 min',
+      color: 'blue',
+      useCases: [
+        '📝 Documentação de API',
+        '💡 Explicação de código',
+        '📚 Geração de docs'
+      ]
     },
     { 
       value: 'relatorio_documentacao', 
       label: 'Documentação Geral', 
-      icon: FileCode, 
-      description: 'Arquivos essenciais de documentação', 
-      color: 'indigo' 
+      icon: FileCode,
+      description: 'Escrita documentação e configuração na raiz do repositório',
+      quickInfo: 'README e docs do projeto',
+      tags: ['README', 'Setup', 'Guide'],
+      complexity: 'Médio',
+      timeEstimate: '10-15 min',
+      color: 'indigo',
+      useCases: [
+        '📖 README completo',
+        '🚀 Setup guide',
+        '👥 Contribuição guide'
+      ]
     },
   ],
   
@@ -491,23 +605,50 @@ const analysisCategories = {
     { 
       value: 'relatorio_owasp', 
       label: 'Avaliação OWASP', 
-      icon: Shield, 
-      description: 'Auditoria de segurança aprofundada', 
-      color: 'red' 
+      icon: Shield,
+      description: 'Mitigação de vulnerabilidades com base nos frameworks OWASP Top 10',
+      quickInfo: 'Segurança nível enterprise',
+      tags: ['Security', 'OWASP', 'Top10'],
+      complexity: 'Alto',
+      timeEstimate: '10-15 min',
+      color: 'red',
+      useCases: [
+        '🛡️ OWASP Top 10',
+        '🔐 Vulnerabilidades',
+        '📊 Security report'
+      ]
     },
     { 
       value: 'relatorio_pentest', 
       label: 'Pentest', 
-      icon: Bug, 
-      description: 'Simular teste de invasão', 
-      color: 'pink' 
+      icon: Bug,
+      description: 'Simular um teste de invasão',
+      quickInfo: 'Teste de penetração simulado',
+      tags: ['Pentest', 'Hacking', 'Security'],
+      complexity: 'Alto',
+      timeEstimate: '15-20 min',
+      color: 'pink',
+      useCases: [
+        '🎯 Attack vectors',
+        '🔓 Exploit testing',
+        '📝 Security gaps'
+      ]
     },
     { 
       value: 'relatorio_sast', 
       label: 'SAST Analysis', 
-      icon: FileCode, 
-      description: 'Análise estática de segurança', 
-      color: 'purple' 
+      icon: FileSearch,
+      description: 'Identificar vetores de ataque exploráveis diretamente no código-fonte',
+      quickInfo: 'Análise estática de segurança',
+      tags: ['SAST', 'Static Analysis', 'Security'],
+      complexity: 'Alto',
+      timeEstimate: '10-15 min',
+      color: 'purple',
+      useCases: [
+        '🔍 Code vulnerabilities',
+        '💉 SQL Injection',
+        '🔐 XSS prevention'
+      ]
     },
   ],
   
@@ -515,9 +656,18 @@ const analysisCategories = {
     { 
       value: 'relatorio_performance_eficiencia', 
       label: 'Performance e Eficiência', 
-      icon: Activity, 
-      description: 'Identificar gargalos e ineficiências', 
-      color: 'orange' 
+      icon: Activity,
+      description: 'Otimização de performance e design de sistemas de alta eficiência',
+      quickInfo: 'Otimiza velocidade e recursos',
+      tags: ['Performance', 'Optimization', 'Speed'],
+      complexity: 'Alto',
+      timeEstimate: '10-15 min',
+      color: 'orange',
+      useCases: [
+        '⚡ Bottlenecks',
+        '📊 Profiling',
+        '🚀 Optimization'
+      ]
     },
   ],
   
@@ -525,16 +675,34 @@ const analysisCategories = {
     { 
       value: 'relatorio_teste_integracao', 
       label: 'Testes de Integração', 
-      icon: GitBranch, 
-      description: 'Auditoria de testes de integração', 
-      color: 'teal' 
+      icon: GitBranch,
+      description: 'Análises de componentes para que colaborem de forma correta',
+      quickInfo: 'Valida integração entre sistemas',
+      tags: ['Integration', 'E2E', 'Testing'],
+      complexity: 'Médio',
+      timeEstimate: '8-12 min',
+      color: 'teal',
+      useCases: [
+        '🔗 API testing',
+        '💾 Database tests',
+        '🌐 Service integration'
+      ]
     },
     { 
       value: 'relatorio_teste_unitario', 
       label: 'Testes Unitários', 
-      icon: TestTube, 
-      description: 'Análise de cobertura e qualidade', 
-      color: 'green' 
+      icon: TestTube,
+      description: 'TDD (Test-Driven Development) e Design de Código Testável',
+      quickInfo: 'Cria testes unitários',
+      tags: ['TDD', 'Unit Tests', 'Coverage'],
+      complexity: 'Médio',
+      timeEstimate: '5-10 min',
+      color: 'green',
+      useCases: [
+        '✅ Unit tests',
+        '📊 Coverage',
+        '🎯 TDD approach'
+      ]
     },
   ]
 }
@@ -1376,20 +1544,273 @@ const Sidebar = ({
 
 
 // Modal de Aprovação com Instruções Extras
-  const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
+// Modal de Aprovação com Instruções Extras
+const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
   const [instrucoes, setInstrucoes] = useState('')
+  const [showFullReport, setShowFullReport] = useState(false)
   
   if (!job) return null
 
   const handleApprove = () => {
     onApprove(job.id, 'approve', instrucoes)
-    onClose()
+    setShowFullReport(true)
   }
 
+  // Se aprovado e deve mostrar relatório completo
+  if (showFullReport) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+        <div className="relative bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
+          {/* Header com status de aprovado */}
+          <div className="p-6 border-b" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primary }}>
+                  Relatório Aprovado
+                </h2>
+                <Badge 
+                  className="ml-2"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Aprovado com Sucesso
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([job.analysis_report!], { type: 'text/markdown' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `analise-aprovada-${job.id}.md`
+                    a.click()
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onClose}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Conteúdo do Relatório com Scroll - IGUAL ao Ver Relatório */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(95vh-120px)]">
+              <div className="p-6">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    // COPIAR TODOS OS COMPONENTES DO RELATÓRIO PRINCIPAL
+                    h1: ({children}) => (
+                      <h1 className="text-2xl font-bold mb-4 mt-6 pb-2 border-b-2"
+                          style={{ 
+                            color: BRAND_COLORS.primary,
+                            borderColor: BRAND_COLORS.secondary 
+                          }}>
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({children}) => (
+                      <h2 className="text-xl font-bold mb-3 mt-5 flex items-center gap-2">
+                        <div className="w-1 h-6 rounded" 
+                            style={{ background: BRAND_COLORS.secondary }}/>
+                        <span style={{ color: BRAND_COLORS.primary }}>{children}</span>
+                      </h2>
+                    ),
+                    h3: ({children}) => (
+                      <h3 className="text-lg font-semibold mb-2 mt-4"
+                          style={{ color: BRAND_COLORS.primary }}>
+                        {children}
+                      </h3>
+                    ),
+                    p: ({children}) => (
+                      <p className="mb-4 text-gray-700 leading-relaxed">
+                        {children}
+                      </p>
+                    ),
+                    // TABELA IDÊNTICA AO RELATÓRIO PRINCIPAL
+                    table: ({children}) => (
+                      <div className="my-6 w-full" style={{ overflowX: 'auto' }}>
+                        <table className="w-full" style={{ 
+                          minWidth: '1000px',
+                          tableLayout: 'fixed'
+                        }}>
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    thead: ({children}) => (
+                      <thead style={{ 
+                        background: `linear-gradient(135deg, ${BRAND_COLORS.primary} 0%, #022558 100%)` 
+                      }}>
+                        {children}
+                      </thead>
+                    ),
+                    th: ({children}) => (
+                      <th className="px-4 py-3 text-left text-white font-semibold text-sm border-b-2"
+                          style={{ 
+                            borderColor: BRAND_COLORS.secondary,
+                            minWidth: '250px',
+                            maxWidth: '500px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word'
+                          }}>
+                        {children}
+                      </th>
+                    ),
+                    tbody: ({children}) => (
+                      <tbody className="bg-white">
+                        {children}
+                      </tbody>
+                    ),
+                    tr: ({children}) => (
+                      <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                        {children}
+                      </tr>
+                    ),
+                    td: ({children}) => (
+                      <td className="px-4 py-3 text-sm text-gray-700"
+                          style={{
+                            minWidth: '250px',
+                            maxWidth: '500px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            wordWrap: 'break-word'
+                          }}>
+                        {children}
+                      </td>
+                    ),
+                    ul: ({children}) => (
+                      <ul className="mb-4 ml-6 space-y-2">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({children}) => (
+                      <ol className="mb-4 ml-6 space-y-2">
+                        {children}
+                      </ol>
+                    ),
+                    li: ({children}) => (
+                      <li className="text-gray-700 leading-relaxed flex items-start">
+                        <span className="mr-2 mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              style={{ background: BRAND_COLORS.secondary }}/>
+                        <span>{children}</span>
+                      </li>
+                    ),
+                    code: ({className, children}) => {
+                      const match = /language-(\w+)/.exec(className || '')
+                      const isInline = !className
+                      
+                      if (!isInline && match) {
+                        return (
+                          <div className="relative my-4">
+                            <div className="absolute top-0 right-0 px-2 py-1 text-xs font-mono rounded-bl"
+                                style={{ 
+                                  background: BRAND_COLORS.secondary,
+                                  color: BRAND_COLORS.primary 
+                                }}>
+                              {match[1]}
+                            </div>
+                            <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                              <code className="text-sm font-mono">
+                                {children}
+                              </code>
+                            </pre>
+                          </div>
+                        )
+                      }
+                      
+                      if (!isInline) {
+                        return (
+                          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 border-l-4"
+                              style={{ borderColor: BRAND_COLORS.secondary }}>
+                            <code className="text-sm font-mono">
+                              {children}
+                            </code>
+                          </pre>
+                        )
+                      }
+                      
+                      return (
+                        <code className="px-2 py-0.5 rounded text-sm font-mono mx-1"
+                              style={{ 
+                                background: `${BRAND_COLORS.secondary}20`,
+                                color: BRAND_COLORS.primary,
+                                border: `1px solid ${BRAND_COLORS.secondary}50`
+                              }}>
+                          {children}
+                        </code>
+                      )
+                    },
+                    blockquote: ({children}) => (
+                      <blockquote className="border-l-4 pl-4 my-4 italic"
+                                style={{ 
+                                  borderColor: BRAND_COLORS.secondary,
+                                  background: `${BRAND_COLORS.secondary}05`
+                                }}>
+                        <p className="text-gray-600">{children}</p>
+                      </blockquote>
+                    ),
+                    a: ({href, children}) => (
+                      <a href={href} 
+                        className="font-medium hover:underline"
+                        style={{ color: BRAND_COLORS.primary }}
+                        target="_blank" 
+                        rel="noopener noreferrer">
+                        {children}
+                      </a>
+                    ),
+                    hr: () => (
+                      <hr className="my-6 border-t-2" 
+                          style={{ borderColor: `${BRAND_COLORS.secondary}50` }}/>
+                    ),
+                    strong: ({children}) => (
+                      <strong className="font-bold" 
+                              style={{ color: BRAND_COLORS.primary }}>
+                        {children}
+                      </strong>
+                    ),
+                    em: ({children}) => (
+                      <em className="italic text-gray-600">
+                        {children}
+                      </em>
+                    ),
+                    img: ({src, alt}) => (
+                      <img src={src} 
+                          alt={alt} 
+                          className="rounded-lg shadow-md my-4 max-w-full h-auto"/>
+                    )
+                  }}
+                >
+                  {job.analysis_report || 'Processando análise...'}
+                </ReactMarkdown>
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // MODAL INICIAL DE APROVAÇÃO (antes de aprovar)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
           <h2 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primary }}>
             Relatório Gerado - Aguardando Aprovação
@@ -1397,12 +1818,65 @@ const Sidebar = ({
           <p className="text-gray-600 mt-1">Revise o relatório antes de prosseguir com as mudanças</p>
         </div>
         
+        {/* AQUI - RENDERIZAR O RELATÓRIO COM MARKDOWN AO INVÉS DE PRE/CODE */}
         <ScrollArea className="h-[50vh] p-6">
-          <div className="prose max-w-none">
-            <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
-              <code>{job.analysis_report || 'Processando análise...'}</code>
-            </pre>
-          </div>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // Versão simplificada para o modal de aprovação
+              table: ({children}) => (
+                <div className="my-4 w-full overflow-x-auto">
+                  <table className="w-full min-w-full border-collapse">
+                    {children}
+                  </table>
+                </div>
+              ),
+              thead: ({children}) => (
+                <thead style={{ 
+                  background: `linear-gradient(135deg, ${BRAND_COLORS.primary} 0%, #022558 100%)` 
+                }}>
+                  {children}
+                </thead>
+              ),
+              th: ({children}) => (
+                <th className="px-3 py-2 text-left text-white text-xs font-semibold border-b"
+                    style={{ borderColor: BRAND_COLORS.secondary }}>
+                  {children}
+                </th>
+              ),
+              td: ({children}) => (
+                <td className="px-3 py-2 text-xs text-gray-700 border-b border-gray-100">
+                  {children}
+                </td>
+              ),
+              tr: ({children}) => (
+                <tr className="hover:bg-gray-50">
+                  {children}
+                </tr>
+              ),
+              p: ({children}) => (
+                <p className="mb-3 text-sm text-gray-700">
+                  {children}
+                </p>
+              ),
+              h2: ({children}) => (
+                <h2 className="text-lg font-bold mb-2 mt-4" style={{ color: BRAND_COLORS.primary }}>
+                  {children}
+                </h2>
+              ),
+              code: ({children}) => (
+                <code className="px-1 py-0.5 rounded text-xs font-mono mx-1"
+                      style={{ 
+                        background: `${BRAND_COLORS.secondary}20`,
+                        color: BRAND_COLORS.primary
+                      }}>
+                  {children}
+                </code>
+              )
+            }}
+          >
+            {job.analysis_report || 'Processando análise...'}
+          </ReactMarkdown>
         </ScrollArea>
         
         {/* Campo de Instruções Extras */}
@@ -1685,6 +2159,110 @@ const loadHistoricalAnalyses = async () => {
 }
 
 
+const [showAgentInfo, setShowAgentInfo] = useState(false)
+const [selectedAgent, setSelectedAgent] = useState<any>(null)
+
+// Componente do Popup de Informação
+const AgentInfoPopup = () => {
+  if (!showAgentInfo || !selectedAgent) return null
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {selectedAgent.icon && <selectedAgent.icon className="h-5 w-5 text-blue-600" />}
+              <h3 className="font-semibold text-lg">{selectedAgent.label}</h3>
+            </div>
+            <button
+              onClick={() => {
+                setShowAgentInfo(false)
+                setSelectedAgent(null)
+              }}
+              className="p-1 hover:bg-gray-100 rounded"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="p-4 space-y-4">
+          {/* Descrição */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">📝 Descrição</h4>
+            <p className="text-sm text-gray-600">{selectedAgent.description}</p>
+          </div>
+          
+          {/* Quick Info */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">💡 Resumo Rápido</h4>
+            <p className="text-sm text-gray-600">{selectedAgent.quickInfo}</p>
+          </div>
+          
+          {/* Métricas */}
+          <div className="flex gap-4">
+            <div className="flex-1 bg-blue-50 rounded p-3">
+              <p className="text-xs text-gray-500 mb-1">Tempo Estimado</p>
+              <p className="text-sm font-semibold text-blue-700">
+                ⏱️ {selectedAgent.timeEstimate}
+              </p>
+            </div>
+            <div className="flex-1 bg-green-50 rounded p-3">
+              <p className="text-xs text-gray-500 mb-1">Complexidade</p>
+              <p className="text-sm font-semibold text-green-700">
+                📊 {selectedAgent.complexity}
+              </p>
+            </div>
+          </div>
+          
+          {/* Use Cases */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">🎯 Casos de Uso</h4>
+            <div className="space-y-2">
+              {selectedAgent.useCases?.map((useCase: string, idx: number) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-xs mt-0.5">•</span>
+                  <p className="text-sm text-gray-600">{useCase}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Tags */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">🏷️ Tags</h4>
+            <div className="flex flex-wrap gap-2">
+              {selectedAgent.tags?.map((tag: string, idx: number) => (
+                <span 
+                  key={idx}
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Footer */}
+        <div className="border-t p-4">
+          <button
+            onClick={() => {
+              setShowAgentInfo(false)
+              setSelectedAgent(null)
+            }}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 
 const [activeTab, setActiveTab] = useState<'recent' | 'history'>('recent')
@@ -1968,10 +2546,16 @@ useEffect(() => {
         let finalReport = null
         let finalStatus = 'processing'
         let finalProgress = 50
+
+
+        
         
         if (statusResponse.ok) {
           const statusData = await statusResponse.json()
           console.log('Status recebido:', statusData)
+
+
+          
           
           finalStatus = statusData.status || 'processing'
           finalProgress = statusData.progress || 50
@@ -1981,6 +2565,22 @@ useEffect(() => {
             finalStatus = 'completed'
             finalProgress = 100
             finalReport = statusData.report || statusData.analysis_report
+          }
+
+
+          // Definir progresso baseado no status
+          if (statusData.status === 'completed' || statusData.status === 'done') {
+            finalProgress = 100
+          } else if (statusData.status === 'failed' || statusData.status === 'rejected' || statusData.status === 'Erro') {
+            finalProgress = 100  // Também 100% para erros e rejeitados
+          } else if (statusData.status === 'pending_approval') {
+            finalProgress = 100  // 100% quando aguardando aprovação
+          } else if (statusData.status === 'approved') {
+            finalProgress = 25
+          } else if (statusData.status === 'analyzing') {
+            finalProgress = 50
+          } else if (statusData.status === 'generating_report') {
+            finalProgress = 75
           }
         }
         
@@ -2679,43 +3279,67 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                     type={typeRepository}
                   />
 
-                  {/* Tipo de Análise */}
-                  <div className="space-y-2">
-                    <Label htmlFor="analysis" className="flex items-center space-x-2">
-                      <Sparkles className="h-4 w-4 text-gray-500" />
-                      <span>Agente Assistente</span>
-                      <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={formData.analysis_type}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, analysis_type: value }))}
-                      required
-                    >
-                      <SelectTrigger className="border-gray-200">
-                        <SelectValue placeholder="Selecione o tipo de agente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(analysisCategories).map(([category, items]) => (
-                          <div key={category}>
-                            <div 
-                              className="px-2 py-1.5 text-xs font-semibold text-gray-500"
-                              style={{ background: BRAND_COLORS.accent }}
-                            >
-                              {category}
-                            </div>
-                            {items.map(item => (
-                              <SelectItem key={item.value} value={item.value}>
-                                <div className="flex items-center space-x-2">
-                                  <item.icon className="h-4 w-4" />
-                                  <span>{item.label}</span>
+                    {/* Tipo de Análise */}
+                    <div className="space-y-2">
+                      <Label htmlFor="analysis" className="flex items-center space-x-2">
+                        <Sparkles className="h-4 w-4 text-gray-500" />
+                        <span>Agente Assistente</span>
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      
+                      <Select
+                        value={formData.analysis_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, analysis_type: value }))}
+                        required
+                      >
+                        <SelectTrigger className="border-gray-200">
+                          <SelectValue placeholder="Selecione o tipo de agente" />
+                        </SelectTrigger>
+                        
+                        <SelectContent className="max-w-lg">
+                          {Object.entries(analysisCategories).map(([category, items]) => (
+                            <div key={category}>
+                              <div 
+                                className="px-2 py-1.5 text-xs font-semibold text-gray-600"
+                                style={{ backgroundColor: `${BRAND_COLORS.accent}15` }}
+                              >
+                                {category}
+                              </div>
+                              
+                              {items.map(item => (
+                                <div key={item.value} className="relative group">
+                                  <SelectItem value={item.value}>
+                                    <div className="flex items-center justify-between w-full pr-8">
+                                      <div className="flex items-center space-x-2">
+                                        <item.icon className="h-4 w-4" />
+                                        <span>{item.label}</span>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                  
+                                  {/* Botão de Info - posicionado absolutamente */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      setSelectedAgent(item)
+                                      setShowAgentInfo(true)
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                                  >
+                                    <Info className="h-4 w-4 text-blue-600" />
+                                  </button>
                                 </div>
-                              </SelectItem>
-                            ))}
-                          </div>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                              ))}
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Renderizar o popup */}
+                      <AgentInfoPopup />
+                    </div>
 
                   {/* Modelo */}
                   {/* <div className="space-y-2">
