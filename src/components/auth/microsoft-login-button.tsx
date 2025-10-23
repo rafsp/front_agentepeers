@@ -12,7 +12,21 @@ export function MicrosoftLoginButton() {
     
     const clientId = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
     const tenantId = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
-    const redirectUri = encodeURIComponent('https://red-rock-0e17e4a10.2.azurestaticapps.net/api/auth/callback/azure-ad')
+    
+    // Detectar ambiente automaticamente
+    const getRedirectUri = () => {
+      if (typeof window === 'undefined') return ''
+      
+      // Em produção, usa a URL do Azure Static Apps
+      if (window.location.hostname !== 'localhost') {
+        return 'https://red-rock-0e17e4a10.2.azurestaticapps.net/api/auth/callback/azure-ad'
+      }
+      
+      // Em desenvolvimento local, usa a origem atual
+      return `${window.location.origin}/api/auth/callback/azure-ad`
+    }
+    
+    const redirectUri = encodeURIComponent(getRedirectUri())
     const scope = encodeURIComponent('openid profile email User.Read')
     
     const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
@@ -23,7 +37,9 @@ export function MicrosoftLoginButton() {
       `&scope=${scope}` +
       `&state=${Math.random().toString(36).substring(7)}`
     
-    // Redirecionar para Microsoft 
+    console.log('🔐 Redirecionando para Microsoft:', redirectUri)
+    
+    // Redirecionar para Microsoft
     window.location.href = authUrl
   }
 

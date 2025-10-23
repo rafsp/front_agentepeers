@@ -48,11 +48,17 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
+const handleLogin = async () => {
+  // Validação básica
+  if (!email || !password) {
+    setError('Por favor, preencha todos os campos.')
+    return
+  }
 
+  setError('')
+  setIsLoading(true)
+
+  try {
     // Simular delay de autenticação
     await new Promise(resolve => setTimeout(resolve, 1500))
 
@@ -61,14 +67,17 @@ export default function LoginPage() {
       localStorage.setItem('peers_authenticated', 'true')
       localStorage.setItem('peers_user', email)
       
-      // Redirecionar para dashboard
-      router.push('/dashboard')
+      // Redirecionar para dashboard - CORRIGIDO ✅
+      window.location.href = '/dashboard'
     } else {
       setError('Credenciais inválidas. Use as credenciais fornecidas.')
+      setIsLoading(false)
     }
-
+  } catch (err) {
+    setError('Erro ao autenticar. Tente novamente.')
     setIsLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
