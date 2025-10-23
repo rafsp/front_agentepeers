@@ -16,7 +16,7 @@ export function MicrosoftLoginButton() {
     // Detectar ambiente automaticamente
     const getRedirectUri = () => {
       if (typeof window === 'undefined') return ''
-      
+      alert(window.location.hostname);
       // Em produção, usa a URL do Azure Static Apps
       if (window.location.hostname !== 'localhost') {
         return 'https://red-rock-0e17e4a10.2.azurestaticapps.net/api/auth/callback/azure-ad'
