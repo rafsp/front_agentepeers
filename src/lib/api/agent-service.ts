@@ -4,7 +4,7 @@
 // URL do Backend Azure (publicado)
 //const AZURE_API_ENDPOINT = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 const AZURE_API_ENDPOINT = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
-const LOCAL_API_ENDPOINT = 'http://localhost:8000'
+const LOCAL_API_ENDPOINT = 'https://codeia.peers.com.br/:8000'
 
 // Usar variável de ambiente ou Azure por padrão
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_URL || AZURE_API_ENDPOINT
