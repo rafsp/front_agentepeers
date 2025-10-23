@@ -1723,7 +1723,8 @@ const currentAccount = accounts[0]
 // No header (linha ~1500), substituir userName por:
 const [userName1, setUserName1] = useState(() => {
   if (currentAccount?.name) return currentAccount.name
-  return localStorage.getItem('user_name') || 'Usuário'
+  return typeof window !== 'undefined' ? localStorage.getItem('user_name') || 'Usuário' : 'Usuário'
+
 })
 
 
@@ -1803,8 +1804,11 @@ const handleLogout = () => {
   document.cookie = 'microsoft_login=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
   
   // Limpar localStorage
-  localStorage.removeItem('peers_authenticated')
-  localStorage.removeItem('user_name')
+  if (typeof window !== 'undefined')
+  {
+    localStorage.removeItem('peers_authenticated')
+    localStorage.removeItem('user_name')
+  }
   
   // Redirecionar para login
   window.location.href = '/login'
@@ -1854,7 +1858,8 @@ const [formData, setFormData] = useState({
 const [showProjectModal, setShowProjectModal] = useState(false)
 const [userName, setUserName] = useState(() => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('user_name') || 'Usuário'
+    return typeof window !== 'undefined' ? localStorage.getItem('user_name') || 'Usuário' : 'Usuário'
+
   }
   return 'Usuário'
 })
