@@ -23,7 +23,7 @@ export function MicrosoftLoginButton() {
       `&scope=${scope}` +
       `&state=${Math.random().toString(36).substring(7)}`
     
-    // Redirecionar para Microsoft
+    // Redirecionar para Microsoft 
     window.location.href = authUrl
   }
 
