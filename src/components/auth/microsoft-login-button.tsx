@@ -12,7 +12,7 @@ export function MicrosoftLoginButton() {
     
     const clientId = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
     const tenantId = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
-    const redirectUri = encodeURIComponent('http://localhost:3000/api/auth/callback/azure-ad')
+    const redirectUri = encodeURIComponent('https://red-rock-0e17e4a10.2.azurestaticapps.net/api/auth/callback/azure-ad')
     const scope = encodeURIComponent('openid profile email User.Read')
     
     const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
