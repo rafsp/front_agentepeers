@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 import { 
   ArrowRight,
   Eye,
@@ -18,8 +19,6 @@ import {
   Lock,
   Mail,
   Sparkles,
-  PanelLeft,
-  PanelLeftClose,
   Bot
 } from 'lucide-react'
 
@@ -48,7 +47,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,16 +77,6 @@ export default function LoginPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* Botão Menu */}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden"
-              >
-                {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
-              </Button>
-              
               {/* Logo PEERS */}
               <div className="flex items-center space-x-3">
                 <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
@@ -144,92 +132,84 @@ export default function LoginPage() {
         <div className="absolute inset-0" style={{ background: BRAND_COLORS.gradients.hero }} />
         
         {/* Lado Esquerdo - Informações */}
-      <div className="hidden lg:flex lg:w-1/2 relative z-10 items-center justify-center p-12">
-        <div className="max-w-lg text-white">
-          <div className="mb-8">
-            <div className="text-5xl font-black tracking-wider mb-2">
-              P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
-            </div>
-            <div className="text-sm font-medium tracking-wider opacity-80">
-              Consulting <span style={{ color: BRAND_COLORS.secondary }}>+</span> Technology
-            </div>
-          </div>
-
-          <h1 className="text-4xl font-bold mb-6">
-            Plataforma de Agentes Inteligentes
-          </h1>
-          
-          <p className="text-lg mb-8 opacity-90">
-            Transforme seu código com o poder da inteligência artificial multi-agentes. 
-            Análise profunda, geração automatizada e otimização contínua.
-          </p>
-
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                   style={{ background: BRAND_COLORS.secondary }}>
-                <Sparkles className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+        <div className="hidden lg:flex lg:w-1/2 relative z-10 items-center justify-center p-12">
+          <div className="max-w-lg text-white">
+            <div className="mb-8">
+              <div className="text-5xl font-black tracking-wider mb-2">
+                P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
               </div>
-              <span>Análise completa de repositórios</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                   style={{ background: BRAND_COLORS.secondary }}>
-                <Lock className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+              <div className="text-sm font-medium tracking-wider opacity-80">
+                Consulting <span style={{ color: BRAND_COLORS.secondary }}>+</span> Technology
               </div>
-              <span>Detecção de vulnerabilidades</span>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                   style={{ background: BRAND_COLORS.secondary }}>
-                <ArrowRight className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-              </div>
-              <span>Geração de código otimizado</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Elementos decorativos */}
-        <div className="absolute top-20 left-20 w-72 h-72 opacity-10">
-          <div className="w-full h-full rounded-full"
-               style={{ background: BRAND_COLORS.secondary, filter: 'blur(100px)' }}></div>
-        </div>
-      </div>
+            <h1 className="text-4xl font-bold mb-6">
+              Plataforma de Agentes Inteligentes
+            </h1>
+            
+            <p className="text-lg mb-8 opacity-90">
+              Transforme seu código com o poder da inteligência artificial multi-agentes. 
+              Análise profunda, geração automatizada e otimização contínua.
+            </p>
 
-      {/* Lado Direito - Formulário */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:p-12 bg-white lg:bg-transparent">
-        <div className="w-full max-w-md">
-          {/* Botão Voltar */}
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/')}
-            className="mb-6 text-white lg:text-gray-600 hover:text-gray-900"
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Voltar ao início
-          </Button>
-
-          <Card className="shadow-2xl border-0">
-            <CardHeader className="space-y-1 pb-6">
-              <div className="lg:hidden flex justify-center mb-6">
-                <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
-                  <div className="text-3xl font-black tracking-wider text-white">
-                    P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
-                  </div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                     style={{ background: BRAND_COLORS.secondary }}>
+                  <Sparkles className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
                 </div>
+                <span>Análise completa de repositórios</span>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                     style={{ background: BRAND_COLORS.secondary }}>
+                  <Lock className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+                </div>
+                <span>Detecção de vulnerabilidades</span>
               </div>
               
-              <CardTitle className="text-2xl font-bold text-center lg:text-left" 
-                        style={{ color: BRAND_COLORS.primary }}>
-                Bem-vindo de volta
-              </CardTitle>
-              <CardDescription className="text-center lg:text-left">
-                Entre com suas credenciais para acessar a plataforma
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                     style={{ background: BRAND_COLORS.secondary }}>
+                  <ArrowRight className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
+                </div>
+                <span>Geração de código otimizado</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Elementos decorativos */}
+          <div className="absolute top-20 left-20 w-72 h-72 opacity-10">
+            <div className="w-full h-full rounded-full"
+                 style={{ background: BRAND_COLORS.secondary, filter: 'blur(100px)' }}></div>
+          </div>
+        </div>
+
+        {/* Lado Direito - Formulário */}
+        <div className="flex-1 flex items-center justify-center p-8 lg:p-12 relative z-10">
+          <div className="w-full max-w-md">
+            <Card className="shadow-2xl border-0 bg-white">
+              <CardHeader className="space-y-1 pb-6">
+                <div className="lg:hidden flex justify-center mb-6">
+                  <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
+                    <div className="text-3xl font-black tracking-wider text-white">
+                      P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
+                    </div>
+                  </div>
+                </div>
+                
+                <CardTitle className="text-2xl font-bold text-center lg:text-left" 
+                          style={{ color: BRAND_COLORS.primary }}>
+                  Code .IA
+                </CardTitle>
+                <CardDescription className="text-center lg:text-left">
+                  Entre com suas credenciais para acessar a plataforma
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                {/* Campo Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
@@ -247,6 +227,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                {/* Campo Senha */}
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <div className="relative">
@@ -271,6 +252,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                {/* Mensagem de Erro */}
                 {error && (
                   <Alert className="bg-red-50 border-red-200">
                     <AlertCircle className="h-4 w-4 text-red-600" />
@@ -280,44 +262,53 @@ export default function LoginPage() {
                   </Alert>
                 )}
 
-                <Button
-                  type="submit"
-                  className="w-full font-semibold h-11"
-                  style={{ background: BRAND_COLORS.gradients.primary }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Autenticando...
-                    </>
-                  ) : (
-                    <>
-                      Entrar
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
+                {/* Botões - Entrar e Microsoft lado a lado */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  {/* Botão Entrar */}
+                  <Button
+                    onClick={handleLogin}
+                    type="button"
+                    className="w-full font-semibold h-11"
+                    style={{ background: BRAND_COLORS.gradients.primary }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Autenticando...
+                      </>
+                    ) : (
+                      <>
+                        Entrar
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
 
-                <div className="relative my-6">
+                  {/* Botão Microsoft */}
+                  <MicrosoftLoginButton />
+                </div>
+
+                {/* Divisor */}
+                {/* <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-200"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
                     <span className="bg-white px-4 text-gray-500">Credenciais de demonstração</span>
                   </div>
-                </div>
+                </div> */}
 
-                <div className="p-4 rounded-lg" style={{ background: `${BRAND_COLORS.accent}30` }}>
+                {/* Box de Credenciais */}
+                {/* <div className="p-4 rounded-lg" style={{ background: `${BRAND_COLORS.accent}30` }}>
                   <p className="text-sm text-gray-700 mb-2">Use as seguintes credenciais:</p>
                   <div className="space-y-1 font-mono text-xs">
                     <div>Email: <span className="font-semibold">agente@peers.com.br</span></div>
                     <div>Senha: <span className="font-semibold">Peers@2025</span></div>
                   </div>
-                </div>
-              </form>
-            </CardContent>
-                      </Card>
+                </div> */}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

@@ -72,10 +72,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('peers_authenticated')
     const email = localStorage.getItem('peers_user')
+    const isAuth = document.cookie.includes('peers_authenticated=true')
     
-    if (!isAuthenticated || isAuthenticated !== 'true') {
-      router.push('/login')
-    } else {
+
+    if (!isAuth || isAuth !== true) {
+      router.push('/login')    } else {
       setUserEmail(email || 'agente@peers.com.br')
     }
   }, [router])

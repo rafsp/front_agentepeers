@@ -19,6 +19,8 @@ import remarkGfm from 'remark-gfm'
 import { azureBlobService, AzureProject } from '@/lib/azure-storage'
 import { fetchAzureProjects } from '@/lib/azure-direct'
 import { Switch } from '@/components/ui/switch'
+import { useMsal, useIsAuthenticated } from '@azure/msal-react'
+
 
 
 import { 
@@ -1543,9 +1545,9 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-xl shadow-xl max-w-5xl w-full my-8 flex flex-col max-h-[85vh]">
         <div className="p-6 border-b" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.accent} 0%, white 100%)` }}>
           <h2 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primary }}>
             Relatório Gerado - Aguardando Aprovação
@@ -1553,7 +1555,7 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
           <p className="text-gray-600 mt-1">Revise o relatório antes de prosseguir com as mudanças</p>
         </div>
         
-        <ScrollArea className="h-[50vh] p-6">
+        <div className="overflow-y-auto flex-1 p-6">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -1658,7 +1660,7 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
           >
             {job.analysis_report || 'Processando análise...'}
           </ReactMarkdown>
-        </ScrollArea>
+        </div>
         
         <div className="p-6 border-t bg-gray-50">
           <Label htmlFor="instrucoes" className="text-sm font-medium mb-2 flex items-center">
@@ -1705,6 +1707,24 @@ const ApprovalModal = ({ job, onApprove, onReject, onClose }: any) => {
 
 export default function TestPage() {
 
+    if (typeof window !== 'undefined') {
+    const isAuth = document.cookie.includes('peers_authenticated=true')
+    if (!isAuth) {
+      window.location.href = '/login'
+      return null
+    }
+  }
+
+
+const { instance, accounts } = useMsal()
+const isAuthenticated = useIsAuthenticated()
+const currentAccount = accounts[0]
+
+// No header (linha ~1500), substituir userName por:
+const [userName1, setUserName1] = useState(() => {
+  if (currentAccount?.name) return currentAccount.name
+  return localStorage.getItem('user_name') || 'Usuário'
+})
 
 
    const AZURE_PAT = process.env.AZURE_PAT;
@@ -1774,6 +1794,21 @@ const [selectedBranch, setSelectedBranch] = useState(() =>
   loadFromStorage(STORAGE_KEYS.SELECTED_BRANCH, 'main')
 )
 const [customBranch, setCustomBranch] = useState('')
+
+  // Função de logout
+const handleLogout = () => {
+  // Limpar cookies
+  document.cookie = 'peers_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+  document.cookie = 'user_name=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+  document.cookie = 'microsoft_login=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+  
+  // Limpar localStorage
+  localStorage.removeItem('peers_authenticated')
+  localStorage.removeItem('user_name')
+  
+  // Redirecionar para login
+  window.location.href = '/login'
+}
   
   // Estados do Menu Lateral
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -2461,6 +2496,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   
 
+
   // Determinar o repositório e branch finais
   const finalRepo = selectedRepository === 'custom' ? customRepository : selectedRepository
   const finalBranch = selectedBranch === 'custom' ? customBranch : selectedBranch
@@ -2742,6 +2778,17 @@ const handleJobAction = async (jobId: string, action: 'approve' | 'reject', inst
                   {currentProject.name}
                 </Badge>
               )}
+
+              {/* Botão de Logout */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </Button>
 
               <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border ${
                 connectionStatus === 'connected' 

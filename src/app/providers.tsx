@@ -1,16 +1,12 @@
 'use client'
 
 import React from 'react'
-import { AuthProvider } from '@/lib/auth/auth-context'
+import { MsalAuthProvider } from '@/lib/auth/msal-context'
 
-interface ProvidersProps {
-  children: React.ReactNode
-}
-
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
+    <MsalAuthProvider>
       {children}
-    </AuthProvider>
+    </MsalAuthProvider>
   )
 }
