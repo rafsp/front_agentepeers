@@ -60,20 +60,26 @@ const handleLogin = async () => {
 
   try {
     // Simular delay de autenticação
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
+    // ✅ AQUI É A VALIDAÇÃO DAS CREDENCIAIS FIXAS
     if (email === FIXED_CREDENTIALS.email && password === FIXED_CREDENTIALS.password) {
-      // Salvar autenticação
+      // ✅ Se email E senha estiverem corretos, salva e redireciona
       localStorage.setItem('peers_authenticated', 'true')
       localStorage.setItem('peers_user', email)
+      localStorage.setItem('peers_auth_method', 'credentials')
       
-      // Redirecionar para dashboard - CORRIGIDO ✅
-      window.location.href = '/dashboard'
+      console.log('✅ Login realizado com sucesso')
+      
+      // Redirecionar para dashboard
+      router.push('/dashboard')
     } else {
-      setError('Credenciais inválidas. Use as credenciais fornecidas.')
+      // ❌ Se email OU senha estiverem errados, mostra erro
+      setError('Credenciais inválidas.')
       setIsLoading(false)
     }
   } catch (err) {
+    console.error('Erro no login:', err)
     setError('Erro ao autenticar. Tente novamente.')
     setIsLoading(false)
   }
