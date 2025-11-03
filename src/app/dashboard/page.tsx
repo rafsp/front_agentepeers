@@ -75,8 +75,10 @@ export default function DashboardPage() {
     const isAuth = document.cookie.includes('peers_authenticated=true')
     
 
-    if (!isAuth || isAuth !== true) {
-      router.push('/login')    } else {
+    if (!isAuth || isAuth !== true) 
+      {
+     // router.push('/login')    
+    } else {
       setUserEmail(email || 'agente@peers.com.br')
     }
   }, [router])

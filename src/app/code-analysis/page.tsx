@@ -1710,8 +1710,8 @@ export default function TestPage() {
     if (typeof window !== 'undefined') {
     const isAuth = document.cookie.includes('peers_authenticated=true')
     if (!isAuth) {
-      window.location.href = '/login'
-      return null
+    //  window.location.href = '/login'
+      //return null
     }
   }
 
