@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-alert('teste');
 
 // Rotas que precisam de autenticação
 const protectedRoutes = ['/dashboard', '/code-analysis']
