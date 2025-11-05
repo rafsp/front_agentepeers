@@ -166,6 +166,27 @@ const REPOSITORY_LIST = [
     type : 'github'
   },
   {
+    value: 'br-openinsurance/n2-teste-ova',
+    label: 'Sistema Opin Vulnerability Analyzer',
+    branch: 'main',
+    description: 'Opin Vulnerability Analyzer',
+    type : 'github'
+  },
+  {
+    value: 'br-openinsurance/n2-teste-opingpt',
+    label: 'Sistema Opin GPT',
+    branch: 'main',
+    description: 'Opin GPT',
+    type : 'github'
+  },
+    {
+    value: 'br-openinsurance/n2-teste-adp',
+    label: 'Sistema OPIN Area do participante',
+    branch: 'main',
+    description: 'Opin area do participante',
+    type : 'github'
+  },
+  {
     value: 'custom',
     label: 'Outro repositório...',
     branch: '',
