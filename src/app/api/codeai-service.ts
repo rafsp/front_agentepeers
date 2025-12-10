@@ -5,9 +5,7 @@
 // CONFIGURAÇÃO DA API
 // ============================================================================
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_CODEAI_API_URL || 
-  process.env.NEXT_PUBLIC_API_URL || 
-  'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
+const API_BASE_URL =  'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
 
 // ============================================================================
 // TIPOS
