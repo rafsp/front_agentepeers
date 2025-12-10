@@ -31,10 +31,41 @@ const FIXED_CREDENTIALS = {
   name: 'Agente PEERS'
 }
 
-// Função para definir cookie
+// Azure AD Config
+const AZURE_AD_CLIENT_ID = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
+const AZURE_AD_TENANT_ID = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
+
+// URL de produção conhecida
+const PRODUCTION_URL = 'https://codeia.peers.com.br'
+
 function setCookie(name: string, value: string, days: number = 7) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
   document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
+}
+
+// Função para obter a URL base correta
+function getBaseUrl(): string {
+  if (typeof window === 'undefined') return PRODUCTION_URL
+  
+  const hostname = window.location.hostname
+  
+  // Se for localhost ou 127.0.0.1, usar origin normal
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return window.location.origin
+  }
+  
+  // Se for URL de produção conhecida
+  if (hostname === 'codeia.peers.com.br') {
+    return PRODUCTION_URL
+  }
+  
+  // Se for Azure Static Web Apps
+  if (hostname.includes('azurestaticapps.net')) {
+    return `https://${hostname}`
+  }
+  
+  // Fallback para origin
+  return window.location.origin
 }
 
 function MicrosoftLoginButton({ disabled }: { disabled?: boolean }) {
@@ -43,30 +74,35 @@ function MicrosoftLoginButton({ disabled }: { disabled?: boolean }) {
   const handleMicrosoftLogin = () => {
     setIsLoading(true)
     
-    const clientId = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
-    const tenantId = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
+    const baseUrl = getBaseUrl()
+    const redirectUri = `${baseUrl}/api/auth/callback/azure-ad`
     
-    const getRedirectUri = () => {
-      if (typeof window === 'undefined') return ''
-      return `${window.location.origin}/api/auth/callback/azure-ad`
-    }
+    console.log('🔗 Microsoft Login - Base URL:', baseUrl)
+    console.log('🔗 Microsoft Login - Redirect URI:', redirectUri)
     
-    const redirectUri = encodeURIComponent(getRedirectUri())
     const scope = encodeURIComponent('openid profile email User.Read')
+    const state = Math.random().toString(36).substring(7)
     
-    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
-      `client_id=${clientId}` +
+    const authUrl = `https://login.microsoftonline.com/${AZURE_AD_TENANT_ID}/oauth2/v2.0/authorize?` +
+      `client_id=${AZURE_AD_CLIENT_ID}` +
       `&response_type=code` +
-      `&redirect_uri=${redirectUri}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&response_mode=query` +
       `&scope=${scope}` +
-      `&state=${Math.random().toString(36).substring(7)}`
+      `&state=${state}`
     
+    console.log('🚀 Redirecionando para Microsoft...')
     window.location.href = authUrl
   }
 
   return (
-    <Button onClick={handleMicrosoftLogin} disabled={disabled || isLoading} variant="outline" type="button" className="w-full h-12 font-medium border-2 hover:bg-gray-50 transition-all">
+    <Button 
+      onClick={handleMicrosoftLogin} 
+      disabled={disabled || isLoading} 
+      variant="outline" 
+      type="button" 
+      className="w-full h-12 font-medium border-2 hover:bg-gray-50 transition-all"
+    >
       {isLoading ? (
         <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Conectando...</>
       ) : (
@@ -106,7 +142,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Verificar se já está logado
   useEffect(() => {
     const isAuth = document.cookie.includes('peers_authenticated=true') || 
                    localStorage.getItem('peers_authenticated') === 'true'
@@ -128,19 +163,16 @@ export default function LoginPage() {
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       if (email === FIXED_CREDENTIALS.email && password === FIXED_CREDENTIALS.password) {
-        // ✅ Salvar em COOKIES (para o middleware)
         setCookie('peers_authenticated', 'true', 7)
         setCookie('peers_auth_method', 'credentials', 7)
         setCookie('peers_user_name', FIXED_CREDENTIALS.name, 7)
         setCookie('peers_user_email', FIXED_CREDENTIALS.email, 7)
         
-        // ✅ Salvar em localStorage (backup)
         localStorage.setItem('peers_authenticated', 'true')
         localStorage.setItem('peers_auth_method', 'credentials')
         localStorage.setItem('peers_user_name', FIXED_CREDENTIALS.name)
         localStorage.setItem('peers_user_email', FIXED_CREDENTIALS.email)
         
-        console.log('✅ Login realizado:', FIXED_CREDENTIALS.name)
         router.push('/dashboard')
       } else {
         setError('Credenciais inválidas. Verifique seu email e senha.')
