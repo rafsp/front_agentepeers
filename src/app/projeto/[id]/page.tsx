@@ -62,7 +62,7 @@ export default function ProjetoDetalhesPage() {
     router.push(`/novo-pipeline?${params.toString()}`)
   }
 
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return 'N/A'
     return new Date(dateStr).toLocaleDateString('pt-BR', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
