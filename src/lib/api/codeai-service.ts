@@ -1,9 +1,12 @@
 // src/lib/api/codeai-service.ts
 // Serviço para comunicação com o backend CodeAI - PEERS
-// Usa dados do usuário logado (não mockados)
+// Endpoints baseados no Swagger: /docs
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
-  'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
+// ============================================================================
+// CONFIGURAÇÃO DA API
+// ============================================================================
+
+const API_BASE_URL =   'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
 
 // ============================================================================
 // TIPOS
@@ -17,8 +20,8 @@ export interface UserContext {
 export interface ProjectSummary {
   project_id: string
   nome_projeto: string
-  ultima_analysis_type: string | null
-  ultima_atualizacao: string | null
+  ultima_analysis_type?: string
+  ultima_atualizacao?: string
   usuario_executor?: string
 }
 
@@ -151,17 +154,14 @@ function getCookie(name: string): string | null {
 }
 
 function getLoggedUser(): UserContext {
-  // Tentar obter dos cookies primeiro
   let name = getCookie('peers_user_name')
   let email = getCookie('peers_user_email')
   
-  // Fallback para localStorage
   if (typeof localStorage !== 'undefined') {
     if (!name) name = localStorage.getItem('peers_user_name')
     if (!email) email = localStorage.getItem('peers_user_email')
   }
   
-  // Fallback final (não deveria acontecer se autenticado)
   return {
     name: name || 'Usuário',
     email: email || 'usuario@peers.com.br',
@@ -178,24 +178,22 @@ class CodeAIService {
 
   constructor() {
     this.apiUrl = API_BASE_URL
-    console.log('🔗 CodeAI Service configurado para:', this.apiUrl)
+    console.log('🚀 CodeAI Service - API URL:', this.apiUrl)
   }
 
-  // Definir contexto do usuário manualmente (se necessário)
+  getApiUrl(): string {
+    return this.apiUrl
+  }
+
   setUserContext(user: UserContext) {
     this.userContext = user
-    console.log('👤 Contexto do usuário definido:', user.name, user.email)
   }
 
-  // Obter usuário atual (do contexto ou dos cookies)
   private getCurrentUser(): UserContext {
-    if (this.userContext) {
-      return this.userContext
-    }
+    if (this.userContext) return this.userContext
     return getLoggedUser()
   }
 
-  // Headers padrão
   private getHeaders(): HeadersInit {
     return {
       'Content-Type': 'application/json',
@@ -216,102 +214,104 @@ class CodeAIService {
         credentials: 'omit',
       })
       return response.ok
-    } catch (error) {
-      console.error('❌ Backend offline:', error)
+    } catch {
       return false
     }
   }
 
   // ============================================================================
-  // LOGIN / PROJETOS
+  // AUTH - POST /auth/login
   // ============================================================================
 
   async loginDev(): Promise<LoginResponse> {
     const user = this.getCurrentUser()
-    console.log('🔐 Login com usuário:', user.name, user.email)
+    const url = `${this.apiUrl}/auth/login`
+    
+    console.log('🔐 POST', url, '| Usuário:', user.email)
 
     try {
-      const response = await fetch(`${this.apiUrl}/login-dev`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: this.getHeaders(),
         mode: 'cors',
         credentials: 'omit',
         body: JSON.stringify({
-          usuario_executor: user.email,
-          nome_usuario: user.name,
+          email: user.email,
+          nome: user.name,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       const data = await response.json()
+      console.log('✅ Login response:', data)
+      
       return {
-        user_info: {
-          nome: user.name,
-          email: user.email,
-        },
+        user_info: { nome: user.name, email: user.email },
         projects: data.projects || data.projetos || [],
       }
     } catch (error) {
-      console.error('❌ Erro no login:', error)
-      // Retornar dados do usuário mesmo se API falhar
+      console.error('❌ Erro login:', error)
+      // Tentar buscar projetos mesmo se login falhar
+      const projects = await this.getProjects()
       return {
-        user_info: {
-          nome: user.name,
-          email: user.email,
-        },
-        projects: [],
+        user_info: { nome: user.name, email: user.email },
+        projects,
       }
     }
   }
 
+  // ============================================================================
+  // PROJECTS - GET /projects/list
+  // ============================================================================
+
   async getProjects(): Promise<ProjectSummary[]> {
     const user = this.getCurrentUser()
-    console.log('📂 Buscando projetos para:', user.email)
+    const url = `${this.apiUrl}/projects/list?email=${encodeURIComponent(user.email)}`
+
+    console.log('📂 GET', url)
 
     try {
-      const response = await fetch(`${this.apiUrl}/projetos?usuario=${encodeURIComponent(user.email)}`, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: this.getHeaders(),
         mode: 'cors',
         credentials: 'omit',
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const data = await response.json()
+      console.log('✅ Projects response:', data)
       return data.projects || data.projetos || data || []
     } catch (error) {
-      console.error('❌ Erro ao buscar projetos:', error)
+      console.error('❌ Erro projetos:', error)
       return []
     }
   }
 
   // ============================================================================
-  // ANÁLISES
+  // ANALYSIS - POST /analysis/start
   // ============================================================================
 
   async startAnalysis(request: StartAnalysisRequest): Promise<StartAnalysisResponse> {
     const user = this.getCurrentUser()
-    console.log('🚀 Iniciando análise:', request.analysis_type, 'usuário:', user.email)
+    const url = `${this.apiUrl}/analysis/start`
+
+    console.log('🚀 POST', url, '| Tipo:', request.analysis_type)
 
     // Se tem arquivo, usar FormData
     if (request.arquivo_docx) {
       const formData = new FormData()
       formData.append('nome_projeto', request.nome_projeto)
       formData.append('analysis_type', request.analysis_type)
-      formData.append('usuario_executor', user.email)
-      formData.append('nome_usuario', user.name)
+      formData.append('email', user.email)
+      formData.append('nome', user.name)
       if (request.instrucoes_extras) {
         formData.append('instrucoes_extras', request.instrucoes_extras)
       }
-      formData.append('arquivo_docx', request.arquivo_docx)
+      formData.append('arquivo', request.arquivo_docx)
 
-      const response = await fetch(`${this.apiUrl}/start-analysis-upload`, {
+      const response = await fetch(url, {
         method: 'POST',
         mode: 'cors',
         credentials: 'omit',
@@ -322,8 +322,9 @@ class CodeAIService {
         const errorText = await response.text()
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
-
-      return await response.json()
+      const data = await response.json()
+      console.log('✅ Analysis response:', data)
+      return data
     }
 
     // Sem arquivo, usar JSON
@@ -331,11 +332,13 @@ class CodeAIService {
       nome_projeto: request.nome_projeto,
       analysis_type: request.analysis_type,
       instrucoes_extras: request.instrucoes_extras || '',
-      usuario_executor: user.email,
-      nome_usuario: user.name,
+      email: user.email,
+      nome: user.name,
     }
 
-    const response = await fetch(`${this.apiUrl}/start-analysis`, {
+    console.log('📦 Payload:', payload)
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: this.getHeaders(),
       mode: 'cors',
@@ -347,36 +350,35 @@ class CodeAIService {
       const errorText = await response.text()
       throw new Error(`HTTP ${response.status}: ${errorText}`)
     }
-
-    return await response.json()
+    const data = await response.json()
+    console.log('✅ Analysis response:', data)
+    return data
   }
 
   // ============================================================================
-  // RELATÓRIOS DO PROJETO
+  // REPORTS - GET /session/project/{project_id}/reports
   // ============================================================================
 
   async getProjectReports(projectId: string): Promise<ProjectFullState> {
     const user = this.getCurrentUser()
-    console.log('📊 Buscando relatórios do projeto:', projectId, 'usuário:', user.email)
+    const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/reports?email=${encodeURIComponent(user.email)}`
+
+    console.log('📊 GET', url)
 
     try {
-      const response = await fetch(
-        `${this.apiUrl}/project-reports/${encodeURIComponent(projectId)}?usuario=${encodeURIComponent(user.email)}`,
-        {
-          method: 'GET',
-          headers: this.getHeaders(),
-          mode: 'cors',
-          credentials: 'omit',
-        }
-      )
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        mode: 'cors',
+        credentials: 'omit',
+      })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      return await response.json()
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+      console.log('✅ Reports response:', data)
+      return data
     } catch (error) {
-      console.error('❌ Erro ao buscar relatórios:', error)
+      console.error('❌ Erro relatórios:', error)
       return {
         resumo: null,
         epicos: null,
@@ -389,7 +391,115 @@ class CodeAIService {
   }
 
   // ============================================================================
-  // POLLING PARA RESULTADOS
+  // REPORT BY TYPE - GET /session/project/{project_id}/report/{report_type}
+  // ============================================================================
+
+  async getProjectReportByType(projectId: string, reportType: string): Promise<unknown> {
+    const user = this.getCurrentUser()
+    const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/report/${reportType}?email=${encodeURIComponent(user.email)}`
+
+    console.log('📊 GET', url)
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        mode: 'cors',
+        credentials: 'omit',
+      })
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return await response.json()
+    } catch (error) {
+      console.error('❌ Erro report type:', error)
+      return null
+    }
+  }
+
+  // ============================================================================
+  // SAVE STATE - POST /session/project/{project_id}/save-state
+  // ============================================================================
+
+  async saveProjectState(projectId: string): Promise<void> {
+    const user = this.getCurrentUser()
+    const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/save-state`
+
+    console.log('💾 POST', url)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      mode: 'cors',
+      credentials: 'omit',
+      body: JSON.stringify({
+        email: user.email,
+        nome: user.name,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    console.log('✅ Save state OK')
+  }
+
+  // ============================================================================
+  // UPDATE REPORT - PUT /session/project/{project_id}/report
+  // ============================================================================
+
+  async updateProjectReport(projectId: string, reportData: unknown): Promise<void> {
+    const user = this.getCurrentUser()
+    const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/report`
+
+    console.log('📝 PUT', url)
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      mode: 'cors',
+      credentials: 'omit',
+      body: JSON.stringify({
+        email: user.email,
+        nome: user.name,
+        report: reportData,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    console.log('✅ Update report OK')
+  }
+
+  // ============================================================================
+  // CHECK PROJECT - GET /projects/check
+  // ============================================================================
+
+  async checkProject(projectId: string): Promise<boolean> {
+    const url = `${this.apiUrl}/projects/check?project_id=${encodeURIComponent(projectId)}`
+
+    console.log('🔍 GET', url)
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        mode: 'cors',
+        credentials: 'omit',
+      })
+
+      if (!response.ok) return false
+      const data = await response.json()
+      return data.exists || false
+    } catch {
+      return false
+    }
+  }
+
+  // ============================================================================
+  // POLLING
   // ============================================================================
 
   async pollForResults(
@@ -399,48 +509,34 @@ class CodeAIService {
     maxAttempts: number = 60,
     intervalMs: number = 3000
   ): Promise<EpicoItem[] | FeatureItem[] | unknown> {
-    const user = this.getCurrentUser()
-    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       onProgress?.(`Aguardando ${reportType}... (${attempt + 1}/${maxAttempts})`)
 
       try {
         const state = await this.getProjectReports(projectId)
 
-        switch (reportType) {
-          case 'epicos':
-            if (state.epicos?.epicos_report?.length) {
-              onProgress?.('✅ Épicos recebidos!')
-              return state.epicos.epicos_report
-            }
-            break
-          case 'features':
-            if (state.features?.features_report?.length) {
-              onProgress?.('✅ Features recebidas!')
-              return state.features.features_report
-            }
-            break
-          case 'times':
-            if (state.times_descricao) {
-              onProgress?.('✅ Times recebidos!')
-              return state.times_descricao
-            }
-            break
-          case 'alocacao':
-            if (state.alocacao_times) {
-              onProgress?.('✅ Alocação recebida!')
-              return state.alocacao_times
-            }
-            break
-          case 'premissas':
-            if (state.premissas_riscos) {
-              onProgress?.('✅ Premissas recebidas!')
-              return state.premissas_riscos
-            }
-            break
+        if (reportType === 'epicos' && state.epicos?.epicos_report?.length) {
+          onProgress?.('✅ Épicos recebidos!')
+          return state.epicos.epicos_report
+        }
+        if (reportType === 'features' && state.features?.features_report?.length) {
+          onProgress?.('✅ Features recebidas!')
+          return state.features.features_report
+        }
+        if (reportType === 'times' && state.times_descricao) {
+          onProgress?.('✅ Times recebidos!')
+          return state.times_descricao
+        }
+        if (reportType === 'alocacao' && state.alocacao_times) {
+          onProgress?.('✅ Alocação recebida!')
+          return state.alocacao_times
+        }
+        if (reportType === 'premissas' && state.premissas_riscos) {
+          onProgress?.('✅ Premissas recebidas!')
+          return state.premissas_riscos
         }
       } catch (error) {
-        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, error)
+        console.warn(`⚠️ Tentativa ${attempt + 1} falhou`)
       }
 
       await new Promise(resolve => setTimeout(resolve, intervalMs))
@@ -449,41 +545,9 @@ class CodeAIService {
     throw new Error(`Timeout aguardando ${reportType}`)
   }
 
-  // ============================================================================
-  // SALVAR ESTADO DO PROJETO
-  // ============================================================================
-
-  async saveProjectState(projectId: string): Promise<void> {
-    const user = this.getCurrentUser()
-    console.log('💾 Salvando projeto:', projectId, 'usuário:', user.email)
-
-    const response = await fetch(`${this.apiUrl}/save-project`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      mode: 'cors',
-      credentials: 'omit',
-      body: JSON.stringify({
-        project_id: projectId,
-        usuario_executor: user.email,
-        nome_usuario: user.name,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`HTTP ${response.status}: ${errorText}`)
-    }
-  }
-
-  // ============================================================================
-  // LOGOUT
-  // ============================================================================
-
   logout() {
     this.userContext = null
-    console.log('🚪 Logout do serviço')
   }
 }
 
-// Instância singleton
 export const codeAIService = new CodeAIService()
