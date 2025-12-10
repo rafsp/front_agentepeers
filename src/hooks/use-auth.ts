@@ -30,10 +30,55 @@ function getCookie(name: string): string | null {
   return null
 }
 
-// Função para remover cookie
+// Função para remover cookie - múltiplas tentativas para garantir remoção
 function removeCookie(name: string) {
   if (typeof document === 'undefined') return
-  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`
+  
+  const hostname = window.location.hostname
+  const isProduction = hostname !== 'localhost' && hostname !== '127.0.0.1'
+  
+  // Lista de variações para garantir remoção
+  const paths = ['/', '']
+  const domains = isProduction 
+    ? ['', hostname, `.${hostname}`, 'codeia.peers.com.br', '.codeia.peers.com.br']
+    : ['', 'localhost']
+  
+  // Tentar remover com várias combinações
+  for (const path of paths) {
+    for (const domain of domains) {
+      // Sem domain
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path || '/'};`
+      
+      // Com domain
+      if (domain) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path || '/'}; domain=${domain};`
+      }
+      
+      // Com secure e sameSite
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path || '/'}; secure; samesite=lax;`
+      
+      if (domain) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path || '/'}; domain=${domain}; secure; samesite=lax;`
+      }
+    }
+  }
+  
+  console.log(`🗑️ Cookie removido: ${name}`)
+}
+
+// Função para limpar todos os cookies de autenticação
+function clearAllAuthCookies() {
+  const cookieNames = [
+    'peers_authenticated',
+    'peers_auth_method',
+    'peers_user',
+    'peers_user_name',
+    'peers_user_email',
+  ]
+  
+  for (const name of cookieNames) {
+    removeCookie(name)
+  }
 }
 
 export function useAuth() {
@@ -113,14 +158,10 @@ export function useAuth() {
   const logout = () => {
     console.log('🚪 Realizando logout...')
     
-    // Limpar todos os cookies
-    removeCookie('peers_authenticated')
-    removeCookie('peers_auth_method')
-    removeCookie('peers_user')
-    removeCookie('peers_user_name')
-    removeCookie('peers_user_email')
+    // 1. Limpar todos os cookies de autenticação
+    clearAllAuthCookies()
     
-    // Limpar localStorage
+    // 2. Limpar localStorage
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('peers_authenticated')
       localStorage.removeItem('peers_auth_method')
@@ -129,8 +170,18 @@ export function useAuth() {
       localStorage.removeItem('peers_user_email')
     }
     
+    // 3. Limpar sessionStorage também
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.clear()
+    }
+    
+    // 4. Resetar estado
     setUser(DEFAULT_USER)
-    router.push('/login')
+    
+    console.log('✅ Logout completo, redirecionando...')
+    
+    // 5. Redirecionar para login (usar window.location para forçar reload completo)
+    window.location.href = '/login'
   }
 
   return { 
