@@ -48,6 +48,7 @@ jobs:
               NEXT_PUBLIC_AZURE_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
               NEXT_PUBLIC_AZURE_AD_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_AZURE_AD_CLIENT_ID }}
               NEXT_PUBLIC_AZURE_AD_TENANT_ID: ${{ secrets.NEXT_PUBLIC_AZURE_AD_TENANT_ID }}
+              NEXT_PUBLIC_CODEAI_API_URL: ${{ secrets.NEXT_PUBLIC_CODEAI_API_URL }}
               AZURE_AD_CLIENT_SECRET: ${{ secrets.AZURE_AD_CLIENT_SECRET }}
           ###### End of Repository/Build Configurations ######
 
@@ -61,6 +62,7 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
+
 
 
 
