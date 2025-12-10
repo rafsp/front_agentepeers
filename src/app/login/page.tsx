@@ -1,43 +1,101 @@
-// app/login/page.tsx
+// src/app/login/page.tsx
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 import { 
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Loader2,
-  AlertCircle,
-  ChevronLeft,
-  Lock,
-  Mail,
-  Sparkles,
-  Bot
+  ArrowRight, Eye, EyeOff, Loader2, AlertCircle, Lock, Mail,
+  Sparkles, Shield, Zap, GitBranch, Bot
 } from 'lucide-react'
 
-const BRAND_COLORS = {
+const BRAND = {
   primary: '#011334',
   secondary: '#E1FF00',
   accent: '#D8E8EE',
   white: '#FFFFFF',
-  gradients: {
-    primary: 'linear-gradient(135deg, #011334 0%, #022558 100%)',
-    secondary: 'linear-gradient(135deg, #E1FF00 0%, #C8E600 100%)',
-    hero: 'linear-gradient(180deg, #011334 0%, #022558 50%, #011334 100%)'
-  }
+  success: '#22C55E',
+  warning: '#F97316',
+  info: '#6366F1',
 }
 
-// Credenciais fixas
+const PEERS_LOGO_URL = 'https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg'
+
 const FIXED_CREDENTIALS = {
   email: 'agente@peers.com.br',
-  password: 'Peers@2025'
+  password: 'Peers@2025',
+  name: 'Agente PEERS'
+}
+
+// Função para definir cookie
+function setCookie(name: string, value: string, days: number = 7) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString()
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
+}
+
+function MicrosoftLoginButton({ disabled }: { disabled?: boolean }) {
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleMicrosoftLogin = () => {
+    setIsLoading(true)
+    
+    const clientId = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
+    const tenantId = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
+    
+    const getRedirectUri = () => {
+      if (typeof window === 'undefined') return ''
+      return `${window.location.origin}/api/auth/callback/azure-ad`
+    }
+    
+    const redirectUri = encodeURIComponent(getRedirectUri())
+    const scope = encodeURIComponent('openid profile email User.Read')
+    
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
+      `client_id=${clientId}` +
+      `&response_type=code` +
+      `&redirect_uri=${redirectUri}` +
+      `&response_mode=query` +
+      `&scope=${scope}` +
+      `&state=${Math.random().toString(36).substring(7)}`
+    
+    window.location.href = authUrl
+  }
+
+  return (
+    <Button onClick={handleMicrosoftLogin} disabled={disabled || isLoading} variant="outline" type="button" className="w-full h-12 font-medium border-2 hover:bg-gray-50 transition-all">
+      {isLoading ? (
+        <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Conectando...</>
+      ) : (
+        <>
+          <svg className="mr-3 h-5 w-5" viewBox="0 0 21 21">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+          </svg>
+          Entrar com Microsoft
+        </>
+      )}
+    </Button>
+  )
+}
+
+function FeatureItem({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${BRAND.secondary}20` }}>
+        <Icon className="w-5 h-5" style={{ color: BRAND.secondary }} />
+      </div>
+      <div>
+        <h3 className="font-semibold text-white mb-1">{title}</h3>
+        <p className="text-sm text-gray-400">{description}</p>
+      </div>
+    </div>
+  )
 }
 
 export default function LoginPage() {
@@ -48,282 +106,158 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-const handleLogin = async () => {
-  // Validação básica
-  if (!email || !password) {
-    setError('Por favor, preencha todos os campos.')
-    return
-  }
+  // Verificar se já está logado
+  useEffect(() => {
+    const isAuth = document.cookie.includes('peers_authenticated=true') || 
+                   localStorage.getItem('peers_authenticated') === 'true'
+    if (isAuth) {
+      router.replace('/dashboard')
+    }
+  }, [router])
 
-  setError('')
-  setIsLoading(true)
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Por favor, preencha todos os campos.')
+      return
+    }
 
-  try {
-    // Simular delay de autenticação
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    setError('')
+    setIsLoading(true)
 
-    // ✅ AQUI É A VALIDAÇÃO DAS CREDENCIAIS FIXAS
-    if (email === FIXED_CREDENTIALS.email && password === FIXED_CREDENTIALS.password) {
-      // ✅ Se email E senha estiverem corretos, salva e redireciona
-      localStorage.setItem('peers_authenticated', 'true')
-      localStorage.setItem('peers_user', email)
-      localStorage.setItem('peers_auth_method', 'credentials')
-      
-      console.log('✅ Login realizado com sucesso')
-      
-      // Redirecionar para dashboard
-      router.push('/dashboard')
-    } else {
-      // ❌ Se email OU senha estiverem errados, mostra erro
-      setError('Credenciais inválidas.')
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      if (email === FIXED_CREDENTIALS.email && password === FIXED_CREDENTIALS.password) {
+        // ✅ Salvar em COOKIES (para o middleware)
+        setCookie('peers_authenticated', 'true', 7)
+        setCookie('peers_auth_method', 'credentials', 7)
+        setCookie('peers_user_name', FIXED_CREDENTIALS.name, 7)
+        setCookie('peers_user_email', FIXED_CREDENTIALS.email, 7)
+        
+        // ✅ Salvar em localStorage (backup)
+        localStorage.setItem('peers_authenticated', 'true')
+        localStorage.setItem('peers_auth_method', 'credentials')
+        localStorage.setItem('peers_user_name', FIXED_CREDENTIALS.name)
+        localStorage.setItem('peers_user_email', FIXED_CREDENTIALS.email)
+        
+        console.log('✅ Login realizado:', FIXED_CREDENTIALS.name)
+        router.push('/dashboard')
+      } else {
+        setError('Credenciais inválidas. Verifique seu email e senha.')
+        setIsLoading(false)
+      }
+    } catch (err) {
+      console.error('Erro no login:', err)
+      setError('Erro ao autenticar. Tente novamente.')
       setIsLoading(false)
     }
-  } catch (err) {
-    console.error('Erro no login:', err)
-    setError('Erro ao autenticar. Tente novamente.')
-    setIsLoading(false)
   }
-}
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin()
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header com Logo e Status */}
-      <header className="border-b bg-white/90 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {/* Logo PEERS */}
-              <div className="flex items-center space-x-3">
-                <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
-                  <img 
-                    src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
-                    alt="PEERS Logo" 
-                    className="w-28 h-14 object-contain"
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement
-                      target.style.display = 'none'
-                      const parent = target.parentElement
-                      if (parent) {
-                        parent.innerHTML = `
-                          <div class="text-3xl font-black tracking-wider text-white">
-                            P<span style="color: #E1FF00">EE</span>RS
-                          </div>
-                          <div class="text-xs font-medium tracking-wider mt-1 text-white">
-                            Consulting <span style="color: #E1FF00">+</span> Technology
-                          </div>
-                        `
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div className="hidden lg:flex items-center">
-                <div className="w-px h-12 bg-gray-200 mx-4" />
-                <div>
-                  <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
-                    <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                    <span>Code .IA</span>
-                  </h1>
-                  <p className="text-sm text-gray-500">Sistema de autenticação</p>
-                </div>
-              </div>
-            </div>
-            
-            <Button
-              variant="outline"
-              onClick={() => router.push('/')}
-              className="font-semibold"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Voltar
-            </Button>
-          </div>
+    <div className="min-h-screen flex">
+      {/* LADO ESQUERDO */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-between p-12" style={{ background: BRAND.primary }}>
+        <div className="flex items-center gap-3">
+          <img src={PEERS_LOGO_URL} alt="PEERS" className="h-8 w-auto" />
         </div>
-      </header>
 
-      <div className="flex min-h-[calc(100vh-80px)] relative overflow-hidden">
-        {/* Background decorativo */}
-        <div className="absolute inset-0" style={{ background: BRAND_COLORS.gradients.hero }} />
-        
-        {/* Lado Esquerdo - Informações */}
-        <div className="hidden lg:flex lg:w-1/2 relative z-10 items-center justify-center p-12">
-          <div className="max-w-lg text-white">
-            <div className="mb-8">
-              <div className="text-5xl font-black tracking-wider mb-2">
-                P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
-              </div>
-              <div className="text-sm font-medium tracking-wider opacity-80">
-                Consulting <span style={{ color: BRAND_COLORS.secondary }}>+</span> Technology
-              </div>
-            </div>
-
-            <h1 className="text-4xl font-bold mb-6">
-              Plataforma de Agentes Inteligentes
-            </h1>
-            
-            <p className="text-lg mb-8 opacity-90">
-              Transforme seu código com o poder da inteligência artificial multi-agentes. 
-              Análise profunda, geração automatizada e otimização contínua.
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                     style={{ background: BRAND_COLORS.secondary }}>
-                  <Sparkles className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                </div>
-                <span>Análise completa de repositórios</span>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                     style={{ background: BRAND_COLORS.secondary }}>
-                  <Lock className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                </div>
-                <span>Detecção de vulnerabilidades</span>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                     style={{ background: BRAND_COLORS.secondary }}>
-                  <ArrowRight className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                </div>
-                <span>Geração de código otimizado</span>
-              </div>
-            </div>
+        <div className="max-w-lg">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: `${BRAND.secondary}20`, color: BRAND.secondary }}>
+            <Sparkles className="w-4 h-4" />Plataforma de Agentes Inteligentes
           </div>
-
-          {/* Elementos decorativos */}
-          <div className="absolute top-20 left-20 w-72 h-72 opacity-10">
-            <div className="w-full h-full rounded-full"
-                 style={{ background: BRAND_COLORS.secondary, filter: 'blur(100px)' }}></div>
+          <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight">
+            Transforme seu código com<span className="block" style={{ color: BRAND.secondary }}>Inteligência Artificial</span>
+          </h1>
+          <p className="text-lg text-gray-400 mb-12">Análise profunda, geração automatizada e otimização contínua com nossa plataforma multi-agentes.</p>
+          <div className="space-y-6">
+            <FeatureItem icon={GitBranch} title="Análise de Repositórios" description="Avaliação completa de código com 14 agentes especializados" />
+            <FeatureItem icon={Shield} title="Segurança & Compliance" description="Detecção de vulnerabilidades OWASP e SAST automatizada" />
+            <FeatureItem icon={Zap} title="Geração de Código" description="Criação de épicos, features e planejamento com IA" />
           </div>
         </div>
 
-        {/* Lado Direito - Formulário */}
-        <div className="flex-1 flex items-center justify-center p-8 lg:p-12 relative z-10">
-          <div className="w-full max-w-md">
-            <Card className="shadow-2xl border-0 bg-white">
-              <CardHeader className="space-y-1 pb-6">
-                <div className="lg:hidden flex justify-center mb-6">
-                  <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
-                    <div className="text-3xl font-black tracking-wider text-white">
-                      P<span style={{ color: BRAND_COLORS.secondary }}>EE</span>RS
-                    </div>
-                  </div>
+        <div className="text-sm text-gray-500">© 2025 PEERS Consulting + Technology. Todos os direitos reservados.</div>
+      </div>
+
+      {/* LADO DIREITO */}
+      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8 bg-gray-50">
+        <div className="w-full max-w-md">
+          {/* Logo Mobile */}
+          <div className="lg:hidden flex justify-center mb-8">
+            <div className="flex items-center gap-3">
+              <div className="px-3 py-2 rounded-lg" style={{ background: BRAND.primary }}>
+                <img src={PEERS_LOGO_URL} alt="PEERS" className="h-5 w-auto" />
+              </div>
+              <div className="text-lg font-bold" style={{ color: BRAND.primary }}>CodeAI</div>
+            </div>
+          </div>
+
+          <Card className="border-0 shadow-xl">
+            <CardContent className="p-8">
+              <div className="text-center mb-8">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${BRAND.info}15` }}>
+                  <Bot className="w-7 h-7" style={{ color: BRAND.info }} />
                 </div>
-                
-                <CardTitle className="text-2xl font-bold text-center lg:text-left" 
-                          style={{ color: BRAND_COLORS.primary }}>
-                  Code .IA
-                </CardTitle>
-                <CardDescription className="text-center lg:text-left">
-                  Entre com suas credenciais para acessar a plataforma
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {/* Campo Email */}
+                <h2 className="text-2xl font-bold text-gray-900">Bem-vindo ao CodeAI</h2>
+                <p className="text-gray-500 mt-2">Entre com suas credenciais para acessar</p>
+              </div>
+
+              <div className="mb-6"><MicrosoftLoginButton disabled={isLoading} /></div>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+                <div className="relative flex justify-center text-sm"><span className="bg-white px-4 text-gray-400">ou continue com email</span></div>
+              </div>
+
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
                   <div className="relative">
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="pl-10"
-                    />
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onKeyPress={handleKeyPress} disabled={isLoading} className="pl-10 h-12" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   </div>
                 </div>
 
-                {/* Campo Senha */}
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="password" className="text-gray-700 font-medium">Senha</Label>
                   <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="pl-10 pr-10"
-                    />
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onKeyPress={handleKeyPress} disabled={isLoading} className="pl-10 pr-10 h-12" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Mensagem de Erro */}
                 {error && (
                   <Alert className="bg-red-50 border-red-200">
                     <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800">
-                      {error}
-                    </AlertDescription>
+                    <AlertDescription className="text-red-700">{error}</AlertDescription>
                   </Alert>
                 )}
 
-                {/* Botões - Entrar e Microsoft lado a lado */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  {/* Botão Entrar */}
-                  <Button
-                    onClick={handleLogin}
-                    type="button"
-                    className="w-full font-semibold h-11"
-                    style={{ background: BRAND_COLORS.gradients.primary }}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Autenticando...
-                      </>
-                    ) : (
-                      <>
-                        Entrar
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
+                <Button onClick={handleLogin} type="button" className="w-full h-12 font-semibold text-white mt-2" style={{ background: BRAND.primary }} disabled={isLoading}>
+                  {isLoading ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" />Autenticando...</>) : (<>Entrar<ArrowRight className="ml-2 h-5 w-5" /></>)}
+                </Button>
+              </div>
 
-                  {/* Botão Microsoft */}
-                  <MicrosoftLoginButton />
+              <div className="mt-6 pt-6 border-t">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <Shield className="w-4 h-4" /><span>Conexão segura com criptografia SSL</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                {/* Divisor */}
-                {/* <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-4 text-gray-500">Credenciais de demonstração</span>
-                  </div>
-                </div> */}
-
-                {/* Box de Credenciais */}
-                {/* <div className="p-4 rounded-lg" style={{ background: `${BRAND_COLORS.accent}30` }}>
-                  <p className="text-sm text-gray-700 mb-2">Use as seguintes credenciais:</p>
-                  <div className="space-y-1 font-mono text-xs">
-                    <div>Email: <span className="font-semibold">agente@peers.com.br</span></div>
-                    <div>Senha: <span className="font-semibold">Peers@2025</span></div>
-                  </div>
-                </div> */}
-              </CardContent>
-            </Card>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              Problemas para acessar?{' '}
+              <a href="mailto:suporte@peers.com.br" className="font-medium hover:underline" style={{ color: BRAND.info }}>Contate o suporte</a>
+            </p>
           </div>
         </div>
       </div>

@@ -100,7 +100,7 @@ import {
 
 //const API_URL = 'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
 
-const API_URL = 'https://poc-agent-revisor-teste-c8c2cucda0hcdxbj.centralus-01.azurewebsites.net'
+const API_URL = 'https://poc-agent-revisor-poc-agente-revisor-rbac-c6d4gqcubbgqebfc.centralus-01.azurewebsites.net'
 const AZURE_PAT = process.env.NEXT_PUBLIC_AZURE_PAT || ''
 
 // Cores da marca PEERS
@@ -163,6 +163,13 @@ const REPOSITORY_LIST = [
     label: 'Sistema POC Porto',
     branch: 'main',
     description: 'Sistema de análise de código POC Porto',
+    type : 'github'
+  },
+  {
+    value: 'LucioFlavioRosa/referencias_layout_html',
+    label: 'Criação de Protótipo',
+    branch: 'main',
+    description: 'Criação de protótipos',
     type : 'github'
   },
   {
@@ -619,6 +626,22 @@ const analysisCategories = {
       useCases: [
         '📖 README completo',
         '🚀 Setup guide',
+        '👥 Contribuição guide'
+      ]
+    },
+        { 
+      value: 'criacao_prototipo', 
+      label: 'Criação de Protótipos', 
+      icon: FileCode,
+      description: 'Criação de Protótipos fácies e executáveis',
+      quickInfo: 'README e docs do projeto',
+      tags: ['README', 'Setup', 'Guide'],
+      complexity: 'Médio',
+      timeEstimate: '10-15 min',
+      color: 'indigo',
+      useCases: [
+        '📖 README completo',
+        '🚀 Criação de Protótipos',
         '👥 Contribuição guide'
       ]
     },

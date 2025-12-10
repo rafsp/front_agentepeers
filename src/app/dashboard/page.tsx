@@ -1,425 +1,256 @@
-// app/dashboard/page.tsx
+// src/app/dashboard/page.tsx
 "use client"
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Sidebar, BRAND } from '@/components/layout/sidebar'
+import { useAuth } from '@/hooks/use-auth'
 import { 
-  ArrowRight,
-  Bot,
-  Brain,
-  Shield,
-  Zap,
-  Code,
-  GitBranch,
-  Sparkles,
-  Users,
-  ChevronRight,
-  Rocket,
-  Target,
-  BarChart3,
-  Lock,
-  LogOut,
-  Activity,
-  Clock,
-  TrendingUp,
-  Bug,
-  Package,
-  Server,
-  Database,
-  BookOpen,
-  TestTube,
-  FileText,
-  GitCommit,
-  Cpu,
-  Search,
-  Settings,
-  Bell,
-  HelpCircle,
-  Menu,
-  PanelLeft,
-  PanelLeftClose
+  codeAIService,
+  type ProjectSummary,
+  ANALYSIS_TYPE_LABELS,
+} from '@/lib/api/codeai-service'
+import { 
+  Search, Plus, FolderOpen, Clock, ChevronRight, Loader2, RefreshCw, Eye,
+  FileText, Layers, AlertCircle, FolderKanban
 } from 'lucide-react'
-
-const BRAND_COLORS = {
-  primary: '#011334',
-  secondary: '#E1FF00',
-  accent: '#D8E8EE',
-  white: '#FFFFFF',
-  gradients: {
-    primary: 'linear-gradient(135deg, #011334 0%, #022558 100%)',
-    secondary: 'linear-gradient(135deg, #E1FF00 0%, #C8E600 100%)',
-    subtle: 'linear-gradient(135deg, #f8fafb 0%, #e8f4f8 100%)'
-  }
-}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [userEmail, setUserEmail] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user, loading: authLoading, logout, isAuthenticated } = useAuth()
   
-  // Stats animados
-  const [stats, setStats] = useState({
-    repos: 0,
-    problems: 0,
-    hours: 0,
-    improvements: 0
-  })
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  // Verificar autenticação
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('peers_authenticated')
-    const email = localStorage.getItem('peers_user')
-    const isAuth = document.cookie.includes('peers_authenticated=true')
-    
-
-    if (!isAuth || isAuth !== true) 
-      {
-     // router.push('/login')    
-    } else {
-      setUserEmail(email || 'agente@peers.com.br')
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login')
     }
-  }, [router])
+  }, [authLoading, isAuthenticated, router])
 
-  // Animação dos números
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(prev => ({
-        repos: prev.repos < 523 ? prev.repos + 23 : 523,
-        problems: prev.problems < 1247 ? prev.problems + 57 : 1247,
-        hours: prev.hours < 342 ? prev.hours + 17 : 342,
-        improvements: prev.improvements < 2456 ? prev.improvements + 113 : 2456
-      }))
-    }, 50)
+    if (isAuthenticated) loadData()
+  }, [isAuthenticated])
 
-    return () => clearInterval(interval)
-  }, [])
-
-  const handleLogout = () => {
-    localStorage.removeItem('peers_authenticated')
-    localStorage.removeItem('peers_user')
-    router.push('/login')
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await codeAIService.loginDev()
+      setProjects(response.projects || [])
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err)
+      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const navigateToAnalysis = () => {
-    router.push('/code-analysis')
+  const handleViewProject = (project: ProjectSummary) => {
+    const projectId = project.project_id || encodeURIComponent(project.nome_projeto)
+    router.push(`/projeto/${projectId}`)
   }
 
-  const navigateToGeneration = () => {
-    router.push('/code-generation')
+  const handleContinueProject = (project: ProjectSummary) => {
+    const params = new URLSearchParams({ nome: project.nome_projeto, id: project.project_id || '' })
+    router.push(`/novo-pipeline?${params.toString()}`)
+  }
+
+  const filteredProjects = projects.filter(p => 
+    p.nome_projeto.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const stats = {
+    total: projects.length,
+    comEpicos: projects.filter(p => p.ultima_analysis_type?.includes('epico')).length,
+    comFeatures: projects.filter(p => p.ultima_analysis_type?.includes('feature')).length,
+    recentes: projects.filter(p => {
+      if (!p.ultima_atualizacao) return false
+      const diff = Date.now() - new Date(p.ultima_atualizacao).getTime()
+      return diff < 7 * 24 * 60 * 60 * 1000
+    }).length,
+  }
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A'
+    return new Date(dateStr).toLocaleDateString('pt-BR', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+  }
+
+  const getAnalysisLabel = (type?: string | null) => {
+    if (!type) return 'Sem análises'
+    return ANALYSIS_TYPE_LABELS[type as keyof typeof ANALYSIS_TYPE_LABELS] || type
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header com Logo e Status */}
-      <header className="border-b bg-white/90 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+      <Sidebar activeItem="dashboard" user={{ name: user.name, email: user.email }} onLogout={logout} />
+
+      <div className="ml-56">
+        <header className="bg-white border-b px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {/* Botão Menu */}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
-              </Button>
-              
-              {/* Logo PEERS */}
-              <div className="flex items-center space-x-3">
-                <div className="p-3 rounded-lg" style={{ background: BRAND_COLORS.primary }}>
-                  <img 
-                    src="https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg" 
-                    alt="PEERS Logo" 
-                    className="w-28 h-14 object-contain"
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement
-                      target.style.display = 'none'
-                      const parent = target.parentElement
-                      if (parent) {
-                        parent.innerHTML = `
-                          <div class="text-3xl font-black tracking-wider text-white">
-                            P<span style="color: #E1FF00">EE</span>RS
-                          </div>
-                          <div class="text-xs font-medium tracking-wider mt-1 text-white">
-                            Consulting <span style="color: #E1FF00">+</span> Technology
-                          </div>
-                        `
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div className="w-px h-12 bg-gray-200 mx-2" />
-              
-              <div>
-                <h1 className="text-2xl font-bold flex items-center space-x-2" style={{ color: BRAND_COLORS.primary }}>
-                  <Bot className="h-6 w-6" style={{ color: BRAND_COLORS.secondary }} />
-                  <span>Code .IA</span>
-                </h1>
-                <p className="text-sm text-gray-500">Escolha sua ferramenta de análise</p>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-500 mt-1">Gerencie seus pipelines e projetos de IA</p>
             </div>
-            
-            {/* Status e User Menu */}
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="hidden lg:flex">
-                <Activity className="mr-1 h-3 w-3 text-green-500" />
-                Sistema Online
-              </Badge>
-              
-              <div className="hidden md:flex items-center space-x-3">
-                <span className="text-sm text-gray-600">
-                  {userEmail}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sair</span>
-                </Button>
-              </div>
-            </div>
+            <Button onClick={() => router.push('/novo-pipeline')} className="text-white" style={{ background: BRAND.info }}>
+              <Plus className="w-4 h-4 mr-2" />Novo Pipeline
+            </Button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Hero Section */}
-      <section className="py-12 lg:py-16" style={{ background: BRAND_COLORS.gradients.subtle }}>
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto">
-            <Badge className="mb-4" style={{ 
-              background: `${BRAND_COLORS.secondary}20`,
-              color: BRAND_COLORS.primary,
-              border: `1px solid ${BRAND_COLORS.secondary}`
-            }}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Powered by Multi-Agent AI
-            </Badge>
-            
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold mb-4 lg:mb-6" 
-                style={{ color: BRAND_COLORS.primary }}>
-              Escolha sua Ferramenta
-            </h1>
-            
-            <p className="text-lg lg:text-xl text-gray-600">
-              Selecione entre análise profunda ou geração automatizada de código
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-6 lg:py-8 bg-white border-y">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-8">
-            <div className="text-center">
-              <div className="text-2xl lg:text-3xl font-bold mb-1" style={{ color: BRAND_COLORS.primary }}>
-                {stats.repos}+
-              </div>
-              <div className="text-xs lg:text-sm text-gray-600 flex items-center justify-center">
-                <GitBranch className="mr-1 h-3 w-3 lg:h-4 lg:w-4" />
-                Repositórios
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl lg:text-3xl font-bold mb-1" style={{ color: '#dc2626' }}>
-                {stats.problems.toLocaleString()}+
-              </div>
-              <div className="text-xs lg:text-sm text-gray-600 flex items-center justify-center">
-                <Bug className="mr-1 h-3 w-3 lg:h-4 lg:w-4" />
-                Problemas
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl lg:text-3xl font-bold mb-1" style={{ color: '#16a34a' }}>
-                {stats.hours}h
-              </div>
-              <div className="text-xs lg:text-sm text-gray-600 flex items-center justify-center">
-                <Clock className="mr-1 h-3 w-3 lg:h-4 lg:w-4" />
-                Economizadas
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl lg:text-3xl font-bold mb-1" style={{ color: '#2563eb' }}>
-                {stats.improvements.toLocaleString()}
-              </div>
-              <div className="text-xs lg:text-sm text-gray-600 flex items-center justify-center">
-                <TrendingUp className="mr-1 h-3 w-3 lg:h-4 lg:w-4" />
-                Melhorias
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Cards */}
-      <section className="py-12 lg:py-16">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
-            
-            {/* Card: Análise de Código */}
-            <Card 
-              className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group overflow-hidden"
-              onClick={navigateToAnalysis}
-            >
-              <div className="h-1 lg:h-2" style={{ background: BRAND_COLORS.gradients.primary }}></div>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div 
-                    className="p-3 rounded-lg group-hover:scale-110 transition-transform"
-                    style={{ background: `${BRAND_COLORS.primary}10` }}
-                  >
-                    <Code className="h-6 w-6 lg:h-8 lg:w-8" style={{ color: BRAND_COLORS.primary }} />
+        <main className="p-8">
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-6 mb-8">
+            <Card className="border shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Total de Projetos</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
                   </div>
-                  <Badge style={{ 
-                    background: `${BRAND_COLORS.secondary}20`,
-                    color: BRAND_COLORS.primary
-                  }}>
-                    Mais Popular
-                  </Badge>
-                </div>
-                <CardTitle className="text-xl lg:text-2xl" style={{ color: BRAND_COLORS.primary }}>
-                  Análise de Código
-                </CardTitle>
-                <CardDescription className="text-sm lg:text-base">
-                  Analise repositórios completos e identifique melhorias com IA multi-agentes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 lg:space-y-3">
-                  {[
-                    { icon: Shield, text: "Análise de vulnerabilidades" },
-                    { icon: Cpu, text: "Otimização de performance" },
-                    { icon: GitCommit, text: "Revisão de arquitetura" },
-                    { icon: FileText, text: "Relatórios em PDF" },
-                    { icon: TestTube, text: "Testes automatizados" }
-                  ].map((feature, idx) => (
-                    <div key={idx} className="flex items-center text-xs lg:text-sm text-gray-700">
-                      <feature.icon className="mr-2 lg:mr-3 h-3 w-3 lg:h-4 lg:w-4 flex-shrink-0" 
-                                   style={{ color: BRAND_COLORS.secondary }} />
-                      <span>{feature.text}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-4">
-                  <Button 
-                    className="w-full font-semibold group-hover:scale-105 transition-transform"
-                    style={{ background: BRAND_COLORS.gradients.primary }}
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    Iniciar Análise
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${BRAND.info}15` }}>
+                    <FolderOpen className="w-6 h-6" style={{ color: BRAND.info }} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Card: Geração de Código */}
-            <Card 
-              className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group overflow-hidden"
-              onClick={navigateToGeneration}
-            >
-              <div className="h-1 lg:h-2" style={{ background: BRAND_COLORS.gradients.secondary }}></div>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div 
-                    className="p-3 rounded-lg group-hover:scale-110 transition-transform"
-                    style={{ background: `${BRAND_COLORS.secondary}20` }}
-                  >
-                    <Sparkles className="h-6 w-6 lg:h-8 lg:w-8" style={{ color: BRAND_COLORS.primary }} />
+            <Card className="border shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Com Épicos</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats.comEpicos}</p>
                   </div>
-                  <Badge style={{ 
-                    background: `${BRAND_COLORS.primary}10`,
-                    color: BRAND_COLORS.primary
-                  }}>
-                    Novo
-                  </Badge>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100">
+                    <FileText className="w-6 h-6 text-purple-600" />
+                  </div>
                 </div>
-                <CardTitle className="text-xl lg:text-2xl" style={{ color: BRAND_COLORS.primary }}>
-                  Geração de Código
-                </CardTitle>
-                <CardDescription className="text-sm lg:text-base">
-                  Gere aplicações completas a partir de requisitos em linguagem natural
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 lg:space-y-3">
-                  {[
-                    { icon: Package, text: "Aplicações full-stack" },
-                    { icon: Server, text: "APIs RESTful" },
-                    { icon: Database, text: "Modelagem de dados" },
-                    { icon: BookOpen, text: "Documentação técnica" },
-                    { icon: Rocket, text: "Deploy-ready" }
-                  ].map((feature, idx) => (
-                    <div key={idx} className="flex items-center text-xs lg:text-sm text-gray-700">
-                      <feature.icon className="mr-2 lg:mr-3 h-3 w-3 lg:h-4 lg:w-4 flex-shrink-0" 
-                                   style={{ color: BRAND_COLORS.primary }} />
-                      <span>{feature.text}</span>
-                    </div>
-                  ))}
+              </CardContent>
+            </Card>
+            <Card className="border shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Com Features</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats.comFeatures}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-green-100">
+                    <Layers className="w-6 h-6 text-green-600" />
+                  </div>
                 </div>
-
-                <div className="pt-4">
-                  <Button 
-                    className="w-full font-semibold group-hover:scale-105 transition-transform"
-                    style={{ 
-                      background: BRAND_COLORS.gradients.secondary,
-                      color: BRAND_COLORS.primary 
-                    }}
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Gerar Código
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+              </CardContent>
+            </Card>
+            <Card className="border shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Atualizados (7d)</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats.recentes}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-100">
+                    <Clock className="w-6 h-6 text-orange-600" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Quick Actions */}
-          <div className="mt-12 max-w-4xl mx-auto">
-            <h3 className="text-lg font-semibold mb-4" style={{ color: BRAND_COLORS.primary }}>
-              Ações Rápidas
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                <BarChart3 className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                <span className="text-xs">Relatórios</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                <Settings className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                <span className="text-xs">Configurações</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                <BookOpen className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                <span className="text-xs">Documentação</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                <HelpCircle className="h-5 w-5" style={{ color: BRAND_COLORS.primary }} />
-                <span className="text-xs">Suporte</span>
-              </Button>
+          {/* Search */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="relative w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input placeholder="Buscar projetos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
+            <Button variant="outline" onClick={loadData} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Atualizar
+            </Button>
           </div>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t bg-white py-6">
-        <div className="container mx-auto px-4 sm:px-6 text-center">
-          <p className="text-sm text-gray-600">
-            © 2025 PEERS Consulting + Technology. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
+          {/* Projects */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              <span className="ml-3 text-gray-500">Carregando projetos...</span>
+            </div>
+          ) : error ? (
+            <Card className="border border-red-200 bg-red-50">
+              <CardContent className="p-6 text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <p className="text-red-700 font-medium">{error}</p>
+                <Button variant="outline" onClick={loadData} className="mt-4">Tentar Novamente</Button>
+              </CardContent>
+            </Card>
+          ) : filteredProjects.length === 0 ? (
+            <Card className="border shadow-sm">
+              <CardContent className="p-12 text-center">
+                <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {searchTerm ? 'Nenhum projeto encontrado' : 'Nenhum projeto ainda'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {searchTerm ? 'Tente buscar com outros termos' : 'Crie seu primeiro pipeline para começar'}
+                </p>
+                {!searchTerm && (
+                  <Button onClick={() => router.push('/novo-pipeline')} style={{ background: BRAND.info }} className="text-white">
+                    <Plus className="w-4 h-4 mr-2" />Criar Pipeline
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredProjects.map((project) => (
+                <Card key={project.project_id || project.nome_projeto} className="border shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${BRAND.info}15` }}>
+                          <FolderKanban className="w-6 h-6" style={{ color: BRAND.info }} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-lg">{project.nome_projeto}</h3>
+                          <div className="flex items-center gap-4 mt-1">
+                            <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">
+                              {getAnalysisLabel(project.ultima_analysis_type)}
+                            </Badge>
+                            <span className="text-sm text-gray-500 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />{formatDate(project.ultima_atualizacao)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewProject(project)}>
+                          <Eye className="w-4 h-4 mr-2" />Ver Detalhes
+                        </Button>
+                        <Button size="sm" onClick={() => handleContinueProject(project)} style={{ background: BRAND.info }} className="text-white">
+                          Continuar<ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
