@@ -3,7 +3,7 @@
 // Usa dados do usuário logado (não mockados)
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
-  'https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net'
+  'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
 
 // ============================================================================
 // TIPOS
