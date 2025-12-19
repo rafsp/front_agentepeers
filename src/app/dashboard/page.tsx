@@ -16,7 +16,7 @@ import {
 } from '@/lib/api/codeai-service'
 import { 
   Search, Plus, FolderOpen, Clock, ChevronRight, Loader2, RefreshCw, Eye,
-  FileText, Layers, AlertCircle, FolderKanban
+  FileText, Layers, AlertCircle, FolderKanban, FileBarChart2
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -62,14 +62,20 @@ export default function DashboardPage() {
     router.push(`/novo-pipeline?${params.toString()}`)
   }
 
+  // NOVO: Navegar para relatorios do projeto
+  const handleViewReports = (project: ProjectSummary) => {
+    const projectId = project.project_id || encodeURIComponent(project.nome_projeto)
+    router.push(`/relatorios/epicos?projeto=${projectId}`)
+  }
+
   const filteredProjects = projects.filter(p => 
     p.nome_projeto.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const stats = {
     total: projects.length,
-    comEpicos: projects.filter(p => p.ultima_analysis_type?.includes('epico')).length,
-    comFeatures: projects.filter(p => p.ultima_analysis_type?.includes('feature')).length,
+    comEpicos: projects.filter(p => p.ultima_analysis_type?.toLowerCase().includes('epico')).length,
+    comFeatures: projects.filter(p => p.ultima_analysis_type?.toLowerCase().includes('feature')).length,
     recentes: projects.filter(p => {
       if (!p.ultima_atualizacao) return false
       const diff = Date.now() - new Date(p.ultima_atualizacao).getTime()
@@ -87,6 +93,33 @@ export default function DashboardPage() {
   const getAnalysisLabel = (type?: string | null) => {
     if (!type) return 'Sem análises'
     return ANALYSIS_TYPE_LABELS[type as keyof typeof ANALYSIS_TYPE_LABELS] || type
+  }
+
+  // Verifica se projeto tem artefatos para mostrar botão de relatórios
+  const hasArtefatos = (project: ProjectSummary) => {
+    const type = project.ultima_analysis_type?.toLowerCase() || ''
+    return (
+      type.includes('epico') || 
+      type.includes('feature') || 
+      type.includes('timeline') ||
+      type.includes('cronograma') ||
+      type.includes('premissa') ||
+      type.includes('risco') ||
+      type.includes('criado')
+    )
+  }
+
+  // Verifica se projeto está "completo" (já tem premissas/riscos ou cronograma)
+  // Nesses casos não precisa mostrar botão "Continuar"
+  const isProjectComplete = (project: ProjectSummary) => {
+    const type = project.ultima_analysis_type?.toLowerCase() || ''
+    return (
+      type.includes('premissa') ||
+      type.includes('risco') ||
+      type.includes('criacao_premissas') ||
+      type.includes('timeline') ||
+      type.includes('cronograma')
+    )
   }
 
   if (authLoading) {
@@ -236,12 +269,26 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {/* Botao de Relatorios - sempre visível se tem artefatos */}
+                        {hasArtefatos(project) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleViewReports(project)}
+                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                          >
+                            <FileBarChart2 className="w-4 h-4 mr-2" />Relatórios
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" onClick={() => handleViewProject(project)}>
                           <Eye className="w-4 h-4 mr-2" />Ver Detalhes
                         </Button>
-                        <Button size="sm" onClick={() => handleContinueProject(project)} style={{ background: BRAND.info }} className="text-white">
-                          Continuar<ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
+                        {/* Botao Continuar - só mostra se projeto não está completo */}
+                        {!isProjectComplete(project) && (
+                          <Button size="sm" onClick={() => handleContinueProject(project)} style={{ background: BRAND.info }} className="text-white">
+                            Continuar<ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

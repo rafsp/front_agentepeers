@@ -6,7 +6,7 @@
 // CONFIGURAÇÃO DA API
 // ============================================================================
 
-const API_BASE_URL =   'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
+const API_BASE_URL = 'https://app-codeai-backend-dev-usc-fngga4fkbkewewdz.centralus-01.azurewebsites.net'
 
 // ============================================================================
 // TIPOS
@@ -58,6 +58,7 @@ export interface FeaturesReport {
 export interface ProjectFullState {
   resumo: ProjectSummary | null
   epicos: EpicosReport | null
+  epicos_timeline: unknown | null
   features: FeaturesReport | null
   times_descricao: unknown | null
   alocacao_times: unknown | null
@@ -73,6 +74,7 @@ export interface StartAnalysisRequest {
 
 export interface StartAnalysisResponse {
   project_id: string
+  job_id?: string
   message?: string
   status?: string
 }
@@ -97,6 +99,7 @@ export const ANALYSIS_TYPE_LABELS: Record<string, string> = {
   'criacao_times_azure_devops': 'Times Criados',
   'criacao_alocacao_azure_devops': 'Alocação Criada',
   'criacao_premissas_azure_devops': 'Premissas Criadas',
+  'criacao_epicos_timeline': 'Cronograma Criado',
 }
 
 export const ANALYSIS_TYPE_AGENTS: Record<string, string> = {
@@ -107,6 +110,8 @@ export const ANALYSIS_TYPE_AGENTS: Record<string, string> = {
   'criacao_times_azure_devops': 'Team Planner Agent',
   'criacao_alocacao_azure_devops': 'Resource Allocator Agent',
   'criacao_premissas_azure_devops': 'Risk Analyzer Agent',
+  'criacao_premissas_riscos': 'Risk Analysis Agent',
+  'criacao_epicos_timeline': 'Timeline Planner Agent',
 }
 
 // ============================================================================
@@ -175,6 +180,7 @@ function getLoggedUser(): UserContext {
 class CodeAIService {
   private apiUrl: string
   private userContext: UserContext | null = null
+  private currentJobId: string | null = null // Armazena o job_id da última análise
 
   constructor() {
     this.apiUrl = API_BASE_URL
@@ -252,7 +258,6 @@ class CodeAIService {
       }
     } catch (error) {
       console.error('❌ Erro login:', error)
-      // Tentar buscar projetos mesmo se login falhar
       const projects = await this.getProjects()
       return {
         user_info: { nome: user.name, email: user.email },
@@ -291,6 +296,7 @@ class CodeAIService {
 
   // ============================================================================
   // ANALYSIS - POST /analysis/start
+  // IMPORTANTE: Backend SEMPRE espera FormData, não JSON
   // ============================================================================
 
   async startAnalysis(request: StartAnalysisRequest): Promise<StartAnalysisResponse> {
@@ -299,71 +305,64 @@ class CodeAIService {
 
     console.log('🚀 POST', url, '| Tipo:', request.analysis_type)
 
-    // Se tem arquivo, usar FormData
+    // SEMPRE usar FormData (backend não aceita JSON)
+    const formData = new FormData()
+    formData.append('nome_projeto', request.nome_projeto)
+    formData.append('analysis_type', request.analysis_type)
+    formData.append('email', user.email)
+    formData.append('nome', user.name)
+    
+    if (request.instrucoes_extras) {
+      formData.append('instrucoes_extras', request.instrucoes_extras)
+    }
+    
+    // Arquivo é opcional
     if (request.arquivo_docx) {
-      const formData = new FormData()
-      formData.append('nome_projeto', request.nome_projeto)
-      formData.append('analysis_type', request.analysis_type)
-      formData.append('email', user.email)
-      formData.append('nome', user.name)
-      if (request.instrucoes_extras) {
-        formData.append('instrucoes_extras', request.instrucoes_extras)
-      }
       formData.append('arquivo', request.arquivo_docx)
-
-      const response = await fetch(url, {
-        method: 'POST',
-        mode: 'cors',
-        credentials: 'omit',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
-      }
-      const data = await response.json()
-      console.log('✅ Analysis response:', data)
-      return data
     }
 
-    // Sem arquivo, usar JSON
-    const payload = {
+    console.log('📦 FormData:', {
       nome_projeto: request.nome_projeto,
       analysis_type: request.analysis_type,
-      instrucoes_extras: request.instrucoes_extras || '',
       email: user.email,
       nome: user.name,
-    }
-
-    console.log('📦 Payload:', payload)
+      instrucoes_extras: request.instrucoes_extras || '',
+      arquivo: request.arquivo_docx?.name || 'N/A'
+    })
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: this.getHeaders(),
       mode: 'cors',
       credentials: 'omit',
-      body: JSON.stringify(payload),
+      body: formData,
     })
 
     if (!response.ok) {
       const errorText = await response.text()
       throw new Error(`HTTP ${response.status}: ${errorText}`)
     }
+    
     const data = await response.json()
     console.log('✅ Analysis response:', data)
+    
+    // Armazena o job_id para polling
+    if (data.job_id) {
+      this.currentJobId = data.job_id
+    }
+    
     return data
   }
 
   // ============================================================================
-  // REPORTS - GET /session/project/{project_id}/reports
+  // CHECK PROJECT - GET /projects/check?nome_projeto=X
+  // Retorna estado completo incluindo last_job_id
   // ============================================================================
 
-  async getProjectReports(projectId: string): Promise<ProjectFullState> {
+  async checkProject(projectName: string): Promise<{ exists: boolean; state: ProjectFullState | null; lastJobId: string | null }> {
     const user = this.getCurrentUser()
-    const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/reports?email=${encodeURIComponent(user.email)}`
+    const url = `${this.apiUrl}/projects/check?nome_projeto=${encodeURIComponent(projectName)}`
 
-    console.log('📊 GET', url)
+    console.log('🔎 GET (check project)', url)
 
     try {
       const response = await fetch(url, {
@@ -373,21 +372,116 @@ class CodeAIService {
         credentials: 'omit',
       })
 
+      if (!response.ok) {
+        console.warn('⚠️ Check project failed:', response.status)
+        return { exists: false, state: null, lastJobId: null }
+      }
+
+      const data = await response.json()
+      console.log('✅ Check project response:', data)
+
+      const lastJobId = data.state?.resumo?.last_job_id || data.state?.last_job_id || null
+      
+      return {
+        exists: data.exists || false,
+        state: data.state || null,
+        lastJobId,
+      }
+    } catch (error) {
+      console.error('❌ Erro check project:', error)
+      return { exists: false, state: null, lastJobId: null }
+    }
+  }
+
+  // ============================================================================
+  // REPORTS - GET /session/project/{project_id}/{job_id}/reports
+  // Endpoint correto conforme Swagger
+  // ============================================================================
+
+  async getProjectReports(projectId: string, jobId?: string): Promise<ProjectFullState> {
+    const user = this.getCurrentUser()
+    let effectiveJobId = jobId || this.currentJobId
+    
+    // Se não tem job_id, tenta buscar via check project
+    // Nota: para isso funcionar, precisamos do nome do projeto. 
+    // Por hora, vamos retornar vazio se não tiver job_id
+    
+    // Tenta primeiro com job_id se disponível
+    if (effectiveJobId) {
+      const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/${encodeURIComponent(effectiveJobId)}/reports?email=${encodeURIComponent(user.email)}`
+      console.log('📊 GET (with job_id)', url)
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: this.getHeaders(),
+          mode: 'cors',
+          credentials: 'omit',
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('✅ Reports response (with job_id):', data)
+          return data
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro com job_id, tentando sem:', error)
+      }
+    }
+    
+    // Fallback: tenta sem job_id (endpoint antigo)
+    const fallbackUrl = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/reports?email=${encodeURIComponent(user.email)}`
+    console.log('📊 GET (fallback)', fallbackUrl)
+
+    try {
+      const response = await fetch(fallbackUrl, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        mode: 'cors',
+        credentials: 'omit',
+      })
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const data = await response.json()
-      console.log('✅ Reports response:', data)
+      console.log('✅ Reports response (fallback):', data)
       return data
     } catch (error) {
       console.error('❌ Erro relatórios:', error)
       return {
         resumo: null,
         epicos: null,
+        epicos_timeline: null,
         features: null,
         times_descricao: null,
         alocacao_times: null,
         premissas_riscos: null,
       }
     }
+  }
+
+  // ============================================================================
+  // REPORTS BY NAME - usa /projects/check para obter state direto
+  // Alternativa quando não temos job_id
+  // ============================================================================
+
+  async getProjectReportsByName(projectName: string): Promise<ProjectFullState> {
+    const { exists, state } = await this.checkProject(projectName)
+    
+    if (!exists || !state) {
+      console.warn('⚠️ Projeto não encontrado:', projectName)
+      return {
+        resumo: null,
+        epicos: null,
+        epicos_timeline: null,
+        features: null,
+        times_descricao: null,
+        alocacao_times: null,
+        premissas_riscos: null,
+      }
+    }
+    
+    console.log('✅ Reports via check project:', state)
+    return state as ProjectFullState
   }
 
   // ============================================================================
@@ -474,47 +568,52 @@ class CodeAIService {
   }
 
   // ============================================================================
-  // CHECK PROJECT - GET /projects/check
-  // ============================================================================
-
-  async checkProject(projectId: string): Promise<boolean> {
-    const url = `${this.apiUrl}/projects/check?project_id=${encodeURIComponent(projectId)}`
-
-    console.log('🔍 GET', url)
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-        mode: 'cors',
-        credentials: 'omit',
-      })
-
-      if (!response.ok) return false
-      const data = await response.json()
-      return data.exists || false
-    } catch {
-      return false
-    }
-  }
-
-  // ============================================================================
-  // POLLING
+  // POLLING - Aguarda resultados com retry
   // ============================================================================
 
   async pollForResults(
     projectId: string,
-    reportType: 'epicos' | 'features' | 'times' | 'alocacao' | 'premissas',
+    reportType: 'epicos' | 'features' | 'times' | 'alocacao' | 'premissas' | 'timeline',
     onProgress?: (message: string) => void,
     maxAttempts: number = 60,
-    intervalMs: number = 3000
+    intervalMs: number = 5000, // 5 segundos entre tentativas
+    projectName?: string // Nome do projeto para fallback
   ): Promise<EpicoItem[] | FeatureItem[] | unknown> {
+    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       onProgress?.(`Aguardando ${reportType}... (${attempt + 1}/${maxAttempts})`)
 
       try {
-        const state = await this.getProjectReports(projectId)
+        let state: ProjectFullState | null = null
+        
+        // PRIMEIRO: Tenta pelo endpoint /reports com o currentJobId (job atual)
+        // Este é o endpoint que retorna o resultado do processamento em andamento
+        if (this.currentJobId) {
+          try {
+            state = await this.getProjectReports(projectId, this.currentJobId)
+            console.log(`📊 Polling via /reports (job: ${this.currentJobId.slice(0,8)}...)`)
+          } catch (e) {
+            console.warn('⚠️ /reports falhou, tentando /projects/check')
+          }
+        }
+        
+        // FALLBACK: Se /reports não funcionou, tenta /projects/check
+        // Útil para dados já persistidos
+        if (!state && projectName) {
+          try {
+            state = await this.getProjectReportsByName(projectName)
+            console.log(`📊 Polling via /projects/check`)
+          } catch (e) {
+            console.warn('⚠️ /projects/check também falhou')
+          }
+        }
+        
+        // Se ainda não tem state, tenta getProjectReports sem job específico
+        if (!state) {
+          state = await this.getProjectReports(projectId)
+        }
 
+        // Verifica se o reportType solicitado está disponível
         if (reportType === 'epicos' && state.epicos?.epicos_report?.length) {
           onProgress?.('✅ Épicos recebidos!')
           return state.epicos.epicos_report
@@ -535,18 +634,28 @@ class CodeAIService {
           onProgress?.('✅ Premissas recebidas!')
           return state.premissas_riscos
         }
+        if (reportType === 'timeline' && state.epicos_timeline) {
+          onProgress?.('✅ Cronograma recebido!')
+          return state.epicos_timeline
+        }
       } catch (error) {
-        console.warn(`⚠️ Tentativa ${attempt + 1} falhou`)
+        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, error)
       }
 
+      // Aguarda antes da próxima tentativa
       await new Promise(resolve => setTimeout(resolve, intervalMs))
     }
 
-    throw new Error(`Timeout aguardando ${reportType}`)
+    throw new Error(`Timeout aguardando ${reportType} após ${maxAttempts} tentativas`)
   }
+
+  // ============================================================================
+  // LOGOUT
+  // ============================================================================
 
   logout() {
     this.userContext = null
+    this.currentJobId = null
   }
 }
 
