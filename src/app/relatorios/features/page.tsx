@@ -1,7 +1,7 @@
 // src/app/relatorios/features/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle, ArrowLeft, RefreshCw, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { FeaturesReport } from '@/components/report'
 import { reportsService } from '@/lib/api/reports-service'
 import type { FeaturesReportData } from '@/types/reports'
 
-export default function FeaturesPage(): React.ReactElement {
+function FeaturesContent(): React.ReactElement {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { loading: authLoading, isAuthenticated } = useAuth()
@@ -106,5 +106,20 @@ export default function FeaturesPage(): React.ReactElement {
       </Button>
       <FeaturesReport data={data} />
     </div>
+  )
+}
+
+export default function FeaturesPage(): React.ReactElement {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#011334] mx-auto mb-4" />
+          <p className="text-slate-500">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <FeaturesContent />
+    </Suspense>
   )
 }

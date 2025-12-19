@@ -3,7 +3,7 @@
 
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Layers, ListTodo, KanbanSquare, ShieldAlert, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ const REPORT_TYPES = [
   { id: 'riscos', title: 'Riscos e Premissas', description: 'Matriz de riscos', icon: ShieldAlert, color: '#ef4444', bgColor: '#fef2f2' },
 ]
 
-export default function RelatoriosPage(): React.ReactElement {
+function RelatoriosContent(): React.ReactElement {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { loading: authLoading, isAuthenticated } = useAuth()
@@ -96,5 +96,17 @@ export default function RelatoriosPage(): React.ReactElement {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function RelatoriosPage(): React.ReactElement {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-[#011334]" />
+      </div>
+    }>
+      <RelatoriosContent />
+    </Suspense>
   )
 }
