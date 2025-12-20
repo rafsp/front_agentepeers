@@ -28,8 +28,9 @@ import {
 import { 
   WelcomeModal, 
   EmptyStateGuide, 
+  OnboardingTour,
   useOnboarding 
-} from '@/components/onboarding/WelcomeModal'
+} from '@/components/onboarding/OnboardingTour'
 
 import { 
   Search, Plus, FolderOpen, Clock, ChevronRight, Loader2, RefreshCw, Eye,
@@ -57,9 +58,17 @@ export default function DashboardPage() {
   const { user, loading: authLoading, logout, isAuthenticated } = useAuth()
   
   // ============================================================================
-  // HOOK DE ONBOARDING - Controla welcome modal
+  // HOOK DE ONBOARDING - Controla welcome modal e tour
   // ============================================================================
-  const { showWelcome, setShowWelcome, completeOnboarding } = useOnboarding()
+  const { 
+    showWelcome, 
+    setShowWelcome, 
+    showTour,
+    setShowTour,
+    completeWelcome, 
+    completeTour,
+    startTour 
+  } = useOnboarding()
   
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,8 +175,22 @@ export default function DashboardPage() {
     setShowWelcome(false)
   }
 
+  const handleStartTour = () => {
+    setShowWelcome(false)
+    setShowTour(true)
+  }
+
+  const handleSkipTour = () => {
+    completeWelcome()
+    router.push('/novo-pipeline')
+  }
+
+  const handleTourComplete = () => {
+    completeTour()
+  }
+
   const handleStartPipeline = () => {
-    completeOnboarding()
+    completeTour()
     router.push('/novo-pipeline')
   }
 
@@ -193,6 +216,19 @@ export default function DashboardPage() {
       {showWelcome && (
         <WelcomeModal 
           onClose={handleWelcomeClose}
+          onStartTour={handleStartTour}
+          onSkipTour={handleSkipTour}
+        />
+      )}
+
+      {/* ================================================================== */}
+      {/* TOUR MODAL - Carrossel com tutorial passo a passo                  */}
+      {/* ================================================================== */}
+      {showTour && (
+        <OnboardingTour
+          isOpen={showTour}
+          onClose={() => setShowTour(false)}
+          onComplete={handleTourComplete}
           onStartPipeline={handleStartPipeline}
         />
       )}
@@ -329,7 +365,10 @@ export default function DashboardPage() {
             /* ================================================================== */
             <Card className="border-slate-200">
               <CardContent className="p-0">
-                <EmptyStateGuide onCreatePipeline={() => router.push('/novo-pipeline')} />
+                <EmptyStateGuide 
+                  onCreatePipeline={() => router.push('/novo-pipeline')} 
+                  onStartTour={() => setShowTour(true)}
+                />
               </CardContent>
             </Card>
           ) : filteredAndSortedProjects.length === 0 ? (
