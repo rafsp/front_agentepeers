@@ -25,21 +25,20 @@ import { GestaoRiscosPremissas, type PremissasRiscosFromAPI, type PremissaFromAP
 import { CronogramaExecutivo, type CronogramaFromAPI } from '@/components/cronograma/cronograma-executivo'
 import { 
   Upload, FileText, CheckCircle, ArrowRight, Bot, X, Play, FolderOpen, Loader2, Zap,
-  AlertTriangle, RefreshCw, Save, Calendar, Layers, ChevronRight, Shield, GanttChart, Plus
+  AlertTriangle, RefreshCw, Save, Layers, ChevronRight, Shield, GanttChart, Plus
 } from 'lucide-react'
 
 // ============================================================================
 // TIPOS
 // ============================================================================
 
-type PipelineStep = 'input' | 'analysis' | 'refinement' | 'actions' | 'planning' | 'features' | 'riscos' | 'cronograma'
+type PipelineStep = 'input' | 'analysis' | 'refinement' | 'actions' | 'features' | 'riscos' | 'cronograma'
 
 const STEPS: { key: PipelineStep; label: string; icon: React.ElementType }[] = [
   { key: 'input', label: 'Input', icon: Upload },
   { key: 'analysis', label: 'Análise', icon: Bot },
   { key: 'refinement', label: 'Refinamento', icon: CheckCircle },
   { key: 'actions', label: 'Ações', icon: Zap },
-  { key: 'planning', label: 'Planejamento', icon: Calendar },
   { key: 'features', label: 'Features', icon: Layers },
   { key: 'riscos', label: 'Riscos', icon: Shield },
   { key: 'cronograma', label: 'Cronograma', icon: GanttChart },
@@ -171,21 +170,18 @@ function PipelineContent() {
   const [showFeaturesModal, setShowFeaturesModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showProjectModal, setShowProjectModal] = useState(false)
-  const [showPlanningModal, setShowPlanningModal] = useState(false)
   const [showRiscosModal, setShowRiscosModal] = useState(false)
   const [showCronogramaModal, setShowCronogramaModal] = useState(false)
   
   // Estados de texto dos modais
   const [refinementText, setRefinementText] = useState('')
   const [featuresText, setFeaturesText] = useState('')
-  const [planningText, setPlanningText] = useState('')
   const [riscosText, setRiscosText] = useState('')
   const [cronogramaText, setCronogramaText] = useState('')
   const [saveDestination, setSaveDestination] = useState('azure')
   
   // Estados de loading
   const [isRefining, setIsRefining] = useState(false)
-  const [isCreatingPlanning, setIsCreatingPlanning] = useState(false)
   const [isCreatingRiscos, setIsCreatingRiscos] = useState(false)
   const [isCreatingCronograma, setIsCreatingCronograma] = useState(false)
 
@@ -418,16 +414,22 @@ function PipelineContent() {
   }
 
   const startAnalysis = async () => {
-    if (!uploadedFile || !projectName.trim()) { 
-      alert('Por favor, insira o nome do projeto e faça upload de um arquivo.')
+    // Validação: precisa de nome do projeto E (documento OU instruções)
+    if (!projectName.trim()) { 
+      alert('Por favor, insira o nome do projeto.')
       return 
+    }
+    
+    if (!uploadedFile && !extraInstructions.trim()) {
+      alert('Por favor, faça upload de um documento OU preencha as instruções descrevendo o projeto.')
+      return
     }
     
     setIsAnalyzing(true)
     setAnalysisError(null)
     setCurrentStep('analysis')
     setActiveAgent(ANALYSIS_TYPE_AGENTS['criacao_epicos_azure_devops'])
-    setAnalysisMessage('Enviando arquivo...')
+    setAnalysisMessage(uploadedFile ? 'Enviando arquivo...' : 'Processando instruções...')
     setAnalysisProgress(10)
     
     try {
@@ -435,7 +437,7 @@ function PipelineContent() {
         nome_projeto: projectName, 
         analysis_type: 'criacao_epicos_azure_devops', 
         instrucoes_extras: extraInstructions || undefined, 
-        arquivo_docx: uploadedFile 
+        arquivo_docx: uploadedFile || undefined  // Arquivo é opcional
       })
       
       setProjectId(response.project_id)
@@ -525,40 +527,6 @@ function PipelineContent() {
   const handleApproveEpics = () => { 
     setCompletedSteps(prev => [...prev.filter(s => s !== 'refinement'), 'refinement'])
     setCurrentStep('actions') 
-  }
-
-  const handleCreatePlanning = async () => {
-    if (!projectId) return
-    
-    setIsCreatingPlanning(true)
-    setShowPlanningModal(false)
-    setCurrentStep('analysis')
-    setAnalysisError(null)
-    setActiveAgent(ANALYSIS_TYPE_AGENTS['criacao_times_azure_devops'])
-    setAnalysisMessage('Criando planejamento...')
-    setAnalysisProgress(10)
-    
-    try {
-      await codeAIService.startAnalysis({ 
-        nome_projeto: projectName, 
-        analysis_type: 'criacao_times_azure_devops', 
-        instrucoes_extras: planningText || undefined 
-      })
-      setAnalysisProgress(50)
-      await new Promise(resolve => setTimeout(resolve, 5000))
-      
-      setCompletedSteps(prev => [...prev.filter(s => s !== 'planning'), 'planning'])
-      setCurrentStep('actions')
-      setPlanningText('')
-      alert('✅ Planejamento criado!')
-      
-    } catch (error) { 
-      console.error('Erro no planejamento:', error)
-      setAnalysisError(getErrorMessage(error))
-      setCurrentStep('actions') 
-    } finally { 
-      setIsCreatingPlanning(false) 
-    }
   }
 
   const startFeatureGeneration = async () => {
@@ -811,11 +779,12 @@ function PipelineContent() {
     switch (currentStep) {
       // ==================== INPUT ====================
       case 'input':
+        const canStartAnalysis = projectName.trim() && (uploadedFile || extraInstructions.trim())
         return (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Vamos começar o planejamento</h2>
-              <p className="text-gray-500">Faça upload da transcrição (PDF, DOCX, TXT).</p>
+              <p className="text-gray-500">Faça upload de um documento ou descreva o projeto nas instruções.</p>
             </div>
             
             <div className="mb-6">
@@ -835,63 +804,92 @@ function PipelineContent() {
               </div>
             </div>
             
-            <div 
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }} 
-              onDragLeave={() => setIsDragging(false)} 
-              onDrop={handleDrop}
-              onClick={() => document.getElementById('file-upload')?.click()}
-              className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all 
-                ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-gray-400'}`}
-            >
-              <input 
-                id="file-upload" 
-                type="file" 
-                accept=".docx,.pdf,.txt" 
-                onChange={(e) => e.target.files?.[0] && setUploadedFile(e.target.files[0])} 
-                className="hidden" 
-              />
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: BRAND.accent }}>
-                <Upload className="w-8 h-8" style={{ color: BRAND.info }} />
+            {/* Upload de documento (opcional) */}
+            <div className="mb-6">
+              <Label className="mb-2 block">Documento (opcional)</Label>
+              <div 
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }} 
+                onDragLeave={() => setIsDragging(false)} 
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('file-upload')?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all 
+                  ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-gray-400'}
+                  ${uploadedFile ? 'border-green-300 bg-green-50' : ''}`}
+              >
+                <input 
+                  id="file-upload" 
+                  type="file" 
+                  accept=".docx,.pdf,.txt" 
+                  onChange={(e) => e.target.files?.[0] && setUploadedFile(e.target.files[0])} 
+                  className="hidden" 
+                />
+                {uploadedFile ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <FileText className="w-6 h-6 text-green-600" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">{uploadedFile.name}</p>
+                      <p className="text-sm text-gray-500">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setUploadedFile(null) }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: BRAND.accent }}>
+                      <Upload className="w-6 h-6" style={{ color: BRAND.info }} />
+                    </div>
+                    <p className="text-gray-700 font-medium mb-1">Clique ou arraste o arquivo aqui</p>
+                    <p className="text-sm text-gray-400">Suporta PDF, DOCX ou TXT</p>
+                  </>
+                )}
               </div>
-              <p className="text-gray-700 font-medium mb-1">Clique ou arraste o arquivo aqui</p>
-              <p className="text-sm text-gray-400">Suporta PDF, DOCX ou TXT</p>
             </div>
             
-            <div className="mt-6">
-              <Label htmlFor="instructions">Instruções extras (opcional)</Label>
+            {/* Separador OU */}
+            {!uploadedFile && (
+              <div className="flex items-center gap-4 my-6">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-sm text-gray-400 font-medium">ou descreva o projeto</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            )}
+            
+            {/* Instruções */}
+            <div className="mb-6">
+              <Label htmlFor="instructions">
+                Instruções {uploadedFile ? '(opcional)' : '*'}
+              </Label>
               <Textarea 
                 id="instructions" 
                 value={extraInstructions} 
                 onChange={(e) => setExtraInstructions(e.target.value)} 
-                placeholder="Ex: Foque em épicos de vendas, priorize módulos financeiros..." 
-                rows={3} 
-                className="mt-1" 
+                placeholder={uploadedFile 
+                  ? "Ex: Foque em épicos de vendas, priorize módulos financeiros..." 
+                  : "Descreva o projeto que deseja planejar. Ex: Sistema de gestão de clientes com módulos de cadastro, vendas, relatórios..."
+                }
+                rows={uploadedFile ? 3 : 5} 
+                className={`mt-1 ${!uploadedFile && !extraInstructions.trim() ? 'border-amber-300' : ''}`}
               />
+              {!uploadedFile && !extraInstructions.trim() && (
+                <p className="text-xs text-amber-600 mt-1">
+                  * Sem documento, as instruções são obrigatórias para descrever o projeto
+                </p>
+              )}
             </div>
             
-            {uploadedFile && (
-              <div className="mt-6 p-4 bg-white rounded-xl border shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: `${BRAND.info}15` }}>
-                      <FileText className="w-5 h-5" style={{ color: BRAND.info }} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{uploadedFile.name}</p>
-                      <p className="text-sm text-gray-400">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setUploadedFile(null)}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                    <Button onClick={startAnalysis} disabled={!projectName.trim()} className="text-white" style={{ background: BRAND.info }}>
-                      <ArrowRight className="w-4 h-4 mr-2" />Iniciar Análise
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Botão de ação */}
+            <div className="flex justify-end">
+              <Button 
+                onClick={startAnalysis} 
+                disabled={!canStartAnalysis} 
+                className="text-white" 
+                style={{ background: canStartAnalysis ? BRAND.info : '#9ca3af' }}
+              >
+                <ArrowRight className="w-4 h-4 mr-2" />
+                Iniciar Análise
+              </Button>
+            </div>
           </div>
         )
 
@@ -1082,21 +1080,6 @@ function PipelineContent() {
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">Salvar Épicos</p>
                       <p className="text-xs text-gray-500">Azure Blob</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowPlanningModal(true)}>
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `${BRAND.info}15` }}>
-                      <Calendar className="w-6 h-6" style={{ color: BRAND.info }} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">Criar Planejamento</p>
-                      <p className="text-xs text-gray-500">Squads e Times</p>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                   </div>
@@ -1309,26 +1292,6 @@ function PipelineContent() {
             <Button onClick={handleRefinement} disabled={!refinementText.trim() || isRefining} className="text-white" style={{ background: BRAND.success }}>
               {isRefining ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
               Refinar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Planejamento */}
-      <Dialog open={showPlanningModal} onOpenChange={setShowPlanningModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Criar Planejamento de Times</DialogTitle></DialogHeader>
-          <Textarea 
-            placeholder="Instruções para o planejamento (opcional). Ex: Considere 3 squads, priorize backend..." 
-            value={planningText} 
-            onChange={(e) => setPlanningText(e.target.value)} 
-            rows={4} 
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPlanningModal(false)}>Cancelar</Button>
-            <Button onClick={handleCreatePlanning} disabled={isCreatingPlanning} className="text-white" style={{ background: BRAND.info }}>
-              {isCreatingPlanning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-              Criar
             </Button>
           </DialogFooter>
         </DialogContent>

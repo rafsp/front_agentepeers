@@ -7,6 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Sidebar, BRAND } from '@/components/layout/sidebar'
 import { useAuth } from '@/hooks/use-auth'
 import { 
@@ -16,7 +22,7 @@ import {
 } from '@/lib/api/codeai-service'
 import { 
   Search, Plus, FolderOpen, Clock, ChevronRight, Loader2, RefreshCw, Eye,
-  FileText, Layers, AlertCircle, FolderKanban, FileBarChart2
+  FileText, Layers, AlertCircle, FolderKanban, FileBarChart2, Shield, GanttChart, ChevronDown
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -60,12 +66,6 @@ export default function DashboardPage() {
   const handleContinueProject = (project: ProjectSummary) => {
     const params = new URLSearchParams({ nome: project.nome_projeto, id: project.project_id || '' })
     router.push(`/novo-pipeline?${params.toString()}`)
-  }
-
-  // NOVO: Navegar para relatorios do projeto
-  const handleViewReports = (project: ProjectSummary) => {
-    const projectId = project.project_id || encodeURIComponent(project.nome_projeto)
-    router.push(`/relatorios/epicos?projeto=${projectId}`)
   }
 
   const filteredProjects = projects.filter(p => 
@@ -269,16 +269,39 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Botao de Relatorios - sempre visível se tem artefatos */}
+                        {/* Dropdown de Relatórios - mostra opções disponíveis */}
                         {hasArtefatos(project) && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleViewReports(project)}
-                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          >
-                            <FileBarChart2 className="w-4 h-4 mr-2" />Relatórios
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                              >
+                                <FileBarChart2 className="w-4 h-4 mr-2" />
+                                Relatórios
+                                <ChevronDown className="w-3 h-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => router.push(`/relatorios/epicos?projeto=${project.project_id}`)}>
+                                <FileText className="w-4 h-4 mr-2 text-indigo-500" />
+                                Backlog de Épicos
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => router.push(`/relatorios/features?projeto=${project.project_id}`)}>
+                                <Layers className="w-4 h-4 mr-2 text-violet-500" />
+                                Features
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => router.push(`/relatorios/riscos?projeto=${project.project_id}`)}>
+                                <Shield className="w-4 h-4 mr-2 text-amber-500" />
+                                Riscos e Premissas
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => router.push(`/relatorios/cronograma?projeto=${project.project_id}`)}>
+                                <GanttChart className="w-4 h-4 mr-2 text-emerald-500" />
+                                Cronograma
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                         <Button variant="outline" size="sm" onClick={() => handleViewProject(project)}>
                           <Eye className="w-4 h-4 mr-2" />Ver Detalhes

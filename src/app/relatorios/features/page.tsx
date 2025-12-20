@@ -75,7 +75,7 @@ function FeaturesContent(): React.ReactElement {
           <FolderOpen className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-800 mb-2">Nenhum projeto selecionado</h2>
           <p className="text-slate-500 mb-4">Selecione um projeto na pagina de relatorios para visualizar as features.</p>
-          <Button onClick={() => router.push('/relatorios')}>
+          <Button onClick={() => router.push('/dashboard')}>
             <ArrowLeft size={16} className="mr-2" />Voltar para Relatorios
           </Button>
         </div>
@@ -91,7 +91,7 @@ function FeaturesContent(): React.ReactElement {
           <h2 className="text-xl font-bold text-slate-800 mb-2">Erro ao carregar dados</h2>
           <p className="text-slate-500 mb-4">{error}</p>
           <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => router.push('/relatorios')}><ArrowLeft size={16} className="mr-2" />Voltar</Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard')}><ArrowLeft size={16} className="mr-2" />Voltar</Button>
             <Button onClick={loadData}><RefreshCw size={16} className="mr-2" />Tentar novamente</Button>
           </div>
         </div>
@@ -101,9 +101,11 @@ function FeaturesContent(): React.ReactElement {
 
   return (
     <div className="relative">
-      <Button variant="outline" size="sm" onClick={() => router.push('/relatorios')} className="fixed top-24 left-4 z-30 bg-white shadow-md">
-        <ArrowLeft size={16} className="mr-2" />Voltar
-      </Button>
+      <div className="absolute top-4 left-4 z-50">
+        <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')} className="bg-white shadow-md border-gray-300 hover:bg-gray-50">
+          <ArrowLeft size={16} className="mr-2" />Voltar
+        </Button>
+      </div>
       <FeaturesReport data={data} />
     </div>
   )

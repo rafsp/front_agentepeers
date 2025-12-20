@@ -1,144 +1,165 @@
 // src/components/layout/sidebar.tsx
-"use client"
+'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { 
-  LayoutDashboard, GitBranch, Settings, BarChart3, Users, Plug,
-  Sparkles, LogOut, Building
+  LayoutDashboard, 
+  Sparkles,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
+// Cores da marca PEERS
 export const BRAND = {
   primary: '#011334',
-  secondary: '#E1FF00',
-  accent: '#D8E8EE',
-  white: '#FFFFFF',
-  success: '#22C55E',
-  warning: '#F97316',
-  info: '#6366F1',
+  secondary: '#1a2d4d', 
+  accent: '#e8f0fe',
+  info: '#6366f1',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
 }
 
-export const PEERS_LOGO_URL = 'https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg'
-
 interface SidebarProps {
-  activeItem: string
-  user: { name: string; email: string } | null
+  activeItem?: string
+  user: {
+    name: string
+    email: string
+  }
   onLogout: () => void
 }
 
+// Apenas itens que estão funcionando
+const MENU_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+  { id: 'novo-pipeline', label: 'Novo Pipeline', icon: Sparkles, href: '/novo-pipeline' },
+]
+
 export function Sidebar({ activeItem, user, onLogout }: SidebarProps) {
-  const router = useRouter()
-  const [mode, setMode] = useState<'tech' | 'biz'>('tech')
-
-  const workspaceItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'novo-pipeline', label: 'Novo Pipeline', icon: Sparkles },
-    { id: 'repositorios', label: 'Repositórios', icon: GitBranch },
-  ]
-
-  const adminItems = [
-    { id: 'relatorios', label: 'Relatórios de Uso', icon: BarChart3 },
-    { id: 'squads', label: 'Gestão de Squads', icon: Users },
-    { id: 'integracoes', label: 'Integrações', icon: Plug },
-  ]
+  const pathname = usePathname()
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const getInitials = (name: string) => {
-    if (!name) return 'U'
-    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   return (
-    <div className="w-56 h-screen fixed left-0 top-0 flex flex-col border-r bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* LOGO */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-2 rounded-lg" style={{ background: BRAND.primary }}>
-            <img src={PEERS_LOGO_URL} alt="PEERS" className="h-4 w-auto" />
-          </div>
-          <div className="border-l pl-3" style={{ borderColor: '#E5E7EB' }}>
-            <div className="text-sm font-semibold" style={{ color: BRAND.primary }}>CodeAI</div>
-          </div>
-        </div>
-      </div>
-
-      {/* WORKSPACE */}
-      <div className="p-3">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Workspace</div>
-        {workspaceItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => router.push(`/${item.id}`)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-              ${activeItem === item.id ? 'text-white shadow-md' : 'text-gray-600 hover:bg-white/60'}`}
-            style={activeItem === item.id ? { background: BRAND.info } : {}}
+    <aside 
+      className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-300 z-40
+        ${isCollapsed ? 'w-16' : 'w-56'}`}
+    >
+      {/* Logo */}
+      <div className="p-4 border-b border-gray-100">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div 
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+            style={{ background: BRAND.primary }}
           >
-            <item.icon className="w-4 h-4" />
-            {item.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ADMIN */}
-      <div className="p-3">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Admin</div>
-        {adminItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => router.push(`/${item.id}`)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-              ${activeItem === item.id ? 'text-white shadow-md' : 'text-gray-600 hover:bg-white/60'}`}
-            style={activeItem === item.id ? { background: BRAND.info } : {}}
-          >
-            <item.icon className="w-4 h-4" />
-            {item.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1" />
-
-      {/* MODO */}
-      <div className="p-4 border-t">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Modo de Operação</div>
-        <div className="flex bg-white rounded-lg p-1 shadow-sm">
-          <button onClick={() => setMode('tech')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all
-              ${mode === 'tech' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500'}`}>
-            <Settings className="w-3 h-3" />Tech
-          </button>
-          <button onClick={() => setMode('biz')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all
-              ${mode === 'biz' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500'}`}>
-            <Building className="w-3 h-3" />Biz
-          </button>
-        </div>
-      </div>
-
-      {/* USER */}
-      <div className="p-4 border-t">
-        {user ? (
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm" style={{ background: BRAND.info }}>
-              {getInitials(user.name)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">{user.name || 'Usuário'}</div>
-              <div className="text-xs text-gray-500 truncate">{user.email}</div>
-            </div>
-            <button onClick={onLogout} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-red-500" title="Sair">
-              <LogOut className="w-4 h-4" />
-            </button>
+            P
           </div>
+          {!isCollapsed && (
+            <div className="flex flex-col">
+              <span className="font-bold text-sm" style={{ color: BRAND.primary }}>PEERS</span>
+              <span className="text-[10px] text-gray-400">CodeAI</span>
+            </div>
+          )}
+        </Link>
+      </div>
+
+      {/* Menu principal */}
+      <nav className="flex-1 p-3">
+        <div className={`text-xs font-medium text-gray-400 uppercase mb-2 ${isCollapsed ? 'hidden' : ''}`}>
+          Workspace
+        </div>
+        
+        <div className="space-y-1">
+          {MENU_ITEMS.map((item) => {
+            const isActive = activeItem === item.id || pathname === item.href
+            const Icon = item.icon
+            
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
+                  ${isActive 
+                    ? 'text-white' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                style={isActive ? { background: BRAND.info } : {}}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+
+      {/* Toggle collapse */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50"
+      >
+        {isCollapsed ? (
+          <ChevronRight className="w-3 h-3 text-gray-500" />
         ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse" />
-            <div className="flex-1">
-              <div className="h-4 bg-gray-200 rounded animate-pulse mb-1" />
-              <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3" />
-            </div>
+          <ChevronLeft className="w-3 h-3 text-gray-500" />
+        )}
+      </button>
+
+      {/* User section */}
+      <div className="p-3 border-t border-gray-100">
+        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+          <div 
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+            style={{ background: BRAND.info }}
+          >
+            {getInitials(user.name)}
           </div>
+          
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            </div>
+          )}
+          
+          {!isCollapsed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogout}
+              className="text-gray-400 hover:text-gray-600 p-1"
+              title="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+        
+        {isCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onLogout}
+            className="w-full mt-2 text-gray-400 hover:text-gray-600"
+            title="Sair"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
         )}
       </div>
-    </div>
+    </aside>
   )
 }
