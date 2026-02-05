@@ -288,6 +288,12 @@ export function BacklogEpicos({
     }
   }
 
+  //exportar excel
+
+  
+
+  //
+
   const allSelected = selectedIds.length === epicos.length && epicos.length > 0
   const someSelected = selectedIds.length > 0
 

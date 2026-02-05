@@ -25,7 +25,7 @@ import { GestaoRiscosPremissas, type PremissasRiscosFromAPI, type PremissaFromAP
 import { CronogramaExecutivo, type CronogramaFromAPI } from '@/components/cronograma/cronograma-executivo'
 import { 
   Upload, FileText, CheckCircle, ArrowRight, Bot, X, Play, FolderOpen, Loader2, Zap,
-  AlertTriangle, RefreshCw, Save, Layers, ChevronRight, Shield, GanttChart, Plus
+  AlertTriangle, RefreshCw, Save, Layers, ChevronRight, Shield, GanttChart, Plus, Edit
 } from 'lucide-react'
 
 // ============================================================================
@@ -201,18 +201,29 @@ function PipelineContent() {
   // INICIALIZAÇÃO
   // ============================================================================
 
-  const initData = async () => {
+const initData = async () => {
     try {
       const response = await codeAIService.loginDev()
-      setUserProjects(response.projects || [])
+      const projects = response.projects || []
+      setUserProjects(projects)
       
-      const urlProjectName = searchParams.get('nome')
-      const urlProjectId = searchParams.get('id')
+      // Suporta AMBOS os formatos de URL:
+      // 1. ?id=XXX&nome=YYY (vindo de projeto/[id])
+      // 2. ?projeto=XXX      (vindo do Dashboard)
+      let urlProjectId = searchParams.get('id') || searchParams.get('projeto')
+      let urlProjectName = searchParams.get('nome')
       
-      if (urlProjectName && urlProjectId) {
+      // Se veio só o ID (caso do Dashboard), busca o nome na lista de projetos
+      if (urlProjectId && !urlProjectName) {
+        const found = projects.find(p => p.project_id === urlProjectId)
+        if (found) {
+          urlProjectName = found.nome_projeto
+        }
+      }
+      
+      if (urlProjectId && urlProjectName) {
         setProjectName(urlProjectName)
         setProjectId(urlProjectId)
-        // Passa o nome diretamente pois o state ainda não foi atualizado
         await loadExistingProject(urlProjectId, urlProjectName)
       }
     } catch (error) {
@@ -958,12 +969,23 @@ function PipelineContent() {
         )
 
       // ==================== ACTIONS ====================
-      case 'actions':
+case 'actions':
         return (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Épicos Aprovados</h2>
-              <p className="text-gray-500">Selecione uma ação para prosseguir.</p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Épicos Aprovados</h2>
+                <p className="text-gray-500">Selecione uma ação para prosseguir.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentStep('refinement')}
+                className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                <Edit className="w-4 h-4" />
+                Refinar Épicos
+              </Button>
             </div>
             
             <Card className="border shadow-sm mb-6">
@@ -1179,24 +1201,23 @@ function PipelineContent() {
             projectName={projectName}
             epicos={epicosResumidos}
             features={featuresFromAPI}
-            onBack={() => setCurrentStep('refinement')}
-            onExportExcel={handleExportExcel}
-            onSave={() => setShowSaveModal(true)}
-          />
-        )
-
-      // ==================== RISCOS E PREMISSAS ====================
-      case 'riscos':
-        return (
-          <GestaoRiscosPremissas
-            projectName={projectName}
-            data={premissasRiscosFromAPI}
             onBack={() => setCurrentStep('actions')}
             onExportExcel={handleExportExcel}
             onSave={() => setShowSaveModal(true)}
           />
         )
 
+      // ==================== RISCOS E PREMISSAS ====================
+    case 'riscos':
+          return (
+            <GestaoRiscosPremissas
+              projectName={projectName}
+              data={premissasRiscosFromAPI}
+              onBack={() => setCurrentStep('actions')}
+              // Sem onExportExcel → componente usa lógica interna
+              onSave={() => setShowSaveModal(true)}
+            />
+          )
       // ==================== CRONOGRAMA EXECUTIVO ====================
       case 'cronograma':
         return (
@@ -1204,8 +1225,6 @@ function PipelineContent() {
             projectName={projectName}
             data={cronogramaFromAPI}
             onBack={() => setCurrentStep('actions')}
-            onExportImage={() => alert('📸 Exportação de imagem em desenvolvimento')}
-            onExportCSV={() => alert('📊 Exportação CSV em desenvolvimento')}
           />
         )
 

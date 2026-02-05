@@ -64,6 +64,10 @@ const HEATMAP_COLORS = {
   baixo: '#c7d2fe',        // Indigo 200 - Baixa exposição
 }
 
+///exportar excel
+
+
+
 // Mapeamento de probabilidade x impacto para nível de exposição
 const getExposureLevel = (probabilidade: string, impacto: string): string => {
   const prob = probabilidade.toLowerCase()

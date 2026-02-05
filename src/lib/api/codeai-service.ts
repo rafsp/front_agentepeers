@@ -305,20 +305,20 @@ class CodeAIService {
 
     console.log('🚀 POST', url, '| Tipo:', request.analysis_type)
 
-    // SEMPRE usar FormData (backend não aceita JSON)
-    const formData = new FormData()
-    formData.append('nome_projeto', request.nome_projeto)
-    formData.append('analysis_type', request.analysis_type)
-    formData.append('email', user.email)
-    formData.append('nome', user.name)
-    
+const formData = new FormData()
+formData.append('nome_projeto', request.nome_projeto)
+formData.append('analysis_type', request.analysis_type)
+formData.append('email', user.email)
+formData.append('nome', user.name)
+
+    // ✅ CORREÇÃO: Campo é "comentario_extra" (como no Colab)
     if (request.instrucoes_extras) {
-      formData.append('instrucoes_extras', request.instrucoes_extras)
+      formData.append('comentario_extra', request.instrucoes_extras)
     }
-    
-    // Arquivo é opcional
+
+    // ✅ CORREÇÃO: Campo é "arquivo_docx" (como no Colab)
     if (request.arquivo_docx) {
-      formData.append('arquivo', request.arquivo_docx)
+      formData.append('arquivo_docx', request.arquivo_docx)
     }
 
     console.log('📦 FormData:', {
@@ -342,15 +342,21 @@ class CodeAIService {
       throw new Error(`HTTP ${response.status}: ${errorText}`)
     }
     
-    const data = await response.json()
-    console.log('✅ Analysis response:', data)
-    
-    // Armazena o job_id para polling
-    if (data.job_id) {
-      this.currentJobId = data.job_id
-    }
-    
-    return data
+      const data = await response.json()
+      console.log('✅ Analysis response:', data)
+      console.log('   - project_id:', data.project_id)
+      console.log('   - job_id:', data.job_id)
+
+      // CRÍTICO: Armazena o job_id para polling (OBRIGATÓRIO)
+      if (data.job_id) {
+        this.currentJobId = data.job_id
+        console.log('📌 Job ID capturado e armazenado:', this.currentJobId)
+      } else {
+        console.error('❌ ALERTA: Backend não retornou job_id!')
+        console.error('   Campos recebidos:', Object.keys(data))
+      }
+
+      return data
   }
 
   // ============================================================================
@@ -399,65 +405,45 @@ class CodeAIService {
   // ============================================================================
 
   async getProjectReports(projectId: string, jobId?: string): Promise<ProjectFullState> {
-    const user = this.getCurrentUser()
-    let effectiveJobId = jobId || this.currentJobId
-    
-    // Se não tem job_id, tenta buscar via check project
-    // Nota: para isso funcionar, precisamos do nome do projeto. 
-    // Por hora, vamos retornar vazio se não tiver job_id
-    
-    // Tenta primeiro com job_id se disponível
-    if (effectiveJobId) {
-      const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/${encodeURIComponent(effectiveJobId)}/reports?email=${encodeURIComponent(user.email)}`
-      console.log('📊 GET (with job_id)', url)
-
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: this.getHeaders(),
-          mode: 'cors',
-          credentials: 'omit',
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          console.log('✅ Reports response (with job_id):', data)
-          return data
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro com job_id, tentando sem:', error)
-      }
-    }
-    
-    // Fallback: tenta sem job_id (endpoint antigo)
-    const fallbackUrl = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/reports?email=${encodeURIComponent(user.email)}`
-    console.log('📊 GET (fallback)', fallbackUrl)
-
-    try {
-      const response = await fetch(fallbackUrl, {
-        method: 'GET',
-        headers: this.getHeaders(),
-        mode: 'cors',
-        credentials: 'omit',
-      })
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const data = await response.json()
-      console.log('✅ Reports response (fallback):', data)
-      return data
-    } catch (error) {
-      console.error('❌ Erro relatórios:', error)
-      return {
-        resumo: null,
-        epicos: null,
-        epicos_timeline: null,
-        features: null,
-        times_descricao: null,
-        alocacao_times: null,
-        premissas_riscos: null,
-      }
-    }
+  const user = this.getCurrentUser()
+  const effectiveJobId = jobId || this.currentJobId
+  
+  // OBRIGATÓRIO: job_id é necessário (como no notebook)
+  if (!effectiveJobId) {
+    console.error('❌ job_id não disponível para polling!')
+    console.error('   projectId:', projectId)
+    console.error('   this.currentJobId:', this.currentJobId)
+    throw new Error('job_id é obrigatório para buscar reports. Verifique se startAnalysis retornou job_id.')
   }
+  
+  // URL CORRETA: /session/project/{project_id}/{job_id}/reports
+  // Igual ao notebook: endpoint_report = f"{BASE_URL}/session/project/{project_id_global}/{job_id_global}/reports"
+  const url = `${this.apiUrl}/session/project/${encodeURIComponent(projectId)}/${encodeURIComponent(effectiveJobId)}/reports?email=${encodeURIComponent(user.email)}`
+  
+  console.log('📊 GET (com job_id)', url)
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getHeaders(),
+      mode: 'cors',
+      credentials: 'omit',
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Erro no polling:', response.status, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log('✅ Reports response:', data)
+    return data
+  } catch (error) {
+    console.error('❌ Erro relatórios:', error)
+    throw error  // Propagar erro ao invés de retornar vazio
+  }
+}
 
   // ============================================================================
   // REPORTS BY NAME - usa /projects/check para obter state direto

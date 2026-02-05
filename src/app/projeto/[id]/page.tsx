@@ -9,6 +9,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Sidebar, BRAND } from '@/components/layout/sidebar'
 import { useAuth } from '@/hooks/use-auth'
+import { GestaoRiscosPremissas, PremissasRiscosFromAPI } from '@/components/riscos/gestao-riscos-premissas'
+
 import { 
   codeAIService,
   type ProjectFullState,
@@ -69,8 +71,9 @@ export default function ProjetoDetalhesPage() {
   // Dados transformados
   const [epicos, setEpicos] = useState<EpicoFromAPI[]>([])
   const [features, setFeatures] = useState<FeatureFromAPI[]>([])
-  const [premissas, setPremissas] = useState<PremissaItem[]>([])
-  const [riscos, setRiscos] = useState<RiscoItem[]>([])
+  const [riscos, setRiscos] = useState<any[]>([])
+  const [premissas, setPremissas] = useState<any[]>([])
+  const [premissasRiscosData, setPremissasRiscosData] = useState<PremissasRiscosFromAPI | null>(null)
   const [cronograma, setCronograma] = useState<CronogramaFromAPI | null>(null)
   
   // Expanded states para riscos
@@ -159,19 +162,35 @@ export default function ProjetoDetalhesPage() {
         riscosArray = premissasRiscosData[0].riscos || []
       }
       
-      setPremissas(premissasArray.map((p: any) => ({
-        id: String(p.id),
-        descricao: p.descricao,
-        impacto_se_falhar: p.impacto_se_falhar,
-      })))
-      
-      setRiscos(riscosArray.map((r: any) => ({
-        id: String(r.id),
-        descricao: r.descricao,
-        probabilidade: r.probabilidade,
-        impacto: r.impacto,
-        plano_mitigacao: r.plano_mitigacao,
-      })))
+setPremissas(premissasArray.map((p: any) => ({
+  id: String(p.id),
+  descricao: p.descricao,
+  impacto_se_falhar: p.impacto_se_falhar,
+})))
+
+setRiscos(riscosArray.map((r: any) => ({
+  id: String(r.id),
+  descricao: r.descricao,
+  probabilidade: r.probabilidade,
+  impacto: r.impacto,
+  plano_mitigacao: r.plano_mitigacao,
+})))
+
+// NOVO: alimentar o componente GestaoRiscosPremissas
+      setPremissasRiscosData({
+        premissas: premissasArray.map((p: any) => ({
+          id: String(p.id),
+          descricao: p.descricao,
+          impacto_se_falhar: p.impacto_se_falhar,
+        })),
+        riscos: riscosArray.map((r: any) => ({
+          id: String(r.id),
+          descricao: r.descricao,
+          probabilidade: r.probabilidade as 'Alta' | 'Média' | 'Baixa',
+          impacto: r.impacto as 'Crítico' | 'Alto' | 'Médio' | 'Baixo',
+          plano_mitigacao: r.plano_mitigacao,
+        })),
+      })
     }
 
     // Cronograma
@@ -441,7 +460,6 @@ export default function ProjetoDetalhesPage() {
             onSelectAll={() => {}}
             onApprove={() => setCurrentView('overview')}
             onRefine={() => {}}
-            onExportExcel={() => alert('Exportação em desenvolvimento')}
             isLoading={false}
             readOnly={true}
           />
@@ -454,12 +472,18 @@ export default function ProjetoDetalhesPage() {
             features={features}
             epicos={epicos}
             onBack={() => setCurrentView('overview')}
-            onExportExcel={() => alert('Exportação em desenvolvimento')}
           />
         )
       
-      case 'riscos':
-        return renderRiscosView()
+    case 'riscos':
+        return (
+          <GestaoRiscosPremissas
+            projectName={projectName || 'Projeto'}
+            data={premissasRiscosData}
+            onBack={() => setCurrentView('overview')}
+            // NÃO passar onExportExcel — o componente novo cuida sozinho
+          />
+        )
       
       case 'cronograma':
         return cronograma ? (
@@ -467,8 +491,6 @@ export default function ProjetoDetalhesPage() {
             projectName={projectName}
             data={cronograma}
             onBack={() => setCurrentView('overview')}
-            onExportImage={() => alert('Exportação em desenvolvimento')}
-            onExportCSV={() => alert('Exportação em desenvolvimento')}
           />
         ) : (
           <Card className="border shadow-sm">
@@ -775,9 +797,12 @@ export default function ProjetoDetalhesPage() {
               <Button variant="outline" onClick={loadData}>
                 <RefreshCw className="w-4 h-4 mr-2" />Atualizar
               </Button>
-              <Button onClick={handleContinuePipeline} style={{ background: BRAND.info }} className="text-white">
-                <Play className="w-4 h-4 mr-2" />Continuar Pipeline
-              </Button>
+              {/* Só mostra se o projeto NÃO está completo */}
+              {!(epicosCount > 0 && featuresCount > 0 && (riscosCount > 0 || premissasCount > 0) && hasCronograma) && (
+                <Button onClick={handleContinuePipeline} style={{ background: BRAND.info }} className="text-white">
+                  <Play className="w-4 h-4 mr-2" />Continuar Pipeline
+                </Button>
+              )}
             </div>
           </div>
         </header>
