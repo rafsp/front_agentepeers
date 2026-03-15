@@ -1,481 +1,155 @@
 // src/app/dashboard/page.tsx
-"use client"
+'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu'
 import { Sidebar, BRAND } from '@/components/layout/sidebar'
 import { useAuth } from '@/hooks/use-auth'
-import { 
-  codeAIService,
-  type ProjectSummary,
-  ANALYSIS_TYPE_LABELS,
-} from '@/lib/api/codeai-service'
-// ============================================================================
-// IMPORTAR COMPONENTES DE ONBOARDING
-// ============================================================================
-import { 
-  WelcomeModal, 
-  EmptyStateGuide, 
-  OnboardingTour,
-  useOnboarding 
-} from '@/components/onboarding/OnboardingTour'
+import unifiedService, { type ProjectSummary } from '@/lib/api/unified-service'
+import { Crown, Edit3, Eye, FolderPlus, Layers, Activity, Calendar, AlertTriangle, LayoutTemplate, Loader2, LogOut, Search, Building2, Clock } from 'lucide-react'
 
-import { 
-  Search, Plus, FolderOpen, Clock, ChevronRight, Loader2, RefreshCw, Eye,
-  FileText, Layers, AlertCircle, FolderKanban, FileBarChart2, Shield, GanttChart, 
-  ChevronDown, ArrowUpDown, SortAsc, SortDesc, Type
-} from 'lucide-react'
-
-// ============================================================================
-// TIPOS
-// ============================================================================
-type SortOption = 'recent' | 'oldest' | 'name_asc' | 'name_desc'
-
-const SORT_OPTIONS: { value: SortOption; label: string; icon: React.ElementType }[] = [
-  { value: 'recent', label: 'Mais recentes', icon: SortDesc },
-  { value: 'oldest', label: 'Mais antigos', icon: SortAsc },
-  { value: 'name_asc', label: 'Nome (A-Z)', icon: Type },
-  { value: 'name_desc', label: 'Nome (Z-A)', icon: Type },
-]
-
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, loading: authLoading, logout, isAuthenticated } = useAuth()
-  
-  // ============================================================================
-  // HOOK DE ONBOARDING - Controla welcome modal e tour
-  // ============================================================================
-  const { 
-    showWelcome, 
-    setShowWelcome, 
-    showTour,
-    setShowTour,
-    completeWelcome, 
-    completeTour,
-    startTour 
-  } = useOnboarding()
-  
+  const { user, loading: authLoading, logout } = useAuth()
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [sortBy, setSortBy] = useState<SortOption>('recent')
+  const hasLoaded = useRef(false)
+
+  const empresa = typeof localStorage !== 'undefined' ? localStorage.getItem('peers_empresa') || '' : ''
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login')
-    }
-  }, [authLoading, isAuthenticated, router])
+    if (authLoading) return
+    if (!user?.email) { router.push('/login'); return }
+    if (hasLoaded.current) return
+    hasLoaded.current = true
+    loadProjects()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email, authLoading])
 
-  useEffect(() => {
-    if (isAuthenticated) loadData()
-  }, [isAuthenticated])
-
-  const loadData = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await codeAIService.loginDev()
-      setProjects(response.projects || [])
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err)
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
-    } finally {
-      setLoading(false)
-    }
+  const loadProjects = async () => {
+    setLoading(true); setError(null)
+    try { setProjects(await unifiedService.getProjects()) } catch (err) { setError(err instanceof Error ? err.message : 'Erro') }
+    finally { setLoading(false) }
   }
 
-  // Filtrar e ordenar projetos
-  const filteredAndSortedProjects = useMemo(() => {
-    let result = projects.filter(p =>
-      p.nome_projeto.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+  const grouped = {
+    owner: projects.filter(p => p.role === 'owner'),
+    editor: projects.filter(p => p.role === 'editor'),
+    viewer: projects.filter(p => p.role === 'viewer'),
+  }
+  const q = searchQuery.toLowerCase()
+  const filtered = searchQuery ? {
+    owner: grouped.owner.filter(p => p.name.toLowerCase().includes(q)),
+    editor: grouped.editor.filter(p => p.name.toLowerCase().includes(q)),
+    viewer: grouped.viewer.filter(p => p.name.toLowerCase().includes(q)),
+  } : grouped
 
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'recent':
-          const dateA = a.ultima_atualizacao && a.ultima_atualizacao !== 'N/A' 
-            ? new Date(a.ultima_atualizacao).getTime() : 0
-          const dateB = b.ultima_atualizacao && b.ultima_atualizacao !== 'N/A'
-            ? new Date(b.ultima_atualizacao).getTime() : 0
-          return dateB - dateA
-        case 'oldest':
-          const dateA2 = a.ultima_atualizacao && a.ultima_atualizacao !== 'N/A'
-            ? new Date(a.ultima_atualizacao).getTime() : 0
-          const dateB2 = b.ultima_atualizacao && b.ultima_atualizacao !== 'N/A'
-            ? new Date(b.ultima_atualizacao).getTime() : 0
-          return dateA2 - dateB2
-        case 'name_asc':
-          return a.nome_projeto.localeCompare(b.nome_projeto, 'pt-BR')
-        case 'name_desc':
-          return b.nome_projeto.localeCompare(a.nome_projeto, 'pt-BR')
-        default:
-          return 0
-      }
-    })
-
-    return result
-  }, [projects, searchTerm, sortBy])
-
-  // Estatísticas
-  const stats = useMemo(() => ({
-    total: projects.length,
-    comEpicos: projects.filter(p => 
-      p.ultima_analysis_type?.toLowerCase().includes('epico')
-    ).length,
-    comFeatures: projects.filter(p => 
-      p.ultima_analysis_type?.toLowerCase().includes('feature')
-    ).length,
-    recentes: projects.filter(p => {
-      if (!p.ultima_atualizacao || p.ultima_atualizacao === 'N/A') return false
-      const date = new Date(p.ultima_atualizacao)
-      const now = new Date()
-      const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-      return diffDays <= 7
-    }).length,
-  }), [projects])
-
-  const getAnalysisLabel = (type: string | null | undefined) => {
-    if (!type) return 'Sem análises'
-    return ANALYSIS_TYPE_LABELS[type as keyof typeof ANALYSIS_TYPE_LABELS] || type.replace(/_/g, ' ')
+  const openProject = (p: ProjectSummary) => {
+    sessionStorage.setItem('selected_project', JSON.stringify(p))
+    router.push(`/project/${p.id}`)
   }
 
-  const hasArtefatos = (project: ProjectSummary) => {
-    const type = project.ultima_analysis_type?.toLowerCase() || ''
-    return type.includes('epico') || type.includes('feature') || type.includes('timeline') || 
-           type.includes('cronograma') || type.includes('premissa') || type.includes('risco')
+  const CatIcon = ({ cat, has }: { cat: string; has: boolean }) => {
+    const icons: Record<string, React.ElementType> = { epics: Layers, features: Activity, timeline: Calendar, risks: AlertTriangle, prototype: LayoutTemplate }
+    const I = icons[cat] || Layers
+    return <div className={`flex justify-center p-1.5 rounded-lg border ${has ? 'bg-emerald-50 border-emerald-200 text-emerald-500' : 'bg-gray-50 border-gray-100 text-gray-300'}`}><I className="w-3 h-3" /></div>
   }
 
-  const isProjectComplete = (project: ProjectSummary) => {
-    const type = project.ultima_analysis_type?.toLowerCase() || ''
-    return type.includes('premissa') || type.includes('risco') || type.includes('timeline') || type.includes('cronograma')
-  }
+  const formatDate = (d?: string) => { if (!d) return ''; try { return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) } catch { return '' } }
 
-  const currentSortOption = SORT_OPTIONS.find(opt => opt.value === sortBy)
+  const ProjectCard = ({ project: p }: { project: ProjectSummary }) => {
+    const pType = unifiedService.detectProjectType(p)
+    const cats = pType === 'prototype' ? ['prototype'] : ['epics', 'features', 'timeline', 'risks']
+    const completedCount = cats.filter(c => !!p.latest_reports?.[c]).length
+    const progress = Math.round((completedCount / cats.length) * 100)
 
-  // ============================================================================
-  // HANDLERS DE ONBOARDING
-  // ============================================================================
-  const handleWelcomeClose = () => {
-    setShowWelcome(false)
-  }
-
-  const handleStartTour = () => {
-    setShowWelcome(false)
-    setShowTour(true)
-  }
-
-  const handleSkipTour = () => {
-    completeWelcome()
-    router.push('/novo-pipeline')
-  }
-
-  const handleTourComplete = () => {
-    completeTour()
-  }
-
-  const handleStartPipeline = () => {
-    completeTour()
-    router.push('/novo-pipeline')
-  }
-
-  // ============================================================================
-  // LOADING STATE
-  // ============================================================================
-  if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: BRAND.primary }} />
+      <div onClick={() => openProject(p)} className="group bg-white border border-gray-200 rounded-2xl hover:shadow-lg hover:border-gray-300 transition-all duration-300 cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between overflow-hidden">
+        {/* Progress bar top */}
+        <div className="h-1 bg-gray-100"><div className="h-full transition-all duration-500" style={{ width: `${progress}%`, background: progress === 100 ? '#059669' : BRAND.primary }} /></div>
+        <div className="p-5 flex flex-col flex-1">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <h3 className="text-sm font-bold leading-tight line-clamp-2" style={{ color: BRAND.primary }}>{p.name || `Projeto ${p.id?.substring(0, 8)}`}</h3>
+            <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${p.role === 'owner' ? 'bg-indigo-50 text-indigo-500' : p.role === 'editor' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'}`}>{p.role}</span>
+          </div>
+          {p.created_at ? <p className="text-[10px] text-gray-300 flex items-center gap-1 mb-3"><Clock className="w-3 h-3" /> {formatDate(p.created_at)}</p> : null}
+          <div className="mt-auto">
+            <div className="flex items-center gap-1.5">{cats.map(c => <CatIcon key={c} cat={c} has={!!p.latest_reports?.[c]} />)}</div>
+            <p className="text-[9px] text-gray-300 mt-2">{completedCount}/{cats.length} categorias</p>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* ================================================================== */}
-      {/* WELCOME MODAL - Aparece apenas no primeiro acesso                  */}
-      {/* ================================================================== */}
-      {showWelcome && (
-        <WelcomeModal 
-          onClose={handleWelcomeClose}
-          onStartTour={handleStartTour}
-          onSkipTour={handleSkipTour}
-        />
-      )}
-
-      {/* ================================================================== */}
-      {/* TOUR MODAL - Carrossel com tutorial passo a passo                  */}
-      {/* ================================================================== */}
-      {showTour && (
-        <OnboardingTour
-          isOpen={showTour}
-          onClose={() => setShowTour(false)}
-          onComplete={handleTourComplete}
-          onStartPipeline={handleStartPipeline}
-        />
-      )}
-
-      {/* Sidebar */}
-      <Sidebar activeItem="dashboard" user={{ name: user.name, email: user.email }} onLogout={logout} />
-
-      {/* Main content */}
-      <div className="flex-1 ml-16 min-w-0">
-        {/* Header */}
-        <header className="bg-white border-b px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: BRAND.primary }}>Dashboard</h1>
-              <p className="text-gray-500 text-sm mt-1">Gerencie seus pipelines e projetos de IA</p>
-            </div>
-            <Button 
-              onClick={() => router.push('/novo-pipeline')}
-              className="text-white w-full sm:w-auto"
-              style={{ background: BRAND.primary }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Pipeline
-            </Button>
-          </div>
-        </header>
-
-        {/* Content */}
-        <main className="p-4 sm:p-6 lg:p-8">
-          {/* Stats Cards - Só mostra se tem projetos */}
-          {projects.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-              {[
-                { label: 'Total de Projetos', value: stats.total, icon: FolderKanban, bgColor: 'bg-indigo-50', iconColor: 'text-indigo-500' },
-                { label: 'Com Épicos', value: stats.comEpicos, icon: FileText, bgColor: 'bg-purple-50', iconColor: 'text-purple-500' },
-                { label: 'Com Features', value: stats.comFeatures, icon: Layers, bgColor: 'bg-green-50', iconColor: 'text-green-500' },
-                { label: 'Atualizados (7d)', value: stats.recentes, icon: Clock, bgColor: 'bg-amber-50', iconColor: 'text-amber-500' },
-              ].map((stat) => {
-                const Icon = stat.icon
-                return (
-                  <Card key={stat.label} className="border-slate-200">
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm text-gray-500 truncate">{stat.label}</p>
-                          <p className="text-2xl sm:text-3xl font-bold" style={{ color: BRAND.primary }}>{stat.value}</p>
-                        </div>
-                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg ${stat.bgColor} flex items-center justify-center flex-shrink-0`}>
-                          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.iconColor}`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+  const Swimlane = ({ title, icon: Icon, items, color, showCreate }: { title: string; icon: React.ElementType; items: ProjectSummary[]; color: string; showCreate: boolean }) => {
+    if (items.length === 0 && !showCreate) return null
+    return (
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-5 border-b border-gray-100 pb-3">
+          <div className={`p-2 rounded-xl shadow-sm ${color}`}><Icon className="w-4 h-4 text-white" /></div>
+          <div><h2 className="text-base font-bold uppercase tracking-wider" style={{ color: BRAND.primary }}>{title}</h2><p className="text-[10px] text-gray-400 font-medium mt-0.5">{items.length} projeto{items.length !== 1 ? 's' : ''}</p></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {showCreate && (
+            <div onClick={() => router.push('/project/new')} className="group border-2 border-dashed border-gray-200 rounded-2xl p-5 hover:border-[#011334]/30 hover:bg-gray-50 transition-all cursor-pointer flex flex-col items-center justify-center text-center min-h-[180px]">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-[#011334]/10 group-hover:text-[#011334] transition-colors mb-3"><FolderPlus className="w-6 h-6" /></div>
+              <h3 className="text-xs font-bold text-gray-400 group-hover:text-[#011334] uppercase tracking-wider">Novo Projeto</h3>
             </div>
           )}
-
-          {/* Search, Sort and Actions - Só mostra se tem projetos */}
-          {projects.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar projetos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-slate-200 w-full"
-                />
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="border-slate-200 w-full sm:w-auto justify-between sm:justify-start">
-                    <ArrowUpDown className="w-4 h-4 mr-2" />
-                    <span className="truncate">{currentSortOption?.label || 'Ordenar'}</span>
-                    <ChevronDown className="w-4 h-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {SORT_OPTIONS.map((option) => {
-                    const Icon = option.icon
-                    return (
-                      <DropdownMenuItem
-                        key={option.value}
-                        onClick={() => setSortBy(option.value)}
-                        className={sortBy === option.value ? 'bg-slate-100' : ''}
-                      >
-                        <Icon className="w-4 h-4 mr-2" />
-                        {option.label}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button variant="outline" onClick={loadData} className="border-slate-200 w-full sm:w-auto">
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Atualizar
-              </Button>
-            </div>
-          )}
-
-          {/* Results count */}
-          {searchTerm && projects.length > 0 && (
-            <p className="text-sm text-gray-500 mb-4">
-              {filteredAndSortedProjects.length} projeto(s) encontrado(s)
-            </p>
-          )}
-
-          {/* ================================================================== */}
-          {/* CONTEÚDO PRINCIPAL                                                 */}
-          {/* ================================================================== */}
-          {loading ? (
-            <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: BRAND.primary }} />
-              <p className="text-gray-500">Carregando projetos...</p>
-            </div>
-          ) : error ? (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="p-6 text-center">
-                <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                <p className="text-red-700">{error}</p>
-                <Button variant="outline" onClick={loadData} className="mt-4">
-                  Tentar novamente
-                </Button>
-              </CardContent>
-            </Card>
-          ) : projects.length === 0 ? (
-            /* ================================================================== */
-            /* EMPTY STATE COM ONBOARDING - Quando não tem projetos               */
-            /* ================================================================== */
-            <Card className="border-slate-200">
-              <CardContent className="p-0">
-                <EmptyStateGuide 
-                  onCreatePipeline={() => router.push('/novo-pipeline')} 
-                  onStartTour={() => setShowTour(true)}
-                />
-              </CardContent>
-            </Card>
-          ) : filteredAndSortedProjects.length === 0 ? (
-            <Card className="border-slate-200">
-              <CardContent className="p-8 sm:p-12 text-center">
-                <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhum projeto encontrado
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  Tente outra busca ou limpe os filtros
-                </p>
-                <Button variant="outline" onClick={() => setSearchTerm('')}>
-                  Limpar busca
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            /* Lista de Projetos */
-            <div className="space-y-3">
-              {filteredAndSortedProjects.map((project) => (
-                <Card key={project.project_id} className="border-slate-200 hover:border-slate-300 transition-colors">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                      {/* Icon + Info */}
-                      <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                          <FolderKanban className="w-5 h-5 text-indigo-500" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-gray-900 truncate">{project.nome_projeto}</h3>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              {getAnalysisLabel(project.ultima_analysis_type)}
-                            </Badge>
-                            {project.ultima_atualizacao && project.ultima_atualizacao !== 'N/A' && (
-                              <span className="text-xs text-gray-400 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(project.ultima_atualizacao).toLocaleDateString('pt-BR')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-                        {hasArtefatos(project) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm" className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex-1 sm:flex-none">
-                                <FileBarChart2 className="w-4 h-4 mr-1" />
-                                <span className="hidden sm:inline">Relatórios</span>
-                                <ChevronDown className="w-3 h-3 ml-1" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => router.push(`/relatorios/epicos?projeto=${project.project_id}`)}>
-                                <FileText className="w-4 h-4 mr-2" />
-                                Backlog de Épicos
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/relatorios/features?projeto=${project.project_id}`)}>
-                                <Layers className="w-4 h-4 mr-2" />
-                                Features por Épico
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/relatorios/cronograma?projeto=${project.project_id}`)}>
-                                <GanttChart className="w-4 h-4 mr-2" />
-                                Cronograma Executivo
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/relatorios/riscos?projeto=${project.project_id}`)}>
-                                <Shield className="w-4 h-4 mr-2" />
-                                Premissas e Riscos
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => router.push(`/projeto/${project.project_id}`)}
-                          className="border-slate-200 flex-1 sm:flex-none"
-                        >
-                          <Eye className="w-4 h-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Ver Detalhes</span>
-                        </Button>
-
-                        {!isProjectComplete(project) && (
-                          <Button 
-                            size="sm"
-                            onClick={() => router.push(`/novo-pipeline?projeto=${project.project_id}`)}
-                            style={{ background: BRAND.primary }}
-                            className="text-white flex-1 sm:flex-none"
-                          >
-                            <span className="hidden sm:inline">Continuar</span>
-                            <ChevronRight className="w-4 h-4 sm:ml-1" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </main>
+          {items.map(p => <ProjectCard key={p.id} project={p} />)}
+        </div>
       </div>
+    )
+  }
+
+  if (authLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin" style={{ color: BRAND.primary }} /></div>
+
+  return (
+    <div className="flex min-h-screen bg-[#f8fafc]">
+      <Sidebar activeItem="dashboard" user={{ name: user?.name || '', email: user?.email || '' }} onLogout={logout} />
+      <main className="flex-1 ml-16 p-6 lg:p-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 bg-white rounded-2xl px-6 py-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold" style={{ color: BRAND.primary }}>Workspace</h1>
+            {empresa ? <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-gray-100 text-gray-500"><Building2 className="w-3 h-3" /> {empresa}</span> : null}
+          </div>
+          <div className="flex items-center gap-3 mt-3 md:mt-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <input type="text" placeholder="Buscar projeto..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:border-[#011334]/30 w-56" />
+            </div>
+            <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: BRAND.primary }}>{(user?.name || '?').charAt(0)}</div>
+              <div className="hidden md:block"><p className="text-xs font-bold" style={{ color: BRAND.primary }}>{user?.name}</p><p className="text-[10px] text-gray-400">{user?.email}</p></div>
+              <button onClick={logout} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 ml-1"><LogOut className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: BRAND.primary }} />
+            <p className="text-sm text-gray-400">Carregando projetos...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <AlertTriangle className="w-10 h-10 text-red-400 mb-4" />
+            <p className="text-sm text-gray-500 mb-4">{error}</p>
+            <button onClick={() => { hasLoaded.current = false; loadProjects() }} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: BRAND.primary }}>Tentar Novamente</button>
+          </div>
+        ) : (
+          <>
+            <Swimlane title="Meus Projetos" icon={Crown} items={filtered.owner} color="bg-[#011334]" showCreate={true} />
+            <Swimlane title="Colaboração" icon={Edit3} items={filtered.editor} color="bg-emerald-600" showCreate={false} />
+            <Swimlane title="Visualização" icon={Eye} items={filtered.viewer} color="bg-blue-600" showCreate={false} />
+          </>
+        )}
+      </main>
     </div>
   )
 }
