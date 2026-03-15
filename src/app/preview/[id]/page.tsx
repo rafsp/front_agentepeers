@@ -6,6 +6,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, AlertTriangle, ExternalLink, Maximize2, Minimize2, Code, Check, LogIn, Smartphone, Monitor } from 'lucide-react'
+import { getApiUrl } from '@/lib/config'
 
 const PEERS_LOGO = 'https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg'
 
@@ -45,7 +46,7 @@ function PreviewContent() {
     const email = typeof localStorage !== 'undefined' ? localStorage.getItem('peers_user_email') || '' : ''
     if (email) {
       try {
-        const API = 'https://app-codeai-backend-dev--backend-refatorado-hdeqametcgc9gsgc.centralus-01.azurewebsites.net'
+        const API = getApiUrl()
         const projRes = await fetch(`${API}/projects/${projectId}?email=${encodeURIComponent(email)}`)
         if (projRes.ok) {
           const d = await projRes.json()

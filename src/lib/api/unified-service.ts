@@ -2,14 +2,7 @@
 // Contrato COMPLETO extraído de /openapi.json do backend refatorado
 // 21 endpoints documentados
 
-const DEFAULT_API_URL = 'https://app-codeai-backend-dev--backend-refatorado-hdeqametcgc9gsgc.centralus-01.azurewebsites.net'
-
-function getApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_CODEAI_API_URL || localStorage.getItem('codeai_api_url') || DEFAULT_API_URL
-  }
-  return process.env.NEXT_PUBLIC_CODEAI_API_URL || DEFAULT_API_URL
-}
+import { getApiUrl } from '@/lib/config'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
