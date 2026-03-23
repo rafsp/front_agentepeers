@@ -233,8 +233,18 @@ class UnifiedCodeAIService {
   }
 
   // ── Utils ──────────────────────────────────────────────────────────────
-  detectProjectType(p: ProjectSummary): 'prototype' | 'organization' { return (p.latest_reports || {}).prototype ? 'prototype' : 'organization' }
-  getCategories(t: 'prototype' | 'organization'): string[] { return t === 'prototype' ? ['prototype', 'tree'] : ['epics', 'features', 'timeline', 'risks', 'tree'] }
+  detectProjectType(p: ProjectSummary): 'prototype' | 'organization' {
+    const lr = p.latest_reports || {}
+    // Se tem épicos, features, timeline ou risks → é organization (mesmo que tenha prototype)
+    if (lr.epics || lr.features || lr.timeline || lr.risks) return 'organization'
+    // Se tem APENAS prototype → é prototype-only
+    if (lr.prototype) return 'prototype'
+    // Sem nada → checa o grupo atribuído pelo nome
+    const gname = String((p as unknown as Record<string, unknown>).assigned_group_name || (p as unknown as Record<string, unknown>).group_name || '').toLowerCase()
+    if (gname.includes('prototype') || gname.includes('protótipo') || gname.includes('prototipo')) return 'prototype'
+    return 'organization'
+  }
+  getCategories(t: 'prototype' | 'organization'): string[] { return t === 'prototype' ? ['prototype', 'tree'] : ['epics', 'features', 'timeline', 'risks', 'prototype', 'tree'] }
 }
 
 export const unifiedService = new UnifiedCodeAIService()

@@ -1,44 +1,50 @@
 // src/app/api/preview/route.ts
-// POST: Salva o HTML do protótipo para compartilhamento público
-// Armazena em memória (Map) — persiste enquanto o servidor estiver rodando
+// POST: Salva HTML do protótipo para compartilhamento público
+// Suporta: protótipo do projeto OU protótipo por épico
+// Key: projectId (geral) ou projectId::epicId (por épico)
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// In-memory store — em produção usar Redis/DB
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const global = globalThis as any
-if (!global.__previewStore) global.__previewStore = new Map<string, { html: string; name: string; createdAt: string; createdBy: string }>()
-const store: Map<string, { html: string; name: string; createdAt: string; createdBy: string }> = global.__previewStore
+const g = globalThis as any
+if (!g.__previewStore) g.__previewStore = new Map<string, { html: string; name: string; epicId?: string; createdAt: string; createdBy: string }>()
+const store: Map<string, { html: string; name: string; epicId?: string; createdAt: string; createdBy: string }> = g.__previewStore
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { projectId, html, projectName, createdBy } = body
+    const { projectId, html, projectName, createdBy, epicId } = body
 
     if (!projectId || !html) {
       return NextResponse.json({ error: 'projectId and html are required' }, { status: 400 })
     }
 
-    store.set(projectId, {
+    // Key: "projectId" para geral, "projectId::epicId" para épico
+    const key = epicId ? `${projectId}::${epicId}` : projectId
+
+    store.set(key, {
       html,
-      name: projectName || 'Protótipo',
+      name: epicId ? `${projectName || 'Projeto'} — ${epicId}` : (projectName || 'Protótipo'),
+      epicId: epicId || undefined,
       createdAt: new Date().toISOString(),
       createdBy: createdBy || 'unknown',
     })
 
-    const previewUrl = `/preview/${projectId}`
+    const previewUrl = epicId
+      ? `/preview/${projectId}?epic=${encodeURIComponent(epicId)}`
+      : `/preview/${projectId}`
 
-    return NextResponse.json({ success: true, url: previewUrl, projectId })
-  } catch (e) {
+    return NextResponse.json({ success: true, url: previewUrl, projectId, epicId })
+  } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 }
 
 export async function GET() {
-  // List all stored previews (for debugging)
   const list = Array.from(store.entries()).map(([id, data]) => ({
-    projectId: id,
+    key: id,
     name: data.name,
+    epicId: data.epicId,
     createdAt: data.createdAt,
     createdBy: data.createdBy,
     htmlSize: data.html.length,
