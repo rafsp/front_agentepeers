@@ -130,6 +130,7 @@ class UnifiedCodeAIService {
     email: string; nome_projeto: string; category: string; action: 'generator' | 'reviwer'
     strategy?: string; assigned_group_id?: string; comentario_extra?: string
     arquivo_docx?: File; arquivo_identidade?: File; base_job_id?: string
+    company_template?: string
   }): Promise<{ job_id: string; project_id?: string }> {
     const fd = new FormData()
     fd.append('email', p.email); fd.append('nome_projeto', p.nome_projeto)
@@ -137,6 +138,7 @@ class UnifiedCodeAIService {
     fd.append('strategy', p.strategy || 'checkout')
     if (p.comentario_extra) fd.append('comentario_extra', p.comentario_extra)
     if (p.assigned_group_id) fd.append('assigned_group_id', p.assigned_group_id)
+    if (p.company_template) fd.append('company_template', p.company_template)
     if (p.arquivo_docx) fd.append('arquivo_docx', p.arquivo_docx)
     if (p.arquivo_identidade) fd.append('arquivo_identidade', p.arquivo_identidade)
     if (p.base_job_id) fd.append('base_job_id', p.base_job_id)
@@ -230,6 +232,51 @@ class UnifiedCodeAIService {
     const u = this.getCurrentUser()
     const r = await fetch(`${this.apiUrl}/projects/delete`, { method: 'DELETE', mode: 'cors', credentials: 'omit', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ requester_email: u.email, project_id: pid }) })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  }
+
+  // ── GROUPS CRUD ────────────────────────────────────────────────────────
+  async getCompanyGroups(companyId: string): Promise<Record<string, unknown>[]> {
+    try { return await this.req<Record<string, unknown>[]>(`/groups/groups?company_id=${encodeURIComponent(companyId)}`, { method: 'GET', headers: { Accept: 'application/json' } }) } catch { return [] }
+  }
+
+  async createGroup(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.req('/groups/groups', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) })
+  }
+
+  async updateGroup(groupId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.req(`/groups/groups/${groupId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) })
+  }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    const r = await fetch(`${this.apiUrl}/groups/groups/${groupId}`, { method: 'DELETE', mode: 'cors', credentials: 'omit', headers: { Accept: 'application/json' } })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  }
+
+  async getGroupTemplates(groupId: string): Promise<string[]> {
+    try { const d = await this.req<{ templates?: string[] }>(`/groups/${groupId}/templates`, { method: 'GET', headers: { Accept: 'application/json' } }); return d.templates || [] } catch { return [] }
+  }
+
+  // ── VALIDATE & SUPPORT ─────────────────────────────────────────────────
+  async validateAction(pid: string, action: string, category: string): Promise<{ valid: boolean; message?: string }> {
+    const u = this.getCurrentUser()
+    try {
+      return await this.req(`/projects/${pid}/actions/validate?email=${encodeURIComponent(u.email)}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ action, category }) })
+    } catch { return { valid: true } }
+  }
+
+  async forceUpdateLatest(pid: string, category: string, jobId: string): Promise<Record<string, unknown>> {
+    return this.req('/analysis/support/force-update-latest', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ project_id: pid, category, job_id: jobId }) })
+  }
+
+  async getReportLineage(pid: string, jobId: string, category: string): Promise<Record<string, unknown> | null> {
+    const u = this.getCurrentUser()
+    try { return await this.req(`/projects/${pid}/reports/${jobId}/lineage?email=${encodeURIComponent(u.email)}&category=${category}`, { method: 'GET', headers: { Accept: 'application/json' } }) } catch { return null }
+  }
+
+  // ── PROJECT DETAILS (full) ──────────────────────────────────────────────
+  async getProjectFull(pid: string): Promise<Record<string, unknown> | null> {
+    const u = this.getCurrentUser()
+    try { return await this.req(`/projects/${pid}?email=${encodeURIComponent(u.email)}`, { method: 'GET', headers: { Accept: 'application/json' } }) } catch { return null }
   }
 
   // ── Utils ──────────────────────────────────────────────────────────────

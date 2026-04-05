@@ -37,10 +37,26 @@ export function EpicPrototypeModal({ projectId, projectName, userEmail, epicId, 
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTemplates = async () => {
-    if (!assignedGroupId) { setLoadingTemplates(false); return }
     try {
-      const r = await fetch(`${getApiUrl()}/groups/${assignedGroupId}/templates`)
-      if (r.ok) { const d = await r.json(); setTemplates(d.templates || []) }
+      // assignedGroupId pode não existir — busca grupos do usuário e pega templates dos grupos de protótipo
+      if (assignedGroupId) {
+        const r = await fetch(`${getApiUrl()}/groups/${assignedGroupId}/templates`)
+        if (r.ok) { const d = await r.json(); if (d.templates?.length) { setTemplates(d.templates); setLoadingTemplates(false); return } }
+      }
+      // Fallback: busca todos os grupos do usuário e pega templates de todos
+      const r2 = await fetch(`${getApiUrl()}/groups/user-groups?email=${encodeURIComponent(userEmail)}`)
+      if (r2.ok) {
+        const d2 = await r2.json()
+        const groups = d2.groups || d2 || []
+        const allTemplates = new Set<string>()
+        for (const g of groups) {
+          try {
+            const rt = await fetch(`${getApiUrl()}/groups/${g.id}/templates`)
+            if (rt.ok) { const td = await rt.json(); (td.templates || []).forEach((t: string) => allTemplates.add(t)) }
+          } catch {}
+        }
+        setTemplates(Array.from(allTemplates))
+      }
     } catch {} finally { setLoadingTemplates(false) }
   }
 
@@ -92,7 +108,7 @@ export function EpicPrototypeModal({ projectId, projectName, userEmail, epicId, 
               <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none appearance-none cursor-pointer">
                 <option value="">Padrão Code.IA (IA Livre)</option>
-                {templates.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                {templates.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
               </select>
             )}
           </div>

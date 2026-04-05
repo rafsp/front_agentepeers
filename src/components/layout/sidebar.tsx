@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderPlus, FileBarChart2, LogOut,
   ChevronLeft, ChevronRight, Code, Building2,
-  Mail, Shield, X,
+  Mail, Shield, X, Settings2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -36,6 +36,7 @@ const MENU_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'novo-projeto', label: 'Novo Projeto', icon: FolderPlus, href: '/project/new' },
   { id: 'relatorios', label: 'Relatórios', icon: FileBarChart2, href: '/relatorios' },
+  { id: 'admin', label: 'Admin', icon: Settings2, href: '/admin' },
 ]
 
 export function Sidebar({ activeItem, user, onLogout }: SidebarProps) {

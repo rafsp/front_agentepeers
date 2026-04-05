@@ -7,22 +7,65 @@ import { Sidebar, BRAND } from '@/components/layout/sidebar'
 import { useAuth } from '@/hooks/use-auth'
 import unifiedService, { type GroupInfo, type ProjectSummary } from '@/lib/api/unified-service'
 import { extractTextFromFiles, buildCommentExtra, type ExtractedFile } from '@/lib/utils/file-extractor'
+import { smartSummarize, needsSummarization } from '@/lib/api/smart-summarizer'
 import {
   ArrowLeft, FolderPlus, Upload, FileText, Loader2, X, Sparkles,
-  CheckCircle, Circle, Bot, AlertCircle, File, Plus, Trash2,
+  CheckCircle, Circle, Bot, AlertCircle, File, Plus, Trash2, Palette,
 } from 'lucide-react'
 
 const ACCEPTED_TYPES = '.docx,.pdf,.txt'
 
 const CREATION_STEPS = [
   { label: 'Validando dados', desc: 'Verificando campos e permissões' },
-  { label: 'Extraindo documentos', desc: '' },
+  { label: 'Processando documentos', desc: '' },
   { label: 'Enviando ao servidor', desc: '' },
   { label: 'Agentes iniciados', desc: 'IA analisando o escopo' },
   { label: 'Carregando projeto', desc: 'Sincronizando workspace' },
 ]
 
 function fmtSize(b: number): string { if (b < 1024) return `${b} B`; if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`; return `${(b / 1048576).toFixed(1)} MB` }
+
+// ── Máscaras de nomes ─────────────────────────────────────────────────────
+// Transforma nomes técnicos do backend em nomes amigáveis para o usuário
+
+function friendlyGroupName(raw: string): { label: string; desc: string; emoji: string } {
+  const l = raw.toLowerCase()
+  // Detecta o tipo base
+  const isProto = l.includes('prototype') || l.includes('protótipo')
+  const isPO = l.includes('po_full') || l.includes('po full')
+  // Detecta o cliente
+  const client = extractClientName(raw)
+  const clientSuffix = client ? ` — ${client}` : ''
+
+  if (isProto) return { label: `Prototipação Digital${clientSuffix}`, desc: 'Gera protótipos interativos de interface', emoji: '🎨' }
+  if (isPO) return { label: `PO Completo${clientSuffix}`, desc: 'Gera épicos, features, timeline, riscos e protótipos', emoji: '📋' }
+  return { label: raw.replace(/_/g, ' '), desc: 'Grupo de especialidade', emoji: '⚙️' }
+}
+
+function extractClientName(raw: string): string {
+  // Remove prefixos conhecidos e "Peers" do final
+  const cleaned = raw
+    .replace(/^(Prototype_Digital_|PO_Full_Digital_|Prototype_|PO_Full_)/i, '')
+    .replace(/_?Peers_?$/i, '')
+    .replace(/_?peers_?$/i, '')
+    .replace(/_/g, ' ')
+    .trim()
+  if (!cleaned || cleaned.toLowerCase() === 'peers') return ''
+  // Capitaliza
+  return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+}
+
+function friendlyTemplateName(raw: string): { label: string; desc: string; initials: string } {
+  const map: Record<string, { label: string; desc: string }> = {
+    xp: { label: 'XP Agile', desc: 'Design system XP — componentes ágeis e modernos' },
+    aegea: { label: 'Aegea Saneamento', desc: 'Padrão visual Aegea — saneamento e infraestrutura' },
+    comgas: { label: 'Comgás', desc: 'Padrão visual Comgás — energia e distribuição' },
+    centerragold: { label: 'Centerra Gold', desc: 'Padrão visual Centerra Gold — mineração' },
+  }
+  const found = map[raw.toLowerCase()]
+  if (found) return { ...found, initials: raw.substring(0, 2).toUpperCase() }
+  return { label: raw.charAt(0).toUpperCase() + raw.slice(1), desc: 'Template de design customizado', initials: raw.substring(0, 2).toUpperCase() }
+}
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -44,6 +87,11 @@ export default function NewProjectPage() {
   const [extractionResults, setExtractionResults] = useState<ExtractedFile[]>([])
   const hasLoaded = useRef(false)
 
+  // Template selector (Lúcio pedido #3)
+  const [groupTemplates, setGroupTemplates] = useState<string[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+
   const isProto = selectedGroupName.toLowerCase().includes('prototype') || selectedGroupName.toLowerCase().includes('protótipo')
   const hasFiles = files.length > 0
   const needsInstructions = !hasFiles && !contextText.trim()
@@ -54,8 +102,7 @@ export default function NewProjectPage() {
     if (hasLoaded.current) return
     hasLoaded.current = true
     loadGroups()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.email, authLoading])
+  }, [user?.email, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadGroups = async () => {
     setLoadingGroups(true)
@@ -63,11 +110,25 @@ export default function NewProjectPage() {
     finally { setLoadingGroups(false) }
   }
 
-  const handleGroupChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedGroupId(e.target.value)
-    const g = groups.find(gr => gr.id === e.target.value)
+  // Load templates when group changes
+  const handleGroupChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const gid = e.target.value
+    setSelectedGroupId(gid)
+    const g = groups.find(gr => gr.id === gid)
     setSelectedGroupName(g?.name || '')
     setErrors(prev => ({ ...prev, group: '' }))
+    setGroupTemplates([])
+    setSelectedTemplate('')
+
+    if (gid) {
+      setLoadingTemplates(true)
+      try {
+        const tpl = await unifiedService.getGroupTemplates(gid)
+        setGroupTemplates(tpl)
+        if (tpl.length > 0) setSelectedTemplate(tpl[0])
+      } catch {}
+      finally { setLoadingTemplates(false) }
+    }
   }
 
   // ── Multi-file handling ─────────────────────────────────────────────────
@@ -99,7 +160,7 @@ export default function NewProjectPage() {
     setErrors(e); return Object.keys(e).length === 0
   }
 
-  // ── Submit com extração ─────────────────────────────────────────────────
+  // ── Submit: doc direto + resumo de TODOS via Brain ──────────────────────
 
   const handleSubmit = async () => {
     if (!validate() || !user?.email) return
@@ -108,57 +169,80 @@ export default function NewProjectPage() {
     const cat = isProto ? 'prototype' : 'epics'
 
     try {
-      // Step 1: Extracting text from documents
-      let combinedText = ''
+      // Step 1: Extrair texto de TODOS os documentos para resumo
+      setCreationStep(1)
+      let comentario = contextText || ''
+
       if (files.length > 0) {
-        setCreationStep(1)
-        setCreationStepDesc(`Extraindo texto de ${files.length} documento(s)...`)
+        setCreationStepDesc(`Lendo ${files.length} documento(s)...`)
 
-        const { combinedText: extracted, results } = await extractTextFromFiles(
-          files,
-          (cur: number, total: number, name: string) => {
-            setCreationStepDesc(`Extraindo ${name} (${cur}/${total})...`)
+        try {
+          const { combinedText, results } = await extractTextFromFiles(
+            files,
+            (cur: number, total: number, name: string) => {
+              setCreationStepDesc(`Lendo ${name} (${cur}/${total})...`)
+            }
+          )
+          setExtractionResults(results)
+
+          const successCount = results.filter(r => !r.error && r.text.trim()).length
+          const totalChars = results.reduce((sum, r) => sum + r.text.length, 0)
+          console.log(`📄 Extração: ${successCount}/${files.length} docs, ${totalChars} chars`)
+
+          if (combinedText.trim()) {
+            // Junta texto extraído + instruções do usuário
+            const fullText = buildCommentExtra(combinedText, contextText)
+
+            // Se grande → PEERS Brain resume, senão manda direto
+            if (needsSummarization(fullText)) {
+              setCreationStepDesc(`Resumindo ${files.length} documento(s) via PEERS Brain...`)
+              const result = await smartSummarize(fullText, contextText, projectName.trim())
+              comentario = result.text
+              console.log(`🧠 Brain: ${result.originalLength} → ${result.finalLength} chars (${result.method})`)
+            } else {
+              comentario = fullText
+            }
+          } else {
+            // Extração falhou — avisa mas manda o arquivo
+            const fileNames = files.map(f => f.name).join(', ')
+            comentario = contextText
+              ? `${contextText}\n\n[DOCUMENTOS ANEXADOS: ${fileNames} — enviados como arquivo para o backend]`
+              : `[DOCUMENTOS ANEXADOS: ${fileNames} — enviados como arquivo para processamento pelo backend]`
           }
-        )
-        setExtractionResults(results)
-        combinedText = extracted
-
-        const successCount = results.filter(r => !r.error && r.text.trim()).length
-        const totalChars = results.reduce((sum, r) => sum + r.text.length, 0)
-        console.log(`📄 Extração: ${successCount}/${files.length} documentos, ${totalChars} caracteres`)
-
-        // Fallback: if extraction failed, at least mention file names
-        if (!combinedText.trim() && files.length > 0) {
-          const fileNames = files.map(f => f.name).join(', ')
-          const failedNote = results.filter(r => r.error).map(r => `${r.name}: ${r.error}`).join('; ')
-          combinedText = `[DOCUMENTOS ANEXADOS: ${fileNames}]\n[NOTA: Extração de texto falhou no browser (${failedNote}). O arquivo principal foi enviado como anexo para processamento pelo backend.]`
+        } catch (err) {
+          console.warn('⚠️ Extração falhou:', err)
+          comentario = contextText || '[Documentos anexados para processamento]'
         }
       }
 
-      // Step 2: Build comentario_extra with extracted text + user instructions
-      const finalComment = buildCommentExtra(combinedText, contextText)
-
-      // Step 3: Send to API
+      // Step 2: Enviar — arquivo original vai no FormData, resumo no comentario_extra
       setCreationStep(2)
       setCreationStepDesc(files.length > 0 ? `Enviando ${files.length} documento(s)...` : 'Enviando dados...')
 
-      // Send first uploadable file as arquivo_docx for backend processing
-      const firstDocx = files.length > 0 ? (files.find(f => f.name.endsWith('.docx')) || files.find(f => f.name.endsWith('.pdf')) || files[0]) : undefined
+      // Primeiro arquivo vai como arquivo_docx (o backend recebe o original)
+      const firstFile = files.length > 0
+        ? (files.find(f => f.name.endsWith('.docx')) || files.find(f => f.name.endsWith('.pdf')) || files[0])
+        : undefined
 
       const res = await unifiedService.startAnalysis({
-        email: user.email, nome_projeto: projectName.trim(), category: cat,
-        action: 'generator', strategy: 'checkout', assigned_group_id: selectedGroupId,
-        comentario_extra: finalComment || undefined,
-        arquivo_docx: firstDocx || undefined,
+        email: user.email,
+        nome_projeto: projectName.trim(),
+        category: cat,
+        action: 'generator',
+        strategy: 'checkout',
+        assigned_group_id: selectedGroupId,
+        comentario_extra: comentario || undefined,
+        arquivo_docx: firstFile || undefined,
         arquivo_identidade: fileIdentidade || undefined,
+        company_template: selectedTemplate || undefined,
       })
 
-      // Step 4: Agents started
+      // Step 3: Agentes iniciados
       setCreationStep(3)
       setCreationStepDesc('IA processando o escopo...')
       const projects = await unifiedService.getProjects()
 
-      // Step 5: Loading project
+      // Step 4: Redirecionando
       setCreationStep(4)
       setCreationStepDesc('Redirecionando...')
       const np = projects.find((p: ProjectSummary) => p.name === projectName.trim())
@@ -188,33 +272,25 @@ export default function NewProjectPage() {
             <Bot className="w-8 h-8 animate-pulse" style={{ color: BRAND.primary }} />
           </div>
           <h2 className="text-lg font-bold mb-1" style={{ color: BRAND.primary }}>Criando {projectName}</h2>
-          {files.length > 0 ? <p className="text-[10px] text-emerald-500 font-medium mb-4 flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3" /> {files.length} documento(s) sendo processado(s)</p>
-            : <p className="text-xs text-gray-400 mb-4">Os agentes estão trabalhando</p>}
-          <div className="space-y-2.5 text-left">
+          {files.length > 0 ? <p className="text-[10px] text-gray-400 mb-6">{files.length} documento(s) • {selectedTemplate ? `Template: ${selectedTemplate}` : isProto ? 'Protótipo' : 'Épicos'}</p> : <p className="text-[10px] text-gray-400 mb-6">Configurando agentes</p>}
+          <div className="space-y-3 text-left">
             {CREATION_STEPS.map((step, i) => {
-              const isDone = i < creationStep; const isActive = i === creationStep
-              const desc = isActive ? creationStepDesc || step.desc : step.desc
-              return (
-                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isDone ? 'bg-emerald-50 border-emerald-200' : isActive ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}>
-                  {isDone ? <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                    : isActive ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" style={{ color: BRAND.primary }} />
-                    : <Circle className="w-5 h-5 text-gray-300 flex-shrink-0" />}
-                  <div>
-                    <p className={`text-xs font-bold ${isDone ? 'text-emerald-700' : isActive ? 'text-[#011334]' : 'text-gray-400'}`}>{step.label}</p>
-                    {desc ? <p className={`text-[10px] ${isDone ? 'text-emerald-500' : isActive ? 'text-gray-500' : 'text-gray-300'}`}>{desc}</p> : null}
-                  </div>
-                </div>
-              )
+              const done = creationStep > i; const active = creationStep === i
+              return <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${done ? 'bg-emerald-50 border-emerald-200' : active ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}>
+                {done ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : active ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <Circle className="w-5 h-5 text-gray-300" />}
+                <div><p className={`text-sm font-medium ${done ? 'text-emerald-700' : active ? 'text-blue-700' : 'text-gray-400'}`}>{step.label}</p>
+                  <p className="text-[10px] text-gray-400">{active ? creationStepDesc : step.desc}</p></div>
+              </div>
             })}
           </div>
-          {/* Show extraction results */}
+          {/* Extraction results */}
           {extractionResults.length > 0 ? (
-            <div className="mt-4 pt-4 border-t border-gray-100 text-left">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Documentos processados</p>
+            <div className="mt-4 pt-4 border-t border-gray-200 text-left">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Documentos Processados</p>
               {extractionResults.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-[10px] py-1">
-                  {r.error ? <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" /> : <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
-                  <span className={r.error ? 'text-amber-600' : 'text-gray-600'}>{r.name}</span>
+                <div key={i} className={`flex items-center gap-2 text-[10px] py-1 ${r.error ? 'text-red-400' : 'text-emerald-600'}`}>
+                  {r.error ? <AlertCircle className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
+                  <span className="font-medium">{r.name}</span>
                   <span className="text-gray-300">{r.error ? `(${r.error})` : `(${r.text.length.toLocaleString()} chars)`}</span>
                 </div>
               ))}
@@ -259,11 +335,62 @@ export default function NewProjectPage() {
                 {loadingGroups ? <div className="flex items-center gap-2 text-sm text-gray-400 py-3"><Loader2 className="w-4 h-4 animate-spin" /> Carregando...</div>
                   : <select value={selectedGroupId} onChange={handleGroupChange} className={`w-full bg-gray-50 border rounded-xl px-4 py-3 text-sm focus:outline-none appearance-none cursor-pointer ${errors.group ? 'border-red-300' : 'border-gray-200'}`} disabled={groups.length === 0}>
                       <option value="">Selecione...</option>
-                      {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                      {groups.map(g => { const fn = friendlyGroupName(g.name); return <option key={g.id} value={g.id}>{fn.emoji} {fn.label}</option> })}
                     </select>}
                 {errors.group ? <p className="text-[10px] text-red-500 mt-1">{errors.group}</p> : null}
-                {isProto ? <p className="text-[10px] text-purple-500 mt-1 font-medium">🎨 Modo Protótipo</p> : null}
+                {selectedGroupId && (() => { const fn = friendlyGroupName(selectedGroupName); return <p className="text-[10px] text-gray-400 mt-1">{fn.desc}</p> })()}
+                {isProto ? <p className="text-[10px] text-purple-500 mt-1 font-medium">🎨 Modo Protótipo — template de design será aplicado</p>
+                  : selectedGroupName.toLowerCase().includes('po_full') ? <p className="text-[10px] text-blue-500 mt-1 font-medium">📋 Modo PO — épicos, features, timeline e riscos</p>
+                  : null}
               </div>
+
+              {/* Template — aparece para TODOS os grupos que têm templates */}
+              {groupTemplates.length > 0 ? (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5 flex items-center gap-1.5">
+                    <Palette className="w-3 h-3" /> {isProto ? 'Design System' : 'Template do Cliente'}
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {groupTemplates.map(tpl => (
+                      <label key={tpl}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedTemplate === tpl
+                            ? 'border-purple-400 bg-purple-50/50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}>
+                        <input type="radio" name="template" value={tpl} checked={selectedTemplate === tpl}
+                          onChange={() => setSelectedTemplate(tpl)} className="sr-only" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold uppercase ${
+                          selectedTemplate === tpl ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-500'
+                        }`}>{tpl.substring(0, 2)}</div>
+                        <div>
+                          <p className={`text-sm font-bold ${selectedTemplate === tpl ? 'text-purple-700' : 'text-gray-700'}`}>
+                            {tpl.charAt(0).toUpperCase() + tpl.slice(1)}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{isProto ? 'Layout e identidade visual' : 'Contexto de negócio e terminologia'}</p>
+                        </div>
+                        {selectedTemplate === tpl ? <CheckCircle className="w-4 h-4 text-purple-500 ml-auto" /> : null}
+                      </label>
+                    ))}
+                    {/* Opção livre */}
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      selectedTemplate === '' ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}>
+                      <input type="radio" name="template" value="" checked={selectedTemplate === ''}
+                        onChange={() => setSelectedTemplate('')} className="sr-only" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                        selectedTemplate === '' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>IA</div>
+                      <div>
+                        <p className={`text-sm font-bold ${selectedTemplate === '' ? 'text-blue-700' : 'text-gray-700'}`}>Padrão CodeAI (IA Livre)</p>
+                        <p className="text-[10px] text-gray-400">{isProto ? 'A IA define o melhor layout' : 'A IA define o melhor contexto'}</p>
+                      </div>
+                      {selectedTemplate === '' ? <CheckCircle className="w-4 h-4 text-blue-500 ml-auto" /> : null}
+                    </label>
+                  </div>
+                  {loadingTemplates ? <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-2"><Loader2 className="w-3 h-3 animate-spin" /> Carregando templates...</div> : null}
+                </div>
+              ) : null}
 
               {/* Documentos — Multi-file Drag & Drop */}
               <div>
@@ -279,9 +406,11 @@ export default function NewProjectPage() {
                           <p className="text-sm font-medium text-gray-700 truncate">{f.name}</p>
                           <p className="text-[10px] text-gray-400">{fmtSize(f.size)} • {f.name.split('.').pop()?.toUpperCase()}</p>
                         </div>
+                        {i === 0 ? <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-blue-50 text-blue-500">Principal</span> : null}
                         <button onClick={() => removeFile(i)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     ))}
+                    <p className="text-[10px] text-gray-400">O primeiro arquivo será enviado ao backend. Todos serão lidos para gerar o resumo.</p>
                   </div>
                 ) : null}
 
@@ -334,8 +463,9 @@ export default function NewProjectPage() {
 
             {/* Footer */}
             <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {files.length > 0 ? <span className="text-[10px] text-emerald-500 font-medium flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {files.length} documento(s)</span> : null}
+                {selectedTemplate ? <span className="text-[10px] text-purple-500 font-medium flex items-center gap-1"><Palette className="w-3 h-3" /> {selectedTemplate}</span> : null}
               </div>
               <button onClick={handleSubmit} disabled={submitting || !projectName.trim() || !selectedGroupId || needsInstructions}
                 className="flex items-center gap-2 px-6 py-2.5 text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:shadow-md transition-all" style={{ background: BRAND.primary }}>

@@ -5,9 +5,13 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BRAND } from '@/components/layout/sidebar'
 import unifiedService from '@/lib/api/unified-service'
-import { Sparkles, Loader2, AlertCircle, Mail, Layers, Calendar, AlertTriangle, Shield, LayoutTemplate, ArrowRight, Code } from 'lucide-react'
+import { Sparkles, Loader2, AlertCircle, Mail, Layers, Calendar, AlertTriangle, Shield, LayoutTemplate, ArrowRight, Code, Lock, ChevronDown, ChevronUp } from 'lucide-react'
 
 const PEERS_LOGO = 'https://d3fh32tca5cd7q.cloudfront.net/wp-content/uploads/2025/03/logo.svg'
+
+// Azure AD config
+const AZURE_CLIENT_ID = '4dcad7f8-e4d5-44e1-8d1e-3c1ce8af602a'
+const AZURE_TENANT_ID = 'b9e68103-376a-402b-87f6-a3b10658e7c4'
 
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
@@ -15,33 +19,55 @@ function setCookie(name: string, value: string, days: number) {
 }
 
 function extractEmpresa(email: string): string {
-  // rafael.pereira@peers.com.br → peers
-  // user@aegea.saneamento.com.br → aegea
   const domain = email.split('@')[1] || ''
-  const parts = domain.split('.')
-  return parts[0] || ''
+  return domain.split('.')[0] || ''
 }
 
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/dashboard'
+  const authError = searchParams.get('error')
 
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [isSSOLoading, setIsSSOLoading] = useState(false)
+  const [error, setError] = useState(authError ? decodeURIComponent(authError) : '')
   const [logoError, setLogoError] = useState(false)
+  const [showEmailLogin, setShowEmailLogin] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && localStorage.getItem('peers_authenticated') === 'true') router.push(redirect)
   }, [router, redirect])
 
-  const handleLogin = async () => {
+  // SSO — Microsoft Entra ID
+  const handleSSO = () => {
+    setIsSSOLoading(true)
+    const getRedirectUri = () => {
+      if (typeof window === 'undefined') return ''
+      return `${window.location.origin}/api/auth/callback/azure-ad`
+    }
+    const redirectUri = encodeURIComponent(getRedirectUri())
+    const scope = encodeURIComponent('openid profile email User.Read')
+    const state = encodeURIComponent(JSON.stringify({ redirect, email: email.trim() || '' }))
+    // login_hint: se o usuário já digitou email, preenche no Microsoft
+    const hint = email.trim() ? `&login_hint=${encodeURIComponent(email.trim())}` : ''
+    const authUrl = `https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/authorize?` +
+      `client_id=${AZURE_CLIENT_ID}` +
+      `&response_type=code` +
+      `&redirect_uri=${redirectUri}` +
+      `&response_mode=query` +
+      `&scope=${scope}` +
+      `&state=${state}` +
+      `&prompt=select_account` +
+      hint
+    window.location.href = authUrl
+  }
+
+  // Email login — sem senha fixa, valida no backend
+  const handleEmailLogin = async () => {
     if (!email.trim()) { setError('Informe seu e-mail corporativo'); return }
     if (!email.includes('@')) { setError('E-mail inválido'); return }
-    if (!password) { setError('Informe a senha'); return }
-    if (password !== 'Peers@2026') { setError('Senha incorreta'); return }
     setError(''); setIsLoading(true)
 
     try {
@@ -61,8 +87,6 @@ function LoginContent() {
       save('peers_empresa', emp)
 
       unifiedService.setUserContext({ name: userName, email: email.trim(), empresa: emp })
-
-      await unifiedService.getProjects()
       router.push(redirect)
     } catch {
       setError('Erro de conexão com o servidor.')
@@ -112,7 +136,7 @@ function LoginContent() {
         <p className="relative z-10 text-white/30 text-sm">© 2026 PEERS Consulting + Technology</p>
       </div>
 
-      {/* RIGHT — Login form */}
+      {/* RIGHT — Login */}
       <div className="flex-1 flex items-center justify-center p-8 bg-[#f8fafc]">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
@@ -133,34 +157,65 @@ function LoginContent() {
           ) : null}
 
           <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                <Mail className="w-3.5 h-3.5" /> E-mail Corporativo *
-              </label>
-              <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError('') }}
-                placeholder="seu.email@empresa.com.br"
-                onKeyDown={e => { if (e.key === 'Enter') handleLogin() }}
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#011334]/30 focus:ring-2 focus:ring-[#011334]/10 transition-all"
-                autoFocus autoComplete="email" />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                <Shield className="w-3.5 h-3.5" /> Senha *
-              </label>
-              <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError('') }}
-                placeholder="••••••••"
-                onKeyDown={e => { if (e.key === 'Enter') handleLogin() }}
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#011334]/30 focus:ring-2 focus:ring-[#011334]/10 transition-all"
-                autoComplete="current-password" />
-            </div>
-
-            <button onClick={handleLogin} disabled={isLoading || !email.trim() || !password}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white text-sm font-bold disabled:opacity-40 hover:shadow-lg transition-all"
+            {/* SSO — Botão principal */}
+            <button onClick={handleSSO} disabled={isSSOLoading}
+              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-white text-sm font-bold disabled:opacity-60 hover:shadow-lg transition-all"
               style={{ background: BRAND.primary }}>
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-              {isLoading ? 'Conectando...' : 'Entrar na Plataforma'}
+              {isSSOLoading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Redirecionando...</>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" viewBox="0 0 21 21">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                  </svg>
+                  Entrar com Microsoft
+                </>
+              )}
             </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">ou</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            {/* Email login toggle */}
+            <button onClick={() => setShowEmailLogin(!showEmailLogin)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all">
+              <Mail className="w-4 h-4" /> Entrar com e-mail corporativo
+              {showEmailLogin ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Email login form — expandível */}
+            {showEmailLogin ? (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                    <Mail className="w-3.5 h-3.5" /> E-mail Corporativo *
+                  </label>
+                  <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError('') }}
+                    placeholder="seu.email@empresa.com.br"
+                    onKeyDown={e => { if (e.key === 'Enter') handleEmailLogin() }}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#011334]/30 focus:ring-2 focus:ring-[#011334]/10 transition-all"
+                    autoComplete="email" />
+                </div>
+
+                <button onClick={handleEmailLogin} disabled={isLoading || !email.trim()}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold disabled:opacity-40 hover:shadow-md transition-all"
+                  style={{ borderColor: BRAND.primary, color: BRAND.primary }}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  {isLoading ? 'Conectando...' : 'Acessar'}
+                </button>
+
+                <p className="text-[10px] text-gray-400 text-center">
+                  Acesso direto via e-mail — sem necessidade de senha
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-8 text-center">
@@ -189,4 +244,3 @@ export default function LoginPage() {
     <LoginContent />
   </Suspense>
 }
-

@@ -23,6 +23,7 @@ import { FeatureTypeFilter, filterByType } from '@/components/project/feature-ty
 import { ErrorBoundary } from '@/components/project/error-boundary'
 import { exportTimelineCSV } from '@/components/project/timeline-extras'
 import { getApiUrl } from '@/lib/config'
+import { smartSummarize, needsSummarization } from '@/lib/api/smart-summarizer'
 
 type Cat = 'epics' | 'features' | 'timeline' | 'risks' | 'prototype' | 'tree'
 interface Tab { key: Cat; label: string; icon: React.ElementType }
@@ -124,7 +125,23 @@ export default function ProjectDetailsPage() {
 
   useEffect(() => { if (authLoading) return; if (!user?.email) { router.push('/login'); return }; if (hasLoaded.current) return; hasLoaded.current = true; const stored = sessionStorage.getItem('selected_project'); if (stored) { try { const p = JSON.parse(stored) as ProjectSummary; if (p.id === projectId) { initProject(p); return } } catch {} }; loadFromAPI() }, [projectId, user?.email, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const initProject = (p: ProjectSummary) => { setProject(p); const t = unifiedService.detectProjectType(p); setProjectType(t); setActiveCat(t === 'prototype' ? 'prototype' : 'epics') }
+  const initProject = (p: ProjectSummary) => {
+    setProject(p)
+    const t = unifiedService.detectProjectType(p)
+    setProjectType(t)
+    // Smart tab: abre a primeira tab que tem dados ou está pendente, não sempre 'epics'
+    if (t === 'prototype') { setActiveCat('prototype'); return }
+    const lr = p.latest_reports || {}
+    const pipeline: Cat[] = ['epics', 'features', 'timeline', 'risks', 'prototype']
+    // 1. Primeiro tenta tab com dados prontos
+    const withData = pipeline.find(c => !!lr[c])
+    if (withData) { setActiveCat(withData); return }
+    // 2. Se nenhuma tem dados, tenta tab com job pendente no localStorage
+    const withPending = pipeline.find(c => { try { return !!localStorage.getItem(`codeai_pending_${p.id}_${c}`) } catch { return false } })
+    if (withPending) { setActiveCat(withPending); return }
+    // 3. Fallback: epics
+    setActiveCat('epics')
+  }
   const loadFromAPI = async () => { try { const all = await unifiedService.getProjects(); const f = all.find((p: ProjectSummary) => p.id === projectId); if (f) initProject(f); else router.push('/dashboard') } catch { router.push('/dashboard') } }
 
   useEffect(() => { if (!project) return; const cats = unifiedService.getCategories(unifiedService.detectProjectType(project)); const found = new Set<string>(); cats.forEach(cat => { const jid = getPendingJob(cat); if (jid) { found.add(cat); pollBackground(jid, cat) } }); if (found.size > 0) setPendingCats(found) }, [project?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -155,6 +172,14 @@ export default function ProjectDetailsPage() {
     try {
       let finalComment = modalText || ''; const firstDocx = modalFiles.find(f => f.name.endsWith('.docx'))
       if (modalFiles.length > 0) { try { const { combinedText, results } = await extractTextFromFiles(modalFiles); if (combinedText.trim()) { finalComment = buildCommentExtra(combinedText, modalText) } else { const fileNames = modalFiles.map(f => f.name).join(', '); const failedNote = results.filter(r => r.error).map(r => `${r.name}: ${r.error}`).join('; '); finalComment = buildCommentExtra(`[DOCUMENTOS ANEXADOS: ${fileNames}]\n[NOTA: Extração falhou - ${failedNote}.]`, modalText) } } catch {} }
+      // Smart summarization: se texto > 25K chars, resume via PEERS Brain ou trunca
+      if (needsSummarization(finalComment)) {
+        showToast('Documento grande detectado. Resumindo...', 'success')
+        const result = await smartSummarize(finalComment, modalText, project.name)
+        finalComment = result.text
+        if (result.method === 'brain_summary') showToast(`Resumido via PEERS Brain: ${result.originalLength} → ${result.finalLength} chars`, 'success')
+        else if (result.method === 'truncated') showToast(`Texto truncado: ${result.originalLength} → ${result.finalLength} chars`, 'success')
+      }
       const res = await unifiedService.startAnalysis({ email: user.email, nome_projeto: project.name, category: activeCat, action: 'generator', strategy: 'checkout', comentario_extra: finalComment || undefined, arquivo_docx: firstDocx || undefined })
       updateProject(activeCat, res.job_id); savePendingJob(activeCat, res.job_id); setShowCreate(false); setModalText(''); setModalFiles([]); fetchReport(res.job_id, activeCat); showToast('Geração iniciada!', 'success')
     } catch (e) { showToast(`Erro: ${e instanceof Error ? e.message : 'Erro'}`, 'error') } finally { setSubmitting(false) }
@@ -165,6 +190,14 @@ export default function ProjectDetailsPage() {
     try {
       let finalComment = modalText; const firstDocx = modalFiles.find(f => f.name.endsWith('.docx'))
       if (modalFiles.length > 0) { try { const { combinedText, results } = await extractTextFromFiles(modalFiles); if (combinedText.trim()) { finalComment = buildCommentExtra(combinedText, modalText) } else { const fileNames = modalFiles.map(f => f.name).join(', '); finalComment = buildCommentExtra(`[DOCUMENTOS ANEXADOS: ${fileNames}]`, modalText) } } catch {} }
+      // Smart summarization
+      if (needsSummarization(finalComment)) {
+        showToast('Documento grande detectado. Resumindo...', 'success')
+        const result = await smartSummarize(finalComment, modalText, project.name)
+        finalComment = result.text
+        if (result.method === 'brain_summary') showToast(`Resumido via PEERS Brain`, 'success')
+        else if (result.method === 'truncated') showToast(`Texto truncado para caber no limite`, 'success')
+      }
       const res = await unifiedService.startAnalysis({ email: user.email, nome_projeto: project.name, category: activeCat, action: 'reviwer', strategy: refineStrategy, comentario_extra: finalComment, arquivo_docx: firstDocx || undefined, base_job_id: project.latest_reports?.[activeCat] })
       updateProject(activeCat, res.job_id); savePendingJob(activeCat, res.job_id); setShowRefine(false); setModalText(''); setModalFiles([]); fetchReport(res.job_id, activeCat); showToast('Refinamento iniciado!', 'success')
     } catch (e) { showToast(`Erro: ${e instanceof Error ? e.message : 'Erro'}`, 'error') } finally { setSubmitting(false) }
@@ -375,6 +408,25 @@ function EpicsView({ data, epicPrototypes, projectId, projectName, userEmail, on
                   {e.resumo_valor ? <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs"><p className="font-bold text-emerald-700 mb-1">Valor</p><p className="text-emerald-600">{String(e.resumo_valor)}</p></div> : null}
                   {e.business_case ? <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs"><p className="font-bold text-blue-700 mb-1">Business Case</p><p className="text-blue-600">{String(e.business_case)}</p></div> : null}
                   {Array.isArray(e.squad_sugerida) ? <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Squad</p><div className="flex flex-wrap gap-1">{(e.squad_sugerida as string[]).map((s, j) => <span key={j} className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded">{s}</span>)}</div></div> : null}
+                  {/* Entregáveis Macro */}
+                  {Array.isArray(e.entregaveis_macro) && (e.entregaveis_macro as string[]).length > 0 ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-2">Entregáveis Macro</p>
+                      <div className="space-y-1">
+                        {(e.entregaveis_macro as string[]).map((ent, j) => (
+                          <div key={j} className="flex items-start gap-2">
+                            <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">{j + 1}</span>
+                            <span className="text-xs text-amber-800 leading-relaxed">{ent}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : typeof e.entregaveis_macro === 'string' && e.entregaveis_macro ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Entregáveis Macro</p>
+                      <p className="text-xs text-amber-800 leading-relaxed">{String(e.entregaveis_macro)}</p>
+                    </div>
+                  ) : null}
                   <EpicPrototypeInline epicId={id} projectId={projectId} projectName={projectName} userEmail={userEmail} state={epicPrototypes[id]} onGenerate={onGenerateProto} onDownload={onDownloadProto} />
                 </div>
               ) : null}
